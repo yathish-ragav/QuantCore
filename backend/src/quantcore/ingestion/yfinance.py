@@ -29,7 +29,7 @@ class YahooFinanceClient:
     def get_price_history(
         self,
         symbol: str,
-        period: str = "1mo",
+        period: str = "5y",
     ) -> list[PriceData]:
 
         ticker = yf.Ticker(symbol)
@@ -38,7 +38,6 @@ class YahooFinanceClient:
         prices = []
 
         for date, row in history.iterrows():
-
             prices.append(
                 PriceData(
                     date=date.to_pydatetime(),
@@ -54,7 +53,11 @@ class YahooFinanceClient:
 
         return prices
 
-    def get_news(self, symbol: str) -> list[NewsData]:
+    def get_news(
+        self,
+        symbol: str,
+    ) -> list[NewsData]:
+
         ticker = yf.Ticker(symbol)
 
         articles = []
@@ -74,7 +77,7 @@ class YahooFinanceClient:
                         content["pubDate"] / 1000
                     )
                 except Exception:
-                    published_at = None
+                    pass
 
             articles.append(
                 NewsData(

@@ -36,3 +36,9 @@ class Company(Base):
         back_populates="company",
         cascade="all, delete-orphan",
     )
+
+    news = relationship(
+    "News",
+    back_populates="company",
+    cascade="all, delete-orphan",
+)
