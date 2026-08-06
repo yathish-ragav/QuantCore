@@ -6,6 +6,7 @@ from quantcore.analytics import (
     MACD,
     RelativeStrengthIndex,
     BollingerBands,
+    AverageTrueRange,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -85,7 +86,9 @@ class AnalyticsService:
 
         close_prices = [p.close for p in prices]
 
-        macd_values = MACD.macd(close_prices)
+        macd_values = MACD.macd(
+            close_prices,
+        )
 
         return [
             {
@@ -146,4 +149,32 @@ class AnalyticsService:
                 "lower": band["lower"],
             }
             for price, band in zip(prices, band_values)
+        ]
+
+    def atr(
+        self,
+        symbol: str,
+        period: int = 14,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+
+        atr_values = AverageTrueRange.atr(
+            highs,
+            lows,
+            closes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "atr": atr,
+            }
+            for price, atr in zip(prices, atr_values)
         ]

@@ -85,3 +85,17 @@ def get_bollinger(
         symbol=symbol,
         period=period,
     )
+
+@router.get("/atr/{symbol}")
+def get_atr(
+    symbol: str,
+    period: int = 14,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.atr(
+        symbol=symbol,
+        period=period,
+    )

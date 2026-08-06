@@ -3,6 +3,7 @@ from .ema import ExponentialMovingAverage
 from .macd import MACD
 from .rsi import RelativeStrengthIndex
 from .bollinger import BollingerBands
+from .atr import AverageTrueRange
 
 __all__ = [
     "MovingAverage",
@@ -10,4 +11,5 @@ __all__ = [
     "MACD",
     "RelativeStrengthIndex",
     "BollingerBands",
+    "AverageTrueRange",
 ]
