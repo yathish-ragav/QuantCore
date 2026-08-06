@@ -1,5 +1,5 @@
+from .base import MarketDataProvider
 from datetime import datetime
-
 import yfinance as yf
 
 from quantcore.schemas.company import CompanyData
@@ -7,7 +7,7 @@ from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
 
 
-class YahooFinanceClient:
+class YahooClient(MarketDataProvider):
     """
     Yahoo Finance data ingestion client.
     """

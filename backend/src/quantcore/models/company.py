@@ -41,4 +41,12 @@ class Company(Base):
     "News",
     back_populates="company",
     cascade="all, delete-orphan",
-)
+    
+    )
+
+    income_statements = relationship(
+    "IncomeStatement",
+    back_populates="company",
+    cascade="all, delete-orphan",
+    
+    )

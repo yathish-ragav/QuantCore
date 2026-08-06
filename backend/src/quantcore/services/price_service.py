@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from quantcore.ingestion.yfinance import YahooFinanceClient
+from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
 
@@ -8,7 +8,7 @@ from quantcore.repositories.price_repository import PriceRepository
 class PriceService:
     def __init__(self, db: Session):
         self.db = db
-        self.client = YahooFinanceClient()
+        self.client = ProviderFactory.get_provider()
         self.company_repo = CompanyRepository(db)
         self.price_repo = PriceRepository(db)
 
@@ -59,3 +59,19 @@ class PriceService:
         self.price_repo.commit()
 
         return inserted
+
+    def get_price_history(
+        self,
+        symbol: str,
+    ):
+
+        company = self.company_repo.get_by_symbol(symbol)
+
+        if company is None:
+            raise ValueError(
+                f"Company '{symbol}' not found."
+            )
+
+        return self.price_repo.get_for_company(
+            company.id
+        )

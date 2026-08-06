@@ -1,13 +1,13 @@
 from sqlalchemy.orm import Session
 
-from quantcore.ingestion.yfinance import YahooFinanceClient
+from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.repositories.company_repository import CompanyRepository
 
 
 class CompanyService:
     def __init__(self, db: Session):
         self.db = db
-        self.client = YahooFinanceClient()
+        self.client = ProviderFactory.get_provider()
         self.repo = CompanyRepository(db)
 
     def sync_company(self, symbol: str):

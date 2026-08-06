@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from quantcore.ingestion.yfinance import YahooFinanceClient
+from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.news_repository import NewsRepository
 
@@ -8,7 +8,7 @@ from quantcore.repositories.news_repository import NewsRepository
 class NewsService:
     def __init__(self, db: Session):
         self.db = db
-        self.client = YahooFinanceClient()
+        self.client = ProviderFactory.get_provider()
         self.company_repo = CompanyRepository(db)
         self.news_repo = NewsRepository(db)
 
