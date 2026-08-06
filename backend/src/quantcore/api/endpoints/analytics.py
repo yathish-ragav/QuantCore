@@ -154,3 +154,13 @@ def get_vwap(
     service = AnalyticsService(db)
 
     return service.vwap(symbol)
+
+
+@router.get("/obv/{symbol}")
+def get_obv(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.obv(symbol)

@@ -12,6 +12,7 @@ from quantcore.analytics import (
     StochasticOscillator,
     ParabolicSAR,
     VolumeWeightedAveragePrice,
+    OnBalanceVolume,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -322,6 +323,31 @@ class AnalyticsService:
                 "close": price.close,
                 "volume": price.volume,
                 "vwap": value,
+            }
+            for price, value in zip(prices, values)
+        ]
+
+    def obv(
+        self,
+        symbol: str,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        closes = [p.close for p in prices]
+        volumes = [p.volume for p in prices]
+
+        values = OnBalanceVolume.calculate(
+            closes,
+            volumes,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "volume": price.volume,
+                "obv": value,
             }
             for price, value in zip(prices, values)
         ]
