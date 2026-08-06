@@ -99,3 +99,17 @@ def get_atr(
         symbol=symbol,
         period=period,
     )
+
+@router.get("/adx/{symbol}")
+def get_adx(
+    symbol: str,
+    period: int = 14,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.adx(
+        symbol=symbol,
+        period=period,
+    )

@@ -4,6 +4,7 @@ from .macd import MACD
 from .rsi import RelativeStrengthIndex
 from .bollinger import BollingerBands
 from .atr import AverageTrueRange
+from .adx import AverageDirectionalIndex
 
 __all__ = [
     "MovingAverage",
@@ -12,4 +13,5 @@ __all__ = [
     "RelativeStrengthIndex",
     "BollingerBands",
     "AverageTrueRange",
+    "AverageDirectionalIndex",
 ]
