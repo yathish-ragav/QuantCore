@@ -4,6 +4,7 @@ from quantcore.analytics import (
     MovingAverage,
     ExponentialMovingAverage,
     MACD,
+    RelativeStrengthIndex,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -15,12 +16,7 @@ class AnalyticsService:
         self.company_repo = CompanyRepository(db)
         self.price_repo = PriceRepository(db)
 
-    def sma(
-        self,
-        symbol: str,
-        period: int = 20,
-    ):
-
+    def _get_prices(self, symbol: str):
         company = self.company_repo.get_by_symbol(symbol)
 
         if company is None:
@@ -28,30 +24,31 @@ class AnalyticsService:
                 f"{symbol} not found."
             )
 
-        prices = self.price_repo.get_for_company(company.id)
+        return self.price_repo.get_for_company(company.id)
 
-        close_prices = [
-            p.close for p in prices
-        ]
+    def sma(
+        self,
+        symbol: str,
+        period: int = 20,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        close_prices = [p.close for p in prices]
 
         sma_values = MovingAverage.sma(
             close_prices,
             period,
         )
 
-        result = []
-
-        for price, sma in zip(prices, sma_values):
-
-            result.append(
-                {
-                    "date": price.date,
-                    "close": price.close,
-                    "sma": sma,
-                }
-            )
-
-        return result
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "sma": sma,
+            }
+            for price, sma in zip(prices, sma_values)
+        ]
 
     def ema(
         self,
@@ -59,78 +56,66 @@ class AnalyticsService:
         period: int = 20,
     ):
 
-        company = self.company_repo.get_by_symbol(symbol)
+        prices = self._get_prices(symbol)
 
-        if company is None:
-            raise ValueError(
-                f"{symbol} not found."
-            )
-
-        prices = self.price_repo.get_for_company(company.id)
-
-        close_prices = [
-            p.close for p in prices
-        ]
+        close_prices = [p.close for p in prices]
 
         ema_values = ExponentialMovingAverage.ema(
             close_prices,
             period,
         )
 
-        result = []
-
-        for price, ema in zip(prices, ema_values):
-
-            result.append(
-                {
-                    "date": price.date,
-                    "close": price.close,
-                    "ema": ema,
-                }
-            )
-
-        return result
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "ema": ema,
+            }
+            for price, ema in zip(prices, ema_values)
+        ]
 
     def macd(
         self,
         symbol: str,
-        fast_period: int = 12,
-        slow_period: int = 26,
-        signal_period: int = 9,
     ):
 
-        company = self.company_repo.get_by_symbol(symbol)
+        prices = self._get_prices(symbol)
 
-        if company is None:
-            raise ValueError(
-                f"{symbol} not found."
-            )
+        close_prices = [p.close for p in prices]
 
-        prices = self.price_repo.get_for_company(company.id)
+        macd_values = MACD.macd(close_prices)
 
-        close_prices = [
-            p.close for p in prices
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "macd": value["macd"],
+                "signal": value["signal"],
+                "histogram": value["histogram"],
+            }
+            for price, value in zip(prices, macd_values)
         ]
 
-        macd_values = MACD.macd(
+    def rsi(
+        self,
+        symbol: str,
+        period: int = 14,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        close_prices = [p.close for p in prices]
+
+        rsi_values = RelativeStrengthIndex.rsi(
             close_prices,
-            fast_period,
-            slow_period,
-            signal_period,
+            period,
         )
 
-        result = []
-
-        for price, values in zip(prices, macd_values):
-
-            result.append(
-                {
-                    "date": price.date,
-                    "close": price.close,
-                    "macd": values["macd"],
-                    "signal": values["signal"],
-                    "histogram": values["histogram"],
-                }
-            )
-
-        return result
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "rsi": rsi,
+            }
+            for price, rsi in zip(prices, rsi_values)
+        ]

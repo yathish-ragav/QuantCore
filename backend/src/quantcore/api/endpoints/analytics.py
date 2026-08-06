@@ -57,3 +57,17 @@ def get_macd(
         slow_period=slow_period,
         signal_period=signal_period,
     )
+
+@router.get("/rsi/{symbol}")
+def get_rsi(
+    symbol: str,
+    period: int = 14,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.rsi(
+        symbol=symbol,
+        period=period,
+    )
