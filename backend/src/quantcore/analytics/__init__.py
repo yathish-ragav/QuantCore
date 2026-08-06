@@ -7,6 +7,7 @@ from .atr import AverageTrueRange
 from .adx import AverageDirectionalIndex
 from .supertrend import Supertrend
 from .stochastic import StochasticOscillator
+from .parabolic_sar import ParabolicSAR
 
 __all__ = [
     "MovingAverage",
@@ -18,4 +19,5 @@ __all__ = [
     "AverageDirectionalIndex",
     "Supertrend",
     "StochasticOscillator",
+    "ParabolicSAR",
 ]

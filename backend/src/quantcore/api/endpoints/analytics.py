@@ -16,7 +16,6 @@ def get_sma(
     period: int = 20,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
     return service.sma(
@@ -31,7 +30,6 @@ def get_ema(
     period: int = 20,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
     return service.ema(
@@ -43,20 +41,12 @@ def get_ema(
 @router.get("/macd/{symbol}")
 def get_macd(
     symbol: str,
-    fast_period: int = 12,
-    slow_period: int = 26,
-    signal_period: int = 9,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
-    return service.macd(
-        symbol=symbol,
-        fast_period=fast_period,
-        slow_period=slow_period,
-        signal_period=signal_period,
-    )
+    return service.macd(symbol)
+
 
 @router.get("/rsi/{symbol}")
 def get_rsi(
@@ -64,7 +54,6 @@ def get_rsi(
     period: int = 14,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
     return service.rsi(
@@ -72,13 +61,13 @@ def get_rsi(
         period=period,
     )
 
+
 @router.get("/bollinger/{symbol}")
 def get_bollinger(
     symbol: str,
     period: int = 20,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
     return service.bollinger(
@@ -86,13 +75,13 @@ def get_bollinger(
         period=period,
     )
 
+
 @router.get("/atr/{symbol}")
 def get_atr(
     symbol: str,
     period: int = 14,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
     return service.atr(
@@ -100,19 +89,20 @@ def get_atr(
         period=period,
     )
 
+
 @router.get("/adx/{symbol}")
 def get_adx(
     symbol: str,
     period: int = 14,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
     return service.adx(
         symbol=symbol,
         period=period,
     )
+
 
 @router.get("/supertrend/{symbol}")
 def get_supertrend(
@@ -121,7 +111,6 @@ def get_supertrend(
     multiplier: float = 3.0,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
     return service.supertrend(
@@ -130,6 +119,7 @@ def get_supertrend(
         multiplier=multiplier,
     )
 
+
 @router.get("/stochastic/{symbol}")
 def get_stochastic(
     symbol: str,
@@ -137,7 +127,6 @@ def get_stochastic(
     signal_period: int = 3,
     db: Session = Depends(get_db),
 ):
-
     service = AnalyticsService(db)
 
     return service.stochastic(
@@ -145,3 +134,13 @@ def get_stochastic(
         period=period,
         signal_period=signal_period,
     )
+
+
+@router.get("/psar/{symbol}")
+def get_psar(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.parabolic_sar(symbol)

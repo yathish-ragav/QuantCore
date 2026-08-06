@@ -10,6 +10,7 @@ from quantcore.analytics import (
     AverageDirectionalIndex,
     Supertrend,
     StochasticOscillator,
+    ParabolicSAR,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -40,10 +41,10 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        closes = [p.close for p in prices]
+        close_prices = [p.close for p in prices]
 
         sma_values = MovingAverage.sma(
-            closes,
+            close_prices,
             period,
         )
 
@@ -53,10 +54,7 @@ class AnalyticsService:
                 "close": price.close,
                 "sma": sma,
             }
-            for price, sma in zip(
-                prices,
-                sma_values,
-            )
+            for price, sma in zip(prices, sma_values)
         ]
 
     def ema(
@@ -67,10 +65,10 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        closes = [p.close for p in prices]
+        close_prices = [p.close for p in prices]
 
         ema_values = ExponentialMovingAverage.ema(
-            closes,
+            close_prices,
             period,
         )
 
@@ -80,10 +78,7 @@ class AnalyticsService:
                 "close": price.close,
                 "ema": ema,
             }
-            for price, ema in zip(
-                prices,
-                ema_values,
-            )
+            for price, ema in zip(prices, ema_values)
         ]
 
     def macd(
@@ -93,9 +88,11 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        closes = [p.close for p in prices]
+        close_prices = [p.close for p in prices]
 
-        values = MACD.macd(closes)
+        macd_values = MACD.macd(
+            close_prices,
+        )
 
         return [
             {
@@ -105,10 +102,7 @@ class AnalyticsService:
                 "signal": value["signal"],
                 "histogram": value["histogram"],
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, macd_values)
         ]
 
     def rsi(
@@ -119,10 +113,10 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        closes = [p.close for p in prices]
+        close_prices = [p.close for p in prices]
 
-        values = RelativeStrengthIndex.rsi(
-            closes,
+        rsi_values = RelativeStrengthIndex.rsi(
+            close_prices,
             period,
         )
 
@@ -130,12 +124,9 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "rsi": value,
+                "rsi": rsi,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, rsi in zip(prices, rsi_values)
         ]
 
     def bollinger(
@@ -146,10 +137,10 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        closes = [p.close for p in prices]
+        close_prices = [p.close for p in prices]
 
-        values = BollingerBands.calculate(
-            closes,
+        band_values = BollingerBands.calculate(
+            close_prices,
             period,
         )
 
@@ -157,14 +148,11 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "middle": value["middle"],
-                "upper": value["upper"],
-                "lower": value["lower"],
+                "middle": band["middle"],
+                "upper": band["upper"],
+                "lower": band["lower"],
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, band in zip(prices, band_values)
         ]
 
     def atr(
@@ -179,7 +167,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        values = AverageTrueRange.atr(
+        atr_values = AverageTrueRange.atr(
             highs,
             lows,
             closes,
@@ -190,12 +178,9 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "atr": value,
+                "atr": atr,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, atr in zip(prices, atr_values)
         ]
 
     def adx(
@@ -210,7 +195,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        values = AverageDirectionalIndex.adx(
+        adx_values = AverageDirectionalIndex.adx(
             highs,
             lows,
             closes,
@@ -221,12 +206,9 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "adx": value,
+                "adx": adx,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, adx in zip(prices, adx_values)
         ]
 
     def supertrend(
@@ -242,7 +224,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        values = Supertrend.calculate(
+        supertrend_values = Supertrend.calculate(
             highs,
             lows,
             closes,
@@ -258,7 +240,7 @@ class AnalyticsService:
             }
             for price, value in zip(
                 prices,
-                values,
+                supertrend_values,
             )
         ]
 
@@ -275,7 +257,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        values = StochasticOscillator.calculate(
+        stochastic_values = StochasticOscillator.calculate(
             highs,
             lows,
             closes,
@@ -292,6 +274,33 @@ class AnalyticsService:
             }
             for price, value in zip(
                 prices,
-                values,
+                stochastic_values,
+            )
+        ]
+
+    def parabolic_sar(
+        self,
+        symbol: str,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+
+        psar_values = ParabolicSAR.calculate(
+            highs,
+            lows,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "psar": psar,
+            }
+            for price, psar in zip(
+                prices,
+                psar_values,
             )
         ]
