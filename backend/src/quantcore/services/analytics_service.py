@@ -5,6 +5,7 @@ from quantcore.analytics import (
     ExponentialMovingAverage,
     MACD,
     RelativeStrengthIndex,
+    BollingerBands,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -17,6 +18,7 @@ class AnalyticsService:
         self.price_repo = PriceRepository(db)
 
     def _get_prices(self, symbol: str):
+
         company = self.company_repo.get_by_symbol(symbol)
 
         if company is None:
@@ -118,4 +120,30 @@ class AnalyticsService:
                 "rsi": rsi,
             }
             for price, rsi in zip(prices, rsi_values)
+        ]
+
+    def bollinger(
+        self,
+        symbol: str,
+        period: int = 20,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        close_prices = [p.close for p in prices]
+
+        band_values = BollingerBands.calculate(
+            close_prices,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "middle": band["middle"],
+                "upper": band["upper"],
+                "lower": band["lower"],
+            }
+            for price, band in zip(prices, band_values)
         ]

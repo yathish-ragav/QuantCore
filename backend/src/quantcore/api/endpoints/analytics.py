@@ -71,3 +71,17 @@ def get_rsi(
         symbol=symbol,
         period=period,
     )
+
+@router.get("/bollinger/{symbol}")
+def get_bollinger(
+    symbol: str,
+    period: int = 20,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.bollinger(
+        symbol=symbol,
+        period=period,
+    )
