@@ -3,7 +3,7 @@ from typing import List
 from .atr import AverageTrueRange
 
 
-class SuperTrend:
+class Supertrend:
 
     @staticmethod
     def calculate(

@@ -5,7 +5,8 @@ from .rsi import RelativeStrengthIndex
 from .bollinger import BollingerBands
 from .atr import AverageTrueRange
 from .adx import AverageDirectionalIndex
-from .supertrend import SuperTrend
+from .supertrend import Supertrend
+from .stochastic import StochasticOscillator
 
 __all__ = [
     "MovingAverage",
@@ -15,5 +16,6 @@ __all__ = [
     "BollingerBands",
     "AverageTrueRange",
     "AverageDirectionalIndex",
-    "SuperTrend",
+    "Supertrend",
+    "StochasticOscillator",
 ]

@@ -129,3 +129,19 @@ def get_supertrend(
         period=period,
         multiplier=multiplier,
     )
+
+@router.get("/stochastic/{symbol}")
+def get_stochastic(
+    symbol: str,
+    period: int = 14,
+    signal_period: int = 3,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.stochastic(
+        symbol=symbol,
+        period=period,
+        signal_period=signal_period,
+    )

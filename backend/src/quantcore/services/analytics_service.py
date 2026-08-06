@@ -8,7 +8,8 @@ from quantcore.analytics import (
     BollingerBands,
     AverageTrueRange,
     AverageDirectionalIndex,
-    SuperTrend,
+    Supertrend,
+    StochasticOscillator,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -39,10 +40,10 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        close_prices = [p.close for p in prices]
+        closes = [p.close for p in prices]
 
         sma_values = MovingAverage.sma(
-            close_prices,
+            closes,
             period,
         )
 
@@ -52,7 +53,10 @@ class AnalyticsService:
                 "close": price.close,
                 "sma": sma,
             }
-            for price, sma in zip(prices, sma_values)
+            for price, sma in zip(
+                prices,
+                sma_values,
+            )
         ]
 
     def ema(
@@ -63,10 +67,10 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        close_prices = [p.close for p in prices]
+        closes = [p.close for p in prices]
 
         ema_values = ExponentialMovingAverage.ema(
-            close_prices,
+            closes,
             period,
         )
 
@@ -76,7 +80,10 @@ class AnalyticsService:
                 "close": price.close,
                 "ema": ema,
             }
-            for price, ema in zip(prices, ema_values)
+            for price, ema in zip(
+                prices,
+                ema_values,
+            )
         ]
 
     def macd(
@@ -86,11 +93,9 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        close_prices = [p.close for p in prices]
+        closes = [p.close for p in prices]
 
-        macd_values = MACD.macd(
-            close_prices,
-        )
+        values = MACD.macd(closes)
 
         return [
             {
@@ -100,7 +105,10 @@ class AnalyticsService:
                 "signal": value["signal"],
                 "histogram": value["histogram"],
             }
-            for price, value in zip(prices, macd_values)
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
 
     def rsi(
@@ -111,10 +119,10 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        close_prices = [p.close for p in prices]
+        closes = [p.close for p in prices]
 
-        rsi_values = RelativeStrengthIndex.rsi(
-            close_prices,
+        values = RelativeStrengthIndex.rsi(
+            closes,
             period,
         )
 
@@ -122,9 +130,12 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "rsi": rsi,
+                "rsi": value,
             }
-            for price, rsi in zip(prices, rsi_values)
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
 
     def bollinger(
@@ -135,10 +146,10 @@ class AnalyticsService:
 
         prices = self._get_prices(symbol)
 
-        close_prices = [p.close for p in prices]
+        closes = [p.close for p in prices]
 
-        band_values = BollingerBands.calculate(
-            close_prices,
+        values = BollingerBands.calculate(
+            closes,
             period,
         )
 
@@ -146,11 +157,14 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "middle": band["middle"],
-                "upper": band["upper"],
-                "lower": band["lower"],
+                "middle": value["middle"],
+                "upper": value["upper"],
+                "lower": value["lower"],
             }
-            for price, band in zip(prices, band_values)
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
 
     def atr(
@@ -165,7 +179,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        atr_values = AverageTrueRange.atr(
+        values = AverageTrueRange.atr(
             highs,
             lows,
             closes,
@@ -176,9 +190,12 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "atr": atr,
+                "atr": value,
             }
-            for price, atr in zip(prices, atr_values)
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
 
     def adx(
@@ -193,7 +210,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        adx_values = AverageDirectionalIndex.adx(
+        values = AverageDirectionalIndex.adx(
             highs,
             lows,
             closes,
@@ -204,16 +221,19 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "adx": adx,
+                "adx": value,
             }
-            for price, adx in zip(prices, adx_values)
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
 
     def supertrend(
         self,
         symbol: str,
         period: int = 10,
-        multiplier: float = 3.0,
+        multiplier: float = 3,
     ):
 
         prices = self._get_prices(symbol)
@@ -222,7 +242,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        supertrend_values = SuperTrend.calculate(
+        values = Supertrend.calculate(
             highs,
             lows,
             closes,
@@ -234,7 +254,44 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "supertrend": trend,
+                "supertrend": value,
             }
-            for price, trend in zip(prices, supertrend_values)
+            for price, value in zip(
+                prices,
+                values,
+            )
+        ]
+
+    def stochastic(
+        self,
+        symbol: str,
+        period: int = 14,
+        signal_period: int = 3,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+
+        values = StochasticOscillator.calculate(
+            highs,
+            lows,
+            closes,
+            period,
+            signal_period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "k": value["k"],
+                "d": value["d"],
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
