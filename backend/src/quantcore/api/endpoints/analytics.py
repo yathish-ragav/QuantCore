@@ -144,3 +144,13 @@ def get_psar(
     service = AnalyticsService(db)
 
     return service.parabolic_sar(symbol)
+
+
+@router.get("/vwap/{symbol}")
+def get_vwap(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.vwap(symbol)

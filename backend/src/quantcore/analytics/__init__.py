@@ -8,6 +8,7 @@ from .adx import AverageDirectionalIndex
 from .supertrend import Supertrend
 from .stochastic import StochasticOscillator
 from .parabolic_sar import ParabolicSAR
+from .vwap import VolumeWeightedAveragePrice
 
 __all__ = [
     "MovingAverage",
@@ -20,4 +21,5 @@ __all__ = [
     "Supertrend",
     "StochasticOscillator",
     "ParabolicSAR",
+    "VolumeWeightedAveragePrice",
 ]

@@ -11,6 +11,7 @@ from quantcore.analytics import (
     Supertrend,
     StochasticOscillator,
     ParabolicSAR,
+    VolumeWeightedAveragePrice,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -215,7 +216,7 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 10,
-        multiplier: float = 3,
+        multiplier: float = 3.0,
     ):
 
         prices = self._get_prices(symbol)
@@ -224,7 +225,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        supertrend_values = Supertrend.calculate(
+        values = SuperTrend.calculate(
             highs,
             lows,
             closes,
@@ -238,10 +239,7 @@ class AnalyticsService:
                 "close": price.close,
                 "supertrend": value,
             }
-            for price, value in zip(
-                prices,
-                supertrend_values,
-            )
+            for price, value in zip(prices, values)
         ]
 
     def stochastic(
@@ -257,7 +255,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        stochastic_values = StochasticOscillator.calculate(
+        values = StochasticOscillator.calculate(
             highs,
             lows,
             closes,
@@ -272,10 +270,7 @@ class AnalyticsService:
                 "k": value["k"],
                 "d": value["d"],
             }
-            for price, value in zip(
-                prices,
-                stochastic_values,
-            )
+            for price, value in zip(prices, values)
         ]
 
     def parabolic_sar(
@@ -288,7 +283,7 @@ class AnalyticsService:
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
 
-        psar_values = ParabolicSAR.calculate(
+        values = ParabolicSAR.calculate(
             highs,
             lows,
         )
@@ -297,10 +292,36 @@ class AnalyticsService:
             {
                 "date": price.date,
                 "close": price.close,
-                "psar": psar,
+                "psar": value,
             }
-            for price, psar in zip(
-                prices,
-                psar_values,
-            )
+            for price, value in zip(prices, values)
+        ]
+
+    def vwap(
+        self,
+        symbol: str,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+        volumes = [p.volume for p in prices]
+
+        values = VolumeWeightedAveragePrice.calculate(
+            highs,
+            lows,
+            closes,
+            volumes,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "volume": price.volume,
+                "vwap": value,
+            }
+            for price, value in zip(prices, values)
         ]
