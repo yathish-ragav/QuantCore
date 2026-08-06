@@ -113,3 +113,19 @@ def get_adx(
         symbol=symbol,
         period=period,
     )
+
+@router.get("/supertrend/{symbol}")
+def get_supertrend(
+    symbol: str,
+    period: int = 10,
+    multiplier: float = 3.0,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.supertrend(
+        symbol=symbol,
+        period=period,
+        multiplier=multiplier,
+    )

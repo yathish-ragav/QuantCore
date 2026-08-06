@@ -8,6 +8,7 @@ from quantcore.analytics import (
     BollingerBands,
     AverageTrueRange,
     AverageDirectionalIndex,
+    SuperTrend,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -206,4 +207,34 @@ class AnalyticsService:
                 "adx": adx,
             }
             for price, adx in zip(prices, adx_values)
+        ]
+
+    def supertrend(
+        self,
+        symbol: str,
+        period: int = 10,
+        multiplier: float = 3.0,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+
+        supertrend_values = SuperTrend.calculate(
+            highs,
+            lows,
+            closes,
+            period,
+            multiplier,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "supertrend": trend,
+            }
+            for price, trend in zip(prices, supertrend_values)
         ]
