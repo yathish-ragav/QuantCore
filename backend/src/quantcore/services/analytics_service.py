@@ -14,6 +14,7 @@ from quantcore.analytics import (
     VolumeWeightedAveragePrice,
     OnBalanceVolume,
     MoneyFlowIndex,
+    ChaikinMoneyFlow,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -380,6 +381,37 @@ class AnalyticsService:
                 "close": price.close,
                 "volume": price.volume,
                 "mfi": value,
+            }
+            for price, value in zip(prices, values)
+        ]
+
+    def cmf(
+        self,
+        symbol: str,
+        period: int = 20,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+        volumes = [p.volume for p in prices]
+
+        values = ChaikinMoneyFlow.calculate(
+            highs,
+            lows,
+            closes,
+            volumes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "volume": price.volume,
+                "cmf": value,
             }
             for price, value in zip(prices, values)
         ]

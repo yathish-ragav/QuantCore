@@ -11,6 +11,7 @@ from .parabolic_sar import ParabolicSAR
 from .vwap import VolumeWeightedAveragePrice
 from .obv import OnBalanceVolume
 from .mfi import MoneyFlowIndex
+from .cmf import ChaikinMoneyFlow
 
 __all__ = [
     "MovingAverage",
@@ -26,4 +27,5 @@ __all__ = [
     "VolumeWeightedAveragePrice",
     "OnBalanceVolume",
     "MoneyFlowIndex",
+    "ChaikinMoneyFlow",
 ]

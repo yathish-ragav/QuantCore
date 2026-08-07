@@ -177,3 +177,16 @@ def get_mfi(
         symbol=symbol,
         period=period,
     )
+
+@router.get("/cmf/{symbol}")
+def get_cmf(
+    symbol: str,
+    period: int = 20,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.cmf(
+        symbol=symbol,
+        period=period,
+    )
