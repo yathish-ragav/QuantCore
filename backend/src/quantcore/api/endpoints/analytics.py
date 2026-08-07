@@ -288,3 +288,17 @@ def get_ultimate_oscillator(
         medium_period,
         long_period,
     )
+
+@router.get("/trix/{symbol}")
+def get_trix(
+    symbol: str,
+    period: int = 15,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.trix(
+        symbol,
+        period,
+    )

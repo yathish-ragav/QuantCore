@@ -19,6 +19,7 @@ from .cci import CommodityChannelIndex
 from .williams_r import WilliamsR
 from .roc import RateOfChange
 from .ultimate_oscillator import UltimateOscillator
+from .trix import TRIX
 
 __all__ = [
     "MovingAverage",
@@ -42,4 +43,5 @@ __all__ = [
     "WilliamsR",
     "RateOfChange",
     "UltimateOscillator",
+    "TRIX",
 ]

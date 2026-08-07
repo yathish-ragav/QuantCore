@@ -22,6 +22,7 @@ from quantcore.analytics import (
     WilliamsR,
     RateOfChange,
     UltimateOscillator,
+    TRIX,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -624,6 +625,30 @@ class AnalyticsService:
                 "date": price.date,
                 "close": price.close,
                 "ultimate_oscillator": value,
+            }
+            for price, value in zip(prices, values)
+        ]
+
+    def trix(
+        self,
+        symbol: str,
+        period: int = 15,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        closes = [p.close for p in prices]
+
+        values = TRIX.calculate(
+            closes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "trix": value,
             }
             for price, value in zip(prices, values)
         ]
