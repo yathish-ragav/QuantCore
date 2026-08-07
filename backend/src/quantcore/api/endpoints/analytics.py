@@ -228,3 +228,17 @@ def get_keltner(
         period,
         multiplier,
     )
+
+@router.get("/cci/{symbol}")
+def get_cci(
+    symbol: str,
+    period: int = 20,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.cci(
+        symbol,
+        period,
+    )

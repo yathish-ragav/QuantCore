@@ -15,6 +15,7 @@ from .cmf import ChaikinMoneyFlow
 from .ichimoku import IchimokuCloud
 from .donchian import DonchianChannels
 from .keltner import KeltnerChannels
+from .cci import CommodityChannelIndex
 
 __all__ = [
     "MovingAverage",
@@ -34,4 +35,5 @@ __all__ = [
     "IchimokuCloud",
     "DonchianChannels",
     "KeltnerChannels",
+    "CommodityChannelIndex",
 ]
