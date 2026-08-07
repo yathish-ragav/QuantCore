@@ -199,3 +199,16 @@ def get_ichimoku(
     service = AnalyticsService(db)
 
     return service.ichimoku(symbol)
+
+@router.get("/donchian/{symbol}")
+def get_donchian(
+    symbol: str,
+    period: int = 20,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.donchian(
+        symbol=symbol,
+        period=period,
+    )

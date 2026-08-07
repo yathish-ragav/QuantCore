@@ -16,6 +16,7 @@ from quantcore.analytics import (
     MoneyFlowIndex,
     ChaikinMoneyFlow,
     IchimokuCloud,
+    DonchianChannels,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -440,6 +441,37 @@ class AnalyticsService:
                 "kijun": value["kijun"],
                 "span_a": value["span_a"],
                 "span_b": value["span_b"],
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
+        ]
+
+    def donchian(
+        self,
+        symbol: str,
+        period: int = 20,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+
+        values = DonchianChannels.calculate(
+            highs,
+            lows,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "upper": value["upper"],
+                "middle": value["middle"],
+                "lower": value["lower"],
             }
             for price, value in zip(
                 prices,

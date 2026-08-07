@@ -13,6 +13,7 @@ from .obv import OnBalanceVolume
 from .mfi import MoneyFlowIndex
 from .cmf import ChaikinMoneyFlow
 from .ichimoku import IchimokuCloud
+from .donchian import DonchianChannels
 
 __all__ = [
     "MovingAverage",
@@ -30,4 +31,5 @@ __all__ = [
     "MoneyFlowIndex",
     "ChaikinMoneyFlow",
     "IchimokuCloud",
+    "DonchianChannels",
 ]
