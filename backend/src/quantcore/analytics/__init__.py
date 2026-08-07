@@ -18,6 +18,7 @@ from .keltner import KeltnerChannels
 from .cci import CommodityChannelIndex
 from .williams_r import WilliamsR
 from .roc import RateOfChange
+from .ultimate_oscillator import UltimateOscillator
 
 __all__ = [
     "MovingAverage",
@@ -40,4 +41,5 @@ __all__ = [
     "CommodityChannelIndex",
     "WilliamsR",
     "RateOfChange",
+    "UltimateOscillator",
 ]

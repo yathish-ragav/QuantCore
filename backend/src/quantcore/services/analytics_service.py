@@ -21,6 +21,7 @@ from quantcore.analytics import (
     CommodityChannelIndex,
     WilliamsR,
     RateOfChange,
+    UltimateOscillator,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -593,4 +594,36 @@ class AnalyticsService:
                 "roc": roc,
             }
             for price, roc in zip(prices, roc_values)
+        ]
+
+    def ultimate_oscillator(
+        self,
+        symbol: str,
+        short_period: int = 7,
+        medium_period: int = 14,
+        long_period: int = 28,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+
+        values = UltimateOscillator.calculate(
+            highs,
+            lows,
+            closes,
+            short_period,
+            medium_period,
+            long_period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "ultimate_oscillator": value,
+            }
+            for price, value in zip(prices, values)
         ]

@@ -270,3 +270,21 @@ def get_roc(
         symbol,
         period,
     )
+
+@router.get("/ultimate-oscillator/{symbol}")
+def get_ultimate_oscillator(
+    symbol: str,
+    short_period: int = 7,
+    medium_period: int = 14,
+    long_period: int = 28,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.ultimate_oscillator(
+        symbol,
+        short_period,
+        medium_period,
+        long_period,
+    )
