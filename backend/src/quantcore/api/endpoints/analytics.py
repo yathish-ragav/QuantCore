@@ -212,3 +212,19 @@ def get_donchian(
         symbol=symbol,
         period=period,
     )
+
+@router.get("/keltner/{symbol}")
+def get_keltner(
+    symbol: str,
+    period: int = 20,
+    multiplier: float = 2.0,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.keltner(
+        symbol,
+        period,
+        multiplier,
+    )
