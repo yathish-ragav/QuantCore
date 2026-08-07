@@ -20,6 +20,7 @@ from quantcore.analytics import (
     KeltnerChannels,
     CommodityChannelIndex,
     WilliamsR,
+    RateOfChange,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -568,4 +569,28 @@ class AnalyticsService:
                 "williams_r": wr,
             }
             for price, wr in zip(prices, wr_values)
+        ]
+
+    def roc(
+        self,
+        symbol: str,
+        period: int = 12,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        closes = [p.close for p in prices]
+
+        roc_values = RateOfChange.calculate(
+            closes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "roc": roc,
+            }
+            for price, roc in zip(prices, roc_values)
         ]

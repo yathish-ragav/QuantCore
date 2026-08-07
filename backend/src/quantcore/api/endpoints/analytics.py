@@ -256,3 +256,17 @@ def get_williams_r(
         symbol,
         period,
     )
+
+@router.get("/roc/{symbol}")
+def get_roc(
+    symbol: str,
+    period: int = 12,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.roc(
+        symbol,
+        period,
+    )

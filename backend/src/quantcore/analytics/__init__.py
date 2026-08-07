@@ -17,6 +17,7 @@ from .donchian import DonchianChannels
 from .keltner import KeltnerChannels
 from .cci import CommodityChannelIndex
 from .williams_r import WilliamsR
+from .roc import RateOfChange
 
 __all__ = [
     "MovingAverage",
@@ -38,4 +39,5 @@ __all__ = [
     "KeltnerChannels",
     "CommodityChannelIndex",
     "WilliamsR",
+    "RateOfChange",
 ]
