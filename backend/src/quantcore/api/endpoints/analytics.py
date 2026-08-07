@@ -164,3 +164,16 @@ def get_obv(
     service = AnalyticsService(db)
 
     return service.obv(symbol)
+
+@router.get("/mfi/{symbol}")
+def get_mfi(
+    symbol: str,
+    period: int = 14,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.mfi(
+        symbol=symbol,
+        period=period,
+    )

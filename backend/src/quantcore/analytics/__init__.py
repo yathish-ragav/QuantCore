@@ -10,6 +10,7 @@ from .stochastic import StochasticOscillator
 from .parabolic_sar import ParabolicSAR
 from .vwap import VolumeWeightedAveragePrice
 from .obv import OnBalanceVolume
+from .mfi import MoneyFlowIndex
 
 __all__ = [
     "MovingAverage",
@@ -24,4 +25,5 @@ __all__ = [
     "ParabolicSAR",
     "VolumeWeightedAveragePrice",
     "OnBalanceVolume",
+    "MoneyFlowIndex",
 ]
