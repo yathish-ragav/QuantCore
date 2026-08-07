@@ -190,3 +190,12 @@ def get_cmf(
         symbol=symbol,
         period=period,
     )
+
+@router.get("/ichimoku/{symbol}")
+def get_ichimoku(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.ichimoku(symbol)

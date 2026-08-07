@@ -12,6 +12,7 @@ from .vwap import VolumeWeightedAveragePrice
 from .obv import OnBalanceVolume
 from .mfi import MoneyFlowIndex
 from .cmf import ChaikinMoneyFlow
+from .ichimoku import IchimokuCloud
 
 __all__ = [
     "MovingAverage",
@@ -28,4 +29,5 @@ __all__ = [
     "OnBalanceVolume",
     "MoneyFlowIndex",
     "ChaikinMoneyFlow",
+    "IchimokuCloud",
 ]

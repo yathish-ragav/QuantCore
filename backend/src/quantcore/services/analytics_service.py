@@ -15,6 +15,7 @@ from quantcore.analytics import (
     OnBalanceVolume,
     MoneyFlowIndex,
     ChaikinMoneyFlow,
+    IchimokuCloud,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -414,4 +415,34 @@ class AnalyticsService:
                 "cmf": value,
             }
             for price, value in zip(prices, values)
+        ]
+
+    def ichimoku(
+        self,
+        symbol: str,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+
+        values = IchimokuCloud.calculate(
+            highs,
+            lows,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "tenkan": value["tenkan"],
+                "kijun": value["kijun"],
+                "span_a": value["span_a"],
+                "span_b": value["span_b"],
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
