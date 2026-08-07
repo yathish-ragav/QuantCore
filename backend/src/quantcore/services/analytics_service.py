@@ -19,6 +19,7 @@ from quantcore.analytics import (
     DonchianChannels,
     KeltnerChannels,
     CommodityChannelIndex,
+    WilliamsR,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -539,4 +540,32 @@ class AnalyticsService:
                 "cci": cci,
             }
             for price, cci in zip(prices, cci_values)
+        ]
+
+    def williams_r(
+        self,
+        symbol: str,
+        period: int = 14,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+
+        wr_values = WilliamsR.calculate(
+            highs,
+            lows,
+            closes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "williams_r": wr,
+            }
+            for price, wr in zip(prices, wr_values)
         ]

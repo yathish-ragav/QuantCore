@@ -16,6 +16,7 @@ from .ichimoku import IchimokuCloud
 from .donchian import DonchianChannels
 from .keltner import KeltnerChannels
 from .cci import CommodityChannelIndex
+from .williams_r import WilliamsR
 
 __all__ = [
     "MovingAverage",
@@ -36,4 +37,5 @@ __all__ = [
     "DonchianChannels",
     "KeltnerChannels",
     "CommodityChannelIndex",
+    "WilliamsR",
 ]

@@ -242,3 +242,17 @@ def get_cci(
         symbol,
         period,
     )
+
+@router.get("/williams-r/{symbol}")
+def get_williams_r(
+    symbol: str,
+    period: int = 14,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.williams_r(
+        symbol,
+        period,
+    )
