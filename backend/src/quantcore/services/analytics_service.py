@@ -32,6 +32,7 @@ from quantcore.analytics import (
     ForceIndex,
     NegativeVolumeIndex,
     PositiveVolumeIndex,
+    KlingerVolumeOscillator,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -939,6 +940,50 @@ class AnalyticsService:
             "close": price.close,
             "volume": price.volume,
             "pvi": value,
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
+        ]
+
+    
+    def kvo(
+        self,
+        symbol: str,
+        fast_period: int = 34,
+        slow_period: int = 55,
+        signal_period: int = 13,
+    ):
+        company = self.company_repo.get_by_symbol(symbol)
+
+        if company is None:
+            raise ValueError(f"{symbol} not found.")
+
+        prices = self.price_repo.get_for_company(company.id)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+        volumes = [p.volume for p in prices]
+
+        values = KlingerVolumeOscillator.calculate(
+            highs,
+            lows,
+            closes,
+            volumes,
+            fast_period,
+            slow_period,
+            signal_period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "volume": price.volume,
+                "kvo": value["kvo"],
+                "signal": value["signal"],
             }
             for price, value in zip(
                 prices,

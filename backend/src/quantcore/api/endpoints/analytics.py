@@ -407,3 +407,20 @@ def pvi(
     service = AnalyticsService(db)
 
     return service.pvi(symbol)
+
+@router.get("/kvo/{symbol}")
+def kvo(
+    symbol: str,
+    fast_period: int = 34,
+    slow_period: int = 55,
+    signal_period: int = 13,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.kvo(
+        symbol,
+        fast_period,
+        slow_period,
+        signal_period,
+    )

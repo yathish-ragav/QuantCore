@@ -29,6 +29,7 @@ from .accumulation_distribution import AccumulationDistribution
 from .force_index import ForceIndex
 from .nvi import NegativeVolumeIndex
 from .pvi import PositiveVolumeIndex
+from .kvo import KlingerVolumeOscillator
 
 __all__ = [
     "MovingAverage",
@@ -62,4 +63,5 @@ __all__ = [
     "ForceIndex",
     "NegativeVolumeIndex",
     "PositiveVolumeIndex",
+    "KlingerVolumeOscillator",
 ]
