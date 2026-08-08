@@ -389,3 +389,12 @@ def force_index(
     service = AnalyticsService(db)
 
     return service.force_index(symbol)
+
+@router.get("/nvi/{symbol}")
+def nvi(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.nvi(symbol)

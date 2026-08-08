@@ -27,6 +27,7 @@ from .vortex import VortexIndicator
 from .emv import EaseOfMovement
 from .accumulation_distribution import AccumulationDistribution
 from .force_index import ForceIndex
+from .nvi import NegativeVolumeIndex
 
 __all__ = [
     "MovingAverage",
@@ -58,4 +59,5 @@ __all__ = [
     "EaseOfMovement",
     "AccumulationDistribution",
     "ForceIndex",
+    "NegativeVolumeIndex",
 ]

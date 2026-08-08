@@ -30,6 +30,7 @@ from quantcore.analytics import (
     EaseOfMovement,
     AccumulationDistribution,
     ForceIndex,
+    NegativeVolumeIndex,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -873,6 +874,38 @@ class AnalyticsService:
                 "close": price.close,
                 "volume": price.volume,
                 "force_index": value,
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
+        ]
+
+    def nvi(
+        self,
+        symbol: str,
+    ):
+        company = self.company_repo.get_by_symbol(symbol)
+
+        if company is None:
+            raise ValueError(f"{symbol} not found.")
+
+        prices = self.price_repo.get_for_company(company.id)
+
+        closes = [p.close for p in prices]
+        volumes = [p.volume for p in prices]
+
+        values = NegativeVolumeIndex.calculate(
+            closes,
+            volumes,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "volume": price.volume,
+                "nvi": value,
             }
             for price, value in zip(
                 prices,
