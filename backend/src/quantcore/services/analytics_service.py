@@ -28,6 +28,7 @@ from quantcore.analytics import (
     DetrendedPriceOscillator,
     VortexIndicator,
     EaseOfMovement,
+    AccumulationDistribution,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -809,5 +810,41 @@ class AnalyticsService:
             )
 
         return result
+
+    def accumulation_distribution(
+        self,
+        symbol: str,
+    ):
+        company = self.company_repo.get_by_symbol(symbol)
+
+        if company is None:
+            raise ValueError(f"{symbol} not found.")
+
+        prices = self.price_repo.get_for_company(company.id)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+        volumes = [p.volume for p in prices]
+
+        values = AccumulationDistribution.ad(
+            highs,
+            lows,
+            closes,
+            volumes,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "volume": price.volume,
+                "accumulation_distribution": value,
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
+        ]
 
     

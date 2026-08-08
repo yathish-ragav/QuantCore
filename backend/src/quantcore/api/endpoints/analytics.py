@@ -371,3 +371,12 @@ def get_emv(
         symbol,
         period,
     )
+
+@router.get("/accumulation-distribution/{symbol}")
+def get_accumulation_distribution(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.accumulation_distribution(symbol)
