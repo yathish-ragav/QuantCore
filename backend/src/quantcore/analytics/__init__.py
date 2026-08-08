@@ -22,6 +22,7 @@ from .ultimate_oscillator import UltimateOscillator
 from .trix import TRIX
 from .aroon import Aroon
 from .aroon_oscillator import AroonOscillator
+from .dpo import DetrendedPriceOscillator
 
 __all__ = [
     "MovingAverage",
@@ -48,4 +49,5 @@ __all__ = [
     "TRIX",
     "Aroon",
     "AroonOscillator",
+    "DetrendedPriceOscillator",
 ]

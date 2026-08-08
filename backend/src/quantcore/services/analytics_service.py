@@ -25,6 +25,7 @@ from quantcore.analytics import (
     TRIX,
     Aroon,
     AroonOscillator,
+    DetrendedPriceOscillator,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -238,7 +239,7 @@ class AnalyticsService:
         lows = [p.low for p in prices]
         closes = [p.close for p in prices]
 
-        values = SuperTrend.calculate(
+        values = Supertrend.calculate(
             highs,
             lows,
             closes,
@@ -709,6 +710,33 @@ class AnalyticsService:
                 "aroon_oscillator": value,
             }
             for price, value in zip(prices, values)
+        ]
+
+    def dpo(
+            self,
+            symbol: str,
+            period: int = 20,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        closes = [p.close for p in prices]
+
+        values = DetrendedPriceOscillator.calculate(
+            closes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "dpo": value,
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
 
     

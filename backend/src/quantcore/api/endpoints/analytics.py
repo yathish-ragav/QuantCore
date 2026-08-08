@@ -330,3 +330,17 @@ def get_aroon_oscillator(
         symbol,
         period,
     )
+
+@router.get("/dpo/{symbol}")
+def get_dpo(
+    symbol: str,
+    period: int = 20,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.dpo(
+        symbol,
+        period,
+    )
