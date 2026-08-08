@@ -27,6 +27,7 @@ from quantcore.analytics import (
     AroonOscillator,
     DetrendedPriceOscillator,
     VortexIndicator,
+    EaseOfMovement,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -771,5 +772,42 @@ class AnalyticsService:
                 values,
             )
         ]
+
+    def emv(
+            self,
+            symbol: str,
+            period: int = 14,
+    ):
+        company = self.company_repo.get_by_symbol(symbol)
+
+        if company is None:
+            raise ValueError(f"{symbol} not found.")
+
+        prices = self.price_repo.get_for_company(company.id)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        volumes = [p.volume for p in prices]
+
+        emv_values = EaseOfMovement.emv(
+            highs,
+            lows,
+            volumes,
+            period,
+        )
+
+        result = []
+
+        for price, emv in zip(prices, emv_values):
+            result.append(
+                {
+                     "date": price.date,
+                     "close": price.close,
+                     "volume": price.volume,
+                     "emv": emv,
+                }
+            )
+
+        return result
 
     

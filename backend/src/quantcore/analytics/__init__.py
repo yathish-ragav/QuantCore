@@ -24,6 +24,7 @@ from .aroon import Aroon
 from .aroon_oscillator import AroonOscillator
 from .dpo import DetrendedPriceOscillator
 from .vortex import VortexIndicator
+from .emv import EaseOfMovement
 
 __all__ = [
     "MovingAverage",
@@ -52,4 +53,5 @@ __all__ = [
     "AroonOscillator",
     "DetrendedPriceOscillator",
     "VortexIndicator",
+    "EaseOfMovement",
 ]

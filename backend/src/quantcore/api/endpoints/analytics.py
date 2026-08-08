@@ -358,3 +358,16 @@ def get_vortex(
         symbol,
         period,
     )
+
+@router.get("/emv/{symbol}")
+def get_emv(
+    symbol: str,
+    period: int = 14,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.emv(
+        symbol,
+        period,
+    )
