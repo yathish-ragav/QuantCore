@@ -344,3 +344,17 @@ def get_dpo(
         symbol,
         period,
     )
+
+@router.get("/vortex/{symbol}")
+def get_vortex(
+    symbol: str,
+    period: int = 14,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.vortex(
+        symbol,
+        period,
+    )

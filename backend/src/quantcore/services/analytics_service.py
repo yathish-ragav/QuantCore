@@ -26,6 +26,7 @@ from quantcore.analytics import (
     Aroon,
     AroonOscillator,
     DetrendedPriceOscillator,
+    VortexIndicator,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -732,6 +733,38 @@ class AnalyticsService:
                 "date": price.date,
                 "close": price.close,
                 "dpo": value,
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
+        ]
+
+    def vortex(
+            self,
+            symbol: str,
+            period: int = 14,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+
+        values = VortexIndicator.calculate(
+            highs,
+            lows,
+            closes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "vortex_plus": value["vortex_plus"],
+                "vortex_minus": value["vortex_minus"],
             }
             for price, value in zip(
                 prices,

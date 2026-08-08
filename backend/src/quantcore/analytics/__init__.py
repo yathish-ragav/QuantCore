@@ -23,6 +23,7 @@ from .trix import TRIX
 from .aroon import Aroon
 from .aroon_oscillator import AroonOscillator
 from .dpo import DetrendedPriceOscillator
+from .vortex import VortexIndicator
 
 __all__ = [
     "MovingAverage",
@@ -50,4 +51,5 @@ __all__ = [
     "Aroon",
     "AroonOscillator",
     "DetrendedPriceOscillator",
+    "VortexIndicator",
 ]
