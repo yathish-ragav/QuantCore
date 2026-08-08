@@ -26,6 +26,7 @@ from .dpo import DetrendedPriceOscillator
 from .vortex import VortexIndicator
 from .emv import EaseOfMovement
 from .accumulation_distribution import AccumulationDistribution
+from .force_index import ForceIndex
 
 __all__ = [
     "MovingAverage",
@@ -56,4 +57,5 @@ __all__ = [
     "VortexIndicator",
     "EaseOfMovement",
     "AccumulationDistribution",
+    "ForceIndex",
 ]

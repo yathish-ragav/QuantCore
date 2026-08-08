@@ -380,3 +380,12 @@ def get_accumulation_distribution(
     service = AnalyticsService(db)
 
     return service.accumulation_distribution(symbol)
+
+@router.get("/force-index/{symbol}")
+def force_index(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.force_index(symbol)
