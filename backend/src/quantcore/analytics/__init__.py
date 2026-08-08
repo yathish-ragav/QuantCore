@@ -28,6 +28,7 @@ from .emv import EaseOfMovement
 from .accumulation_distribution import AccumulationDistribution
 from .force_index import ForceIndex
 from .nvi import NegativeVolumeIndex
+from .pvi import PositiveVolumeIndex
 
 __all__ = [
     "MovingAverage",
@@ -60,4 +61,5 @@ __all__ = [
     "AccumulationDistribution",
     "ForceIndex",
     "NegativeVolumeIndex",
+    "PositiveVolumeIndex",
 ]

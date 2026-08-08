@@ -398,3 +398,12 @@ def nvi(
     service = AnalyticsService(db)
 
     return service.nvi(symbol)
+
+@router.get("/pvi/{symbol}")
+def pvi(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.pvi(symbol)
