@@ -23,6 +23,7 @@ from quantcore.analytics import (
     RateOfChange,
     UltimateOscillator,
     TRIX,
+    Aroon,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -652,3 +653,35 @@ class AnalyticsService:
             }
             for price, value in zip(prices, values)
         ]
+
+    def aroon(
+            self,
+            symbol: str,
+            period: int = 25,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+
+        values = Aroon.calculate(
+            highs,
+            lows,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "aroon_up": value["aroon_up"],
+                "aroon_down": value["aroon_down"],
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
+        ]
+
+    

@@ -302,3 +302,17 @@ def get_trix(
         symbol,
         period,
     )
+
+@router.get("/aroon/{symbol}")
+def get_aroon(
+    symbol: str,
+    period: int = 25,
+    db: Session = Depends(get_db),
+):
+
+    service = AnalyticsService(db)
+
+    return service.aroon(
+        symbol,
+        period,
+    )

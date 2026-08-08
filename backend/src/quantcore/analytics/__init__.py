@@ -20,6 +20,7 @@ from .williams_r import WilliamsR
 from .roc import RateOfChange
 from .ultimate_oscillator import UltimateOscillator
 from .trix import TRIX
+from .aroon import Aroon
 
 __all__ = [
     "MovingAverage",
@@ -44,4 +45,5 @@ __all__ = [
     "RateOfChange",
     "UltimateOscillator",
     "TRIX",
+    "Aroon",
 ]
