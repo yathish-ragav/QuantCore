@@ -24,6 +24,7 @@ from quantcore.analytics import (
     UltimateOscillator,
     TRIX,
     Aroon,
+    AroonOscillator,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -682,6 +683,32 @@ class AnalyticsService:
                 prices,
                 values,
             )
+        ]
+
+    def aroon_oscillator(
+            self,
+            symbol: str,
+            period: int = 25,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+
+        values = AroonOscillator.calculate(
+            highs,
+            lows,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "aroon_oscillator": value,
+            }
+            for price, value in zip(prices, values)
         ]
 
     

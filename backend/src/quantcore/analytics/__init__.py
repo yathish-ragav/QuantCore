@@ -21,6 +21,7 @@ from .roc import RateOfChange
 from .ultimate_oscillator import UltimateOscillator
 from .trix import TRIX
 from .aroon import Aroon
+from .aroon_oscillator import AroonOscillator
 
 __all__ = [
     "MovingAverage",
@@ -46,4 +47,5 @@ __all__ = [
     "UltimateOscillator",
     "TRIX",
     "Aroon",
+    "AroonOscillator",
 ]
