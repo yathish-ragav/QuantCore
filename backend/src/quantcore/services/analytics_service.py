@@ -34,6 +34,7 @@ from quantcore.analytics import (
     PositiveVolumeIndex,
     KlingerVolumeOscillator,
     ChaikinOscillator,
+    ElderRayIndex,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -1030,6 +1031,35 @@ class AnalyticsService:
                 prices,
                 values,
             )
+        ]
+
+    def elder_ray(
+        self,
+        symbol: str,
+        period: int = 13,
+    ):
+
+        prices = self._get_prices(symbol)
+
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+
+        values = ElderRayIndex.calculate(
+            highs,
+            lows,
+            closes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "bull_power": value["bull_power"],
+                "bear_power": value["bear_power"],
+            }
+            for price, value in zip(prices, values)
         ]
 
     

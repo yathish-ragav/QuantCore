@@ -439,3 +439,16 @@ def chaikin_oscillator(
         fast_period,
         slow_period,
     )
+
+@router.get("/elder-ray/{symbol}")
+def elder_ray(
+    symbol: str,
+    period: int = 13,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.elder_ray(
+        symbol,
+        period,
+    )
