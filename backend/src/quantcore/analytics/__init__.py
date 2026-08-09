@@ -33,6 +33,7 @@ from .kvo import KlingerVolumeOscillator
 from .chaikin_oscillator import ChaikinOscillator
 from .elder_ray import ElderRayIndex
 from .rvi import RelativeVigorIndex
+from .coppock import CoppockCurve
 
 __all__ = [
     "MovingAverage",
@@ -70,5 +71,5 @@ __all__ = [
     "ChaikinOscillator",
     "ElderRayIndex",
     "RelativeVigorIndex",
-    
+    "CoppockCurve",
 ]

@@ -465,3 +465,20 @@ def rvi(
         symbol,
         period,
     )
+
+@router.get("/coppock/{symbol}")
+def coppock(
+    symbol: str,
+    roc_fast_period: int = 14,
+    roc_slow_period: int = 11,
+    wma_period: int = 10,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.coppock(
+        symbol,
+        roc_fast_period,
+        roc_slow_period,
+        wma_period,
+    )

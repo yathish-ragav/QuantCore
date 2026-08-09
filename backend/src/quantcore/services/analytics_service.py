@@ -36,6 +36,7 @@ from quantcore.analytics import (
     ChaikinOscillator,
     ElderRayIndex,
     RelativeVigorIndex,
+    CoppockCurve,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -1090,6 +1091,36 @@ class AnalyticsService:
                 "rvi": value,
             }
             for price, value in zip(prices, values)
+        ]
+
+    def coppock(
+        self,
+        symbol: str,
+        roc_fast_period: int = 14,
+        roc_slow_period: int = 11,
+        wma_period: int = 10,
+    ):
+        prices = self._get_prices(symbol)
+
+        closes = [p.close for p in prices]
+
+        values = CoppockCurve.calculate(
+            closes,
+            roc_fast_period,
+            roc_slow_period,
+            wma_period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "coppock": value,
+            }
+            for price, value in zip(
+                prices,
+                values,
+            )
         ]
 
     
