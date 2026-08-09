@@ -37,6 +37,7 @@ from quantcore.analytics import (
     ElderRayIndex,
     RelativeVigorIndex,
     CoppockCurve,
+    KnowSureThing
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -1123,4 +1124,44 @@ class AnalyticsService:
             )
         ]
 
-    
+    def kst(
+          self,
+          symbol: str,
+          roc1_period: int = 10,
+          roc2_period: int = 15,
+          roc3_period: int = 20,
+          roc4_period: int = 30,
+          sma1_period: int = 10,
+          sma2_period: int = 10,
+          sma3_period: int = 10,
+          sma4_period: int = 15,
+    ):
+          prices = self._get_prices(symbol)
+
+          closes = [p.close for p in prices]
+
+          values = KnowSureThing.calculate(
+              closes,
+              roc1_period,
+              roc2_period,
+              roc3_period,
+              roc4_period,
+              sma1_period,
+              sma2_period,
+              sma3_period,
+              sma4_period,
+          )
+
+          return [
+                {
+                   "date": price.date,
+                   "close": price.close,
+                   "kst": value,
+                }
+                for price, value in zip(
+                    prices,
+                    values,
+                )
+            ]
+
+   

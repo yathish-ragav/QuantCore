@@ -482,3 +482,30 @@ def coppock(
         roc_slow_period,
         wma_period,
     )
+
+@router.get("/kst/{symbol}")
+def kst(
+    symbol: str,
+    roc1_period: int = 10,
+    roc2_period: int = 15,
+    roc3_period: int = 20,
+    roc4_period: int = 30,
+    sma1_period: int = 10,
+    sma2_period: int = 10,
+    sma3_period: int = 10,
+    sma4_period: int = 15,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.kst(
+        symbol,
+        roc1_period,
+        roc2_period,
+        roc3_period,
+        roc4_period,
+        sma1_period,
+        sma2_period,
+        sma3_period,
+        sma4_period,
+    )

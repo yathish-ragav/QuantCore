@@ -34,6 +34,7 @@ from .chaikin_oscillator import ChaikinOscillator
 from .elder_ray import ElderRayIndex
 from .rvi import RelativeVigorIndex
 from .coppock import CoppockCurve
+from .kst import KnowSureThing
 
 __all__ = [
     "MovingAverage",
@@ -72,4 +73,5 @@ __all__ = [
     "ElderRayIndex",
     "RelativeVigorIndex",
     "CoppockCurve",
+    "KnowSureThing",
 ]
