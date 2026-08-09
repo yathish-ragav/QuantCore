@@ -452,3 +452,16 @@ def elder_ray(
         symbol,
         period,
     )
+
+@router.get("/rvi/{symbol}")
+def rvi(
+    symbol: str,
+    period: int = 10,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.rvi(
+        symbol,
+        period,
+    )

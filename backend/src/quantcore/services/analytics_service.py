@@ -35,6 +35,7 @@ from quantcore.analytics import (
     KlingerVolumeOscillator,
     ChaikinOscillator,
     ElderRayIndex,
+    RelativeVigorIndex,
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.price_repository import PriceRepository
@@ -1058,6 +1059,35 @@ class AnalyticsService:
                 "close": price.close,
                 "bull_power": value["bull_power"],
                 "bear_power": value["bear_power"],
+            }
+            for price, value in zip(prices, values)
+        ]
+
+    def rvi(
+        self,
+        symbol: str,
+        period: int = 10,
+    ):
+        prices = self._get_prices(symbol)
+
+        opens = [p.open for p in prices]
+        highs = [p.high for p in prices]
+        lows = [p.low for p in prices]
+        closes = [p.close for p in prices]
+
+        values = RelativeVigorIndex.calculate(
+            opens,
+            highs,
+            lows,
+            closes,
+            period,
+        )
+
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "rvi": value,
             }
             for price, value in zip(prices, values)
         ]

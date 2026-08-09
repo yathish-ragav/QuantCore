@@ -32,6 +32,7 @@ from .pvi import PositiveVolumeIndex
 from .kvo import KlingerVolumeOscillator
 from .chaikin_oscillator import ChaikinOscillator
 from .elder_ray import ElderRayIndex
+from .rvi import RelativeVigorIndex
 
 __all__ = [
     "MovingAverage",
@@ -68,5 +69,6 @@ __all__ = [
     "KlingerVolumeOscillator",
     "ChaikinOscillator",
     "ElderRayIndex",
+    "RelativeVigorIndex",
     
 ]
