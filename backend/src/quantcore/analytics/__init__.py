@@ -30,6 +30,7 @@ from .force_index import ForceIndex
 from .nvi import NegativeVolumeIndex
 from .pvi import PositiveVolumeIndex
 from .kvo import KlingerVolumeOscillator
+from .chaikin_oscillator import ChaikinOscillator
 
 __all__ = [
     "MovingAverage",
@@ -64,4 +65,5 @@ __all__ = [
     "NegativeVolumeIndex",
     "PositiveVolumeIndex",
     "KlingerVolumeOscillator",
+    "ChaikinOscillator",
 ]

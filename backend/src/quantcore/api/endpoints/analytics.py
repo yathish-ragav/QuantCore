@@ -424,3 +424,18 @@ def kvo(
         slow_period,
         signal_period,
     )
+
+@router.get("/chaikin-oscillator/{symbol}")
+def chaikin_oscillator(
+    symbol: str,
+    fast_period: int = 3,
+    slow_period: int = 10,
+    db: Session = Depends(get_db),
+):
+    service = AnalyticsService(db)
+
+    return service.chaikin_oscillator(
+        symbol,
+        fast_period,
+        slow_period,
+    )
