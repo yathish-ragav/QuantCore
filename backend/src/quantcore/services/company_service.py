@@ -17,23 +17,37 @@ class CompanyService:
 
         existing = self.repo.get_by_symbol(symbol)
 
-        if existing:
-            return self.repo.update(
-                company=existing,
-                name=data.name,
-                sector=data.sector,
-                industry=data.industry,
-                country=data.country,
-                website=data.website,
-                market_cap=data.market_cap,
-            )
+        try:
 
-        return self.repo.create(
-            symbol=data.symbol,
-            name=data.name,
-            sector=data.sector,
-            industry=data.industry,
-            country=data.country,
-            website=data.website,
-            market_cap=data.market_cap,
-        )
+            if existing:
+
+                company = self.repo.update(
+                    company=existing,
+                    name=data.name,
+                    sector=data.sector,
+                    industry=data.industry,
+                    country=data.country,
+                    website=data.website,
+                    market_cap=data.market_cap,
+                )
+
+            else:
+
+                company = self.repo.create(
+                    symbol=data.symbol,
+                    name=data.name,
+                    sector=data.sector,
+                    industry=data.industry,
+                    country=data.country,
+                    website=data.website,
+                    market_cap=data.market_cap,
+                )
+
+            self.db.commit()
+            self.db.refresh(company)
+
+            return company
+
+        except Exception:
+            self.db.rollback()
+            raise

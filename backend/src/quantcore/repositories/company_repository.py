@@ -36,8 +36,6 @@ class CompanyRepository:
         )
 
         self.db.add(company)
-        self.db.commit()
-        self.db.refresh(company)
 
         return company
 
@@ -57,8 +55,5 @@ class CompanyRepository:
         company.country = country
         company.website = website
         company.market_cap = market_cap
-
-        self.db.commit()
-        self.db.refresh(company)
 
         return company

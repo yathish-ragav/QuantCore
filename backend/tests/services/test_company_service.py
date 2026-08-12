@@ -71,6 +71,12 @@ def test_sync_company_creates_new_company():
 
     assert result == created_company
 
+    service.db.commit.assert_called_once()
+    service.db.refresh.assert_called_once_with(
+         created_company
+
+    )
+
 
 def test_sync_company_returns_existing_company():
 
@@ -117,6 +123,14 @@ def test_sync_company_returns_existing_company():
 
     assert result == updated_company
 
+    service.db.commit.assert_called_once()
+    service.db.refresh.assert_called_once_with(
+         updated_company
+
+    )
+
+    
+
 
 def test_sync_company_uses_requested_symbol():
 
@@ -144,3 +158,34 @@ def test_sync_company_uses_requested_symbol():
     service.client.get_company_info.assert_called_once_with(
         "MSFT"
     )
+
+
+
+def test_sync_company_rolls_back_on_error():
+
+    db = Mock()
+
+    service = CompanyService.__new__(CompanyService)
+
+    service.db = db
+    service.client = Mock()
+    service.repo = Mock()
+
+    service.client.get_company_info.return_value = (
+        make_company_data()
+    )
+
+    service.repo.get_by_symbol.return_value = None
+
+    service.repo.create.side_effect = (
+        RuntimeError("database error")
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="database error",
+    ):
+        service.sync_company("AAPL")
+
+    db.rollback.assert_called_once()
+    db.commit.assert_not_called()

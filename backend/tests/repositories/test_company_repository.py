@@ -59,13 +59,7 @@ def test_create_company():
         market_cap=3_000_000_000_000,
     )
 
-    db.add.assert_called_once()
-
-    db.commit.assert_called_once()
-
-    db.refresh.assert_called_once_with(
-        db.add.call_args[0][0]
-    )
+    db.add.assert_called_once_with(company)
 
     assert isinstance(company, Company)
 
@@ -76,6 +70,10 @@ def test_create_company():
     assert company.country == "United States"
     assert company.website == "https://www.apple.com"
     assert company.market_cap == 3_000_000_000_000
+
+    # Repository must not control the transaction.
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
 
 
 def test_update_company():
@@ -111,6 +109,6 @@ def test_update_company():
     assert company.website == "https://www.apple.com"
     assert company.market_cap == 3_000_000_000_000
 
-    db.commit.assert_called_once()
-
-    db.refresh.assert_called_once_with(company)
+    # Repository must not control the transaction.
+    db.commit.assert_not_called()
+    db.refresh.assert_not_called()
