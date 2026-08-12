@@ -4,6 +4,7 @@ from quantcore.models.company import Company
 
 
 class CompanyRepository:
+
     def __init__(self, db: Session):
         self.db = db
 
@@ -35,6 +36,28 @@ class CompanyRepository:
         )
 
         self.db.add(company)
+        self.db.commit()
+        self.db.refresh(company)
+
+        return company
+
+    def update(
+        self,
+        company: Company,
+        name: str,
+        sector: str,
+        industry: str,
+        country: str,
+        website: str,
+        market_cap: int | None,
+    ):
+        company.name = name
+        company.sector = sector
+        company.industry = industry
+        company.country = country
+        company.website = website
+        company.market_cap = market_cap
+
         self.db.commit()
         self.db.refresh(company)
 
