@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
@@ -6,6 +6,14 @@ from quantcore.db.database import Base
 
 class Security(Base):
     __tablename__ = "securities"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "symbol",
+            name="uq_security_company_symbol",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
