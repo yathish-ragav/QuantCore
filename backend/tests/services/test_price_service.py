@@ -24,21 +24,10 @@ def make_service():
 
         service.db = db
         service.client = provider
-        service.company_repo = Mock()
         service.security_repo = Mock()
         service.price_repo = Mock()
 
     return service, db, provider
-
-
-def make_company():
-
-    company = Mock()
-
-    company.id = 1
-    company.symbol = "AAPL"
-
-    return company
 
 
 def make_security():
@@ -78,15 +67,10 @@ def test_sync_price_history_inserts_new_prices():
 
     service, db, provider = make_service()
 
-    company = make_company()
     security = make_security()
     data = make_price_data()
 
-    service.company_repo.get_by_symbol.return_value = (
-        company
-    )
-
-    service.security_repo.get_by_company_and_symbol.return_value = (
+    service.security_repo.get_by_symbol.return_value = (
         security
     )
 
@@ -104,13 +88,18 @@ def test_sync_price_history_inserts_new_prices():
 
     assert result == 1
 
-    service.company_repo.get_by_symbol.assert_called_once_with(
+    service.security_repo.get_by_symbol.assert_called_once_with(
         "AAPL"
     )
 
-    service.security_repo.get_by_company_and_symbol.assert_called_once_with(
-        1,
+    provider.get_price_history.assert_called_once_with(
         "AAPL",
+        period="5y",
+    )
+
+    service.price_repo.get_by_security_and_date.assert_called_once_with(
+        10,
+        data.date,
     )
 
     service.price_repo.create.assert_called_once_with(
@@ -132,17 +121,12 @@ def test_sync_price_history_skips_existing_prices():
 
     service, db, provider = make_service()
 
-    company = make_company()
     security = make_security()
     data = make_price_data()
 
     existing_price = Mock()
 
-    service.company_repo.get_by_symbol.return_value = (
-        company
-    )
-
-    service.security_repo.get_by_company_and_symbol.return_value = (
+    service.security_repo.get_by_symbol.return_value = (
         security
     )
 
@@ -160,45 +144,25 @@ def test_sync_price_history_skips_existing_prices():
 
     assert result == 0
 
+    service.security_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
+
+    service.price_repo.get_by_security_and_date.assert_called_once_with(
+        10,
+        data.date,
+    )
+
     service.price_repo.create.assert_not_called()
 
     service.price_repo.commit.assert_called_once()
-
-
-def test_sync_price_history_company_not_found():
-
-    service, db, provider = make_service()
-
-    service.company_repo.get_by_symbol.return_value = None
-
-    with pytest.raises(
-        ValueError,
-        match="Company 'AAPL' not found",
-    ):
-        service.sync_price_history("AAPL")
-
-    provider.get_price_history.assert_not_called()
-
-    service.security_repo.get_by_company_and_symbol.assert_not_called()
-
-    service.price_repo.create.assert_not_called()
-
-    service.price_repo.commit.assert_not_called()
 
 
 def test_sync_price_history_security_not_found():
 
     service, db, provider = make_service()
 
-    company = make_company()
-
-    service.company_repo.get_by_symbol.return_value = (
-        company
-    )
-
-    service.security_repo.get_by_company_and_symbol.return_value = (
-        None
-    )
+    service.security_repo.get_by_symbol.return_value = None
 
     with pytest.raises(
         ValueError,
@@ -206,7 +170,13 @@ def test_sync_price_history_security_not_found():
     ):
         service.sync_price_history("AAPL")
 
+    service.security_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
+
     provider.get_price_history.assert_not_called()
+
+    service.price_repo.get_by_security_and_date.assert_not_called()
 
     service.price_repo.create.assert_not_called()
 
@@ -217,14 +187,9 @@ def test_sync_price_history_passes_period_to_provider():
 
     service, db, provider = make_service()
 
-    company = make_company()
     security = make_security()
 
-    service.company_repo.get_by_symbol.return_value = (
-        company
-    )
-
-    service.security_repo.get_by_company_and_symbol.return_value = (
+    service.security_repo.get_by_symbol.return_value = (
         security
     )
 
@@ -236,6 +201,10 @@ def test_sync_price_history_passes_period_to_provider():
     )
 
     assert result == 0
+
+    service.security_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
 
     provider.get_price_history.assert_called_once_with(
         "AAPL",
@@ -249,7 +218,6 @@ def test_get_price_history_returns_prices():
 
     service, db, provider = make_service()
 
-    company = make_company()
     security = make_security()
 
     prices = [
@@ -257,11 +225,7 @@ def test_get_price_history_returns_prices():
         Mock(),
     ]
 
-    service.company_repo.get_by_symbol.return_value = (
-        company
-    )
-
-    service.security_repo.get_by_company_and_symbol.return_value = (
+    service.security_repo.get_by_symbol.return_value = (
         security
     )
 
@@ -275,13 +239,8 @@ def test_get_price_history_returns_prices():
 
     assert result == prices
 
-    service.company_repo.get_by_symbol.assert_called_once_with(
+    service.security_repo.get_by_symbol.assert_called_once_with(
         "AAPL"
-    )
-
-    service.security_repo.get_by_company_and_symbol.assert_called_once_with(
-        1,
-        "AAPL",
     )
 
     service.price_repo.get_for_security.assert_called_once_with(
@@ -289,41 +248,20 @@ def test_get_price_history_returns_prices():
     )
 
 
-def test_get_price_history_company_not_found():
-
-    service, db, provider = make_service()
-
-    service.company_repo.get_by_symbol.return_value = None
-
-    with pytest.raises(
-        ValueError,
-        match="Company 'AAPL' not found",
-    ):
-        service.get_price_history("AAPL")
-
-    service.security_repo.get_by_company_and_symbol.assert_not_called()
-
-    service.price_repo.get_for_security.assert_not_called()
-
-
 def test_get_price_history_security_not_found():
 
     service, db, provider = make_service()
 
-    company = make_company()
-
-    service.company_repo.get_by_symbol.return_value = (
-        company
-    )
-
-    service.security_repo.get_by_company_and_symbol.return_value = (
-        None
-    )
+    service.security_repo.get_by_symbol.return_value = None
 
     with pytest.raises(
         ValueError,
         match="Security 'AAPL' not found",
     ):
         service.get_price_history("AAPL")
+
+    service.security_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
 
     service.price_repo.get_for_security.assert_not_called()
