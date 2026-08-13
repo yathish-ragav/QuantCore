@@ -43,10 +43,13 @@ class Company(Base):
         nullable=True,
     )
 
-    prices = relationship(
-        "Price",
+    
+
+    securities = relationship(
+        "Security",
         back_populates="company",
         cascade="all, delete-orphan",
+
     )
 
     news = relationship(

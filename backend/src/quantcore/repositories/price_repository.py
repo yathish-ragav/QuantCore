@@ -6,32 +6,41 @@ from quantcore.models.price import Price
 
 
 class PriceRepository:
+
     def __init__(self, db: Session):
         self.db = db
 
-    def get_for_company(self, company_id: int):
+    def get_for_security(
+        self,
+        security_id: int,
+    ):
         return (
             self.db.query(Price)
-            .filter(Price.company_id == company_id)
+            .filter(
+                Price.security_id == security_id
+            )
             .order_by(Price.date)
             .all()
         )
 
-    def get_by_company_and_date(
+    def get_by_security_and_date(
         self,
-        company_id: int,
+        security_id: int,
         date: datetime,
     ):
         return (
             self.db.query(Price)
             .filter(
-                Price.company_id == company_id,
+                Price.security_id == security_id,
                 Price.date == date,
             )
             .first()
         )
 
-    def create(self, **kwargs):
+    def create(
+        self,
+        **kwargs,
+    ):
         price = Price(**kwargs)
 
         self.db.add(price)

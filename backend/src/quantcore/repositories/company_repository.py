@@ -22,6 +22,34 @@ class CompanyRepository:
             .first()
         )
 
+    def get_by_ciks(
+        self,
+        ciks: list[str],
+    ) -> list[Company]:
+
+        if not ciks:
+            return []
+
+        return (
+            self.db.query(Company)
+            .filter(Company.cik.in_(ciks))
+            .all()
+        )
+
+    def get_by_symbols(
+        self,
+        symbols: list[str],
+    ) -> list[Company]:
+
+        if not symbols:
+            return []
+
+        return (
+            self.db.query(Company)
+            .filter(Company.symbol.in_(symbols))
+            .all()
+        )
+
     def create(
         self,
         symbol: str,

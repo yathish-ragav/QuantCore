@@ -17,14 +17,14 @@ class Price(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    company_id: Mapped[int] = mapped_column(
-        ForeignKey("companies.id"),
+    security_id: Mapped[int] = mapped_column(
+        ForeignKey("securities.id"),
         nullable=False,
         index=True,
     )
 
-    company = relationship(
-        "Company",
+    security = relationship(
+        "Security",
         back_populates="prices",
     )
 
@@ -55,8 +55,8 @@ class Price(Base):
 
 
 Index(
-    "ix_prices_company_date",
-    Price.company_id,
+    "ix_prices_security_date",
+    Price.security_id,
     Price.date,
     unique=True,
 )

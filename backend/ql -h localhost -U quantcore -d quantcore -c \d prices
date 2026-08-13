@@ -1,0 +1,22 @@
+                                      Table "public.companies"
+   Column   |          Type          | Collation | Nullable |                Default                
+------------+------------------------+-----------+----------+---------------------------------------
+ id         | integer                |           | not null | nextval('companies_id_seq'::regclass)
+ symbol     | character varying(10)  |           | not null | 
+ name       | character varying(255) |           | not null | 
+ sector     | character varying(255) |           | not null | 
+ industry   | character varying(255) |           | not null | 
+ country    | character varying(100) |           | not null | 
+ website    | character varying(500) |           | not null | 
+ market_cap | bigint                 |           |          | 
+ cik        | character varying(10)  |           | not null | 
+ exchange   | character varying(50)  |           | not null | 
+Indexes:
+    "companies_pkey" PRIMARY KEY, btree (id)
+    "ix_companies_cik" UNIQUE, btree (cik)
+    "ix_companies_symbol" UNIQUE, btree (symbol)
+Referenced by:
+    TABLE "income_statements" CONSTRAINT "income_statements_company_id_fkey" FOREIGN KEY (company_id) REFERENCES companies(id)
+    TABLE "news" CONSTRAINT "news_company_id_fkey" FOREIGN KEY (company_id) REFERENCES companies(id)
+    TABLE "prices" CONSTRAINT "prices_company_id_fkey" FOREIGN KEY (company_id) REFERENCES companies(id)
+
