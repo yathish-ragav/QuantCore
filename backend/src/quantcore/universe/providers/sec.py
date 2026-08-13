@@ -5,7 +5,7 @@ from quantcore.universe.models import UniverseCompany
 
 class SECUniverseProvider:
     """
-    Loads the SEC's ticker / CIK / exchange company universe.
+    Loads the SEC ticker / CIK / exchange company universe.
     """
 
     URL = (
@@ -30,21 +30,42 @@ class SECUniverseProvider:
 
         response.raise_for_status()
 
-        data = response.json()
+        payload = response.json()
+
+        fields = payload.get("fields")
+        rows = payload.get("data")
+
+        if fields != [
+            "cik",
+            "name",
+            "ticker",
+            "exchange",
+        ]:
+            raise ValueError(
+                "Unexpected SEC universe schema."
+            )
+
+        if not isinstance(rows, list):
+            raise ValueError(
+                "SEC universe data is not a list."
+            )
 
         companies = []
 
-        for item in data.values():
+        for row in rows:
 
-            cik = item.get("cik")
-            symbol = item.get("ticker")
-            name = item.get("name")
-            exchange = item.get("exchange")
+            if not isinstance(row, list):
+                continue
+
+            if len(row) != len(fields):
+                continue
+
+            cik, name, ticker, exchange = row
 
             if cik is None:
                 continue
 
-            if not symbol:
+            if not ticker:
                 continue
 
             if not name:
@@ -53,10 +74,10 @@ class SECUniverseProvider:
             companies.append(
                 UniverseCompany(
                     cik=f"{int(cik):010d}",
-                    symbol=symbol.upper().strip(),
-                    name=name.strip(),
+                    symbol=str(ticker).strip().upper(),
+                    name=str(name).strip(),
                     exchange=(
-                        exchange.strip()
+                        str(exchange).strip()
                         if exchange
                         else ""
                     ),
