@@ -1,4 +1,4 @@
-from unittest.mock import Mock
+from unittest.mock import Mock, call
 
 from quantcore.models.company import Company
 from quantcore.models.security import Security
@@ -290,3 +290,66 @@ def test_sync_rolls_back_on_error():
     db.commit.assert_not_called()
 
     service.security_repo.create.assert_not_called()
+
+
+def test_sync_creates_multiple_securities_for_same_cik():
+
+    service, db = make_service()
+
+    service.provider.fetch.return_value = [
+        make_company(
+            cik="0000320193",
+            symbol="AAPL",
+            name="Apple Inc.",
+            exchange="NASDAQ",
+        ),
+        make_company(
+            cik="0000320193",
+            symbol="AAPL-A",
+            name="Apple Inc.",
+            exchange="NASDAQ",
+        ),
+    ]
+
+    service.company_repo.get_by_ciks.return_value = []
+    service.company_repo.get_by_symbols.return_value = []
+
+    company = make_existing_company()
+
+    service.company_repo.create.return_value = company
+
+    service.security_repo.get_by_company_ids.return_value = []
+
+    result = service.sync()
+
+    assert result == 2
+
+    service.company_repo.create.assert_called_once_with(
+        cik="0000320193",
+        symbol="AAPL",
+        name="Apple Inc.",
+        exchange="NASDAQ",
+        sector="",
+        industry="",
+        country="",
+        website="",
+        market_cap=None,
+    )
+
+    assert service.security_repo.create.call_count == 2
+
+    assert service.security_repo.create.call_args_list == [
+        call(
+            company_id=1,
+            symbol="AAPL",
+            exchange="NASDAQ",
+        ),
+        call(
+            company_id=1,
+            symbol="AAPL-A",
+            exchange="NASDAQ",
+        ),
+    ]
+
+    db.flush.assert_called_once()
+    db.commit.assert_called_once()

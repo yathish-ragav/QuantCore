@@ -31,61 +31,91 @@ class UniverseService:
         try:
 
             # -------------------------------------------------
-            # 1. Load existing companies in bulk
+            # 1. Group SEC records by CIK
+            #
+            # One CIK = one Company
+            # Multiple symbols = multiple Securities
             # -------------------------------------------------
 
-            ciks = [
-                company.cik
-                for company in companies
-            ]
+            companies_by_cik: dict[
+                str,
+                list
+            ] = {}
+
+            for company in companies:
+                companies_by_cik.setdefault(
+                    company.cik,
+                    [],
+                ).append(company)
+
+            ciks = list(companies_by_cik.keys())
 
             symbols = [
                 company.symbol
                 for company in companies
             ]
 
+            # -------------------------------------------------
+            # 2. Load existing companies in bulk
+            # -------------------------------------------------
+
             existing_by_cik = {
                 company.cik: company
-                for company in self.company_repo.get_by_ciks(ciks)
+                for company in self.company_repo.get_by_ciks(
+                    ciks
+                )
             }
 
             existing_by_symbol = {
                 company.symbol: company
-                for company in self.company_repo.get_by_symbols(symbols)
+                for company in self.company_repo.get_by_symbols(
+                    symbols
+                )
             }
 
             # -------------------------------------------------
-            # 2. Reconcile companies in memory
+            # 3. Reconcile companies
+            #
+            # Only one Company is created per CIK.
             # -------------------------------------------------
 
-            synced_companies = []
+            synced_companies_by_cik = {}
 
-            for company in companies:
+            for cik, universe_companies in (
+                companies_by_cik.items()
+            ):
 
-                existing = existing_by_cik.get(
-                    company.cik
-                )
+                representative = universe_companies[0]
 
+                existing = existing_by_cik.get(cik)
+
+                # Fallback to symbol if CIK does not match.
                 if existing is None:
 
-                    existing = existing_by_symbol.get(
-                        company.symbol
-                    )
+                    for universe_company in (
+                        universe_companies
+                    ):
+                        existing = existing_by_symbol.get(
+                            universe_company.symbol
+                        )
+
+                        if existing is not None:
+                            break
 
                 if existing:
 
-                    existing.cik = company.cik
-                    existing.symbol = company.symbol
-                    existing.name = company.name
-                    existing.exchange = company.exchange
+                    existing.cik = cik
+                    existing.symbol = representative.symbol
+                    existing.name = representative.name
+                    existing.exchange = representative.exchange
 
                 else:
 
                     existing = self.company_repo.create(
-                        cik=company.cik,
-                        symbol=company.symbol,
-                        name=company.name,
-                        exchange=company.exchange,
+                        cik=cik,
+                        symbol=representative.symbol,
+                        name=representative.name,
+                        exchange=representative.exchange,
                         sector="",
                         industry="",
                         country="",
@@ -93,23 +123,23 @@ class UniverseService:
                         market_cap=None,
                     )
 
-                synced_companies.append(existing)
+                synced_companies_by_cik[cik] = existing
 
-                synced += 1
+                synced += len(universe_companies)
 
             # -------------------------------------------------
-            # 3. Assign IDs to newly-created companies
+            # 4. Assign IDs to newly-created companies
             # -------------------------------------------------
 
             self.db.flush()
 
             # -------------------------------------------------
-            # 4. Load all existing securities in bulk
+            # 5. Load existing securities in bulk
             # -------------------------------------------------
 
             company_ids = [
                 company.id
-                for company in synced_companies
+                for company in synced_companies_by_cik.values()
             ]
 
             securities = self.security_repo.get_by_company_ids(
@@ -125,13 +155,14 @@ class UniverseService:
             }
 
             # -------------------------------------------------
-            # 5. Reconcile securities in memory
+            # 6. Reconcile securities
             # -------------------------------------------------
 
-            for universe_company, company in zip(
-                companies,
-                synced_companies,
-            ):
+            for universe_company in companies:
+
+                company = synced_companies_by_cik[
+                    universe_company.cik
+                ]
 
                 key = (
                     company.id,
@@ -142,7 +173,7 @@ class UniverseService:
 
                 if security is None:
 
-                    security = self.security_repo.create(
+                    self.security_repo.create(
                         company_id=company.id,
                         symbol=universe_company.symbol,
                         exchange=universe_company.exchange,
@@ -154,7 +185,7 @@ class UniverseService:
                     security.exchange = universe_company.exchange
 
             # -------------------------------------------------
-            # 6. Commit entire universe transaction
+            # 7. Commit entire universe transaction
             # -------------------------------------------------
 
             self.db.commit()

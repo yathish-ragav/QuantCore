@@ -5,16 +5,16 @@ def normalize_companies(
     companies: list[UniverseCompany],
 ) -> list[UniverseCompany]:
 
-    normalized: dict[str, UniverseCompany] = {}
+    normalized: dict[
+        tuple[str, str],
+        UniverseCompany,
+    ] = {}
 
     for company in companies:
 
         symbol = company.symbol.strip().upper()
-
         cik = company.cik.strip()
-
         name = company.name.strip()
-
         exchange = company.exchange.strip().upper()
 
         if not symbol:
@@ -26,7 +26,9 @@ def normalize_companies(
         if not name:
             continue
 
-        normalized[symbol] = UniverseCompany(
+        key = (cik, symbol)
+
+        normalized[key] = UniverseCompany(
             cik=cik,
             symbol=symbol,
             name=name,
