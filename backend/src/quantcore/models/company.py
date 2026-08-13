@@ -9,6 +9,13 @@ class Company(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
+    cik: Mapped[str] = mapped_column(
+        String(10),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+
     symbol: Mapped[str] = mapped_column(
         String(10),
         unique=True,
@@ -17,6 +24,11 @@ class Company(Base):
     )
 
     name: Mapped[str] = mapped_column(String(255))
+
+    exchange: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
 
     sector: Mapped[str] = mapped_column(String(255))
 
@@ -38,15 +50,13 @@ class Company(Base):
     )
 
     news = relationship(
-    "News",
-    back_populates="company",
-    cascade="all, delete-orphan",
-    
+        "News",
+        back_populates="company",
+        cascade="all, delete-orphan",
     )
 
     income_statements = relationship(
-    "IncomeStatement",
-    back_populates="company",
-    cascade="all, delete-orphan",
-    
+        "IncomeStatement",
+        back_populates="company",
+        cascade="all, delete-orphan",
     )

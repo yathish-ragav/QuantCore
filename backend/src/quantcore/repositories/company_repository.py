@@ -15,6 +15,13 @@ class CompanyRepository:
             .first()
         )
 
+    def get_by_cik(self, cik: str):
+        return (
+            self.db.query(Company)
+            .filter(Company.cik == cik)
+            .first()
+        )
+
     def create(
         self,
         symbol: str,
@@ -24,8 +31,11 @@ class CompanyRepository:
         country: str,
         website: str,
         market_cap: int | None,
+        cik: str = "",
+        exchange: str = "",
     ):
         company = Company(
+            cik=cik,
             symbol=symbol,
             name=name,
             sector=sector,
@@ -33,6 +43,7 @@ class CompanyRepository:
             country=country,
             website=website,
             market_cap=market_cap,
+            exchange=exchange,
         )
 
         self.db.add(company)
@@ -48,6 +59,8 @@ class CompanyRepository:
         country: str,
         website: str,
         market_cap: int | None,
+        cik: str | None = None,
+        exchange: str | None = None,
     ):
         company.name = name
         company.sector = sector
@@ -55,5 +68,11 @@ class CompanyRepository:
         company.country = country
         company.website = website
         company.market_cap = market_cap
+
+        if cik is not None:
+            company.cik = cik
+
+        if exchange is not None:
+            company.exchange = exchange
 
         return company
