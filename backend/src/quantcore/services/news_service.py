@@ -16,6 +16,28 @@ class NewsService:
         self.company_repo = CompanyRepository(db)
         self.news_repo = NewsRepository(db)
 
+    def get_news(self, symbol: str):
+
+        symbol = DataCleaner.clean_symbol(symbol)
+
+        if not symbol:
+            raise ValueError(
+                "Symbol must not be empty."
+            )
+
+        company = self.company_repo.get_by_symbol(
+            symbol
+        )
+
+        if company is None:
+            raise ValueError(
+                f"{symbol} not found in database."
+            )
+
+        return self.news_repo.get_for_company(
+            company.id
+        )
+
     def sync_news(self, symbol: str):
 
         symbol = DataCleaner.clean_symbol(symbol)

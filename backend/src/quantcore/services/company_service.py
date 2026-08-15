@@ -4,8 +4,8 @@ from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
-from quantcore.repositories.security_repository import SecurityRepository
 from quantcore.repositories.company_repository import CompanyRepository
+from quantcore.repositories.security_repository import SecurityRepository
 
 
 class CompanyService:
@@ -17,7 +17,42 @@ class CompanyService:
         self.security_repo = SecurityRepository(db)
         self.company_repo = CompanyRepository(db)
 
-    def sync_company(self, symbol: str):
+    def get_company(
+        self,
+        symbol: str,
+    ):
+
+        symbol = DataCleaner.clean_symbol(symbol)
+
+        if not symbol:
+            raise ValueError(
+                "Symbol must not be empty."
+            )
+
+        security = self.security_repo.get_by_symbol(
+            symbol
+        )
+
+        if security is None:
+            raise ValueError(
+                f"Security '{symbol}' not found. "
+                "Run universe sync first."
+            )
+
+        company = security.company
+
+        if company is None:
+            raise ValueError(
+                f"Company for security '{symbol}' "
+                "not found."
+            )
+
+        return company
+
+    def sync_company(
+        self,
+        symbol: str,
+    ):
 
         try:
             symbol = DataCleaner.clean_symbol(symbol)

@@ -50,6 +50,127 @@ def make_article(
     )
 
 
+# ------------------------------------------------------------------
+# GET NEWS
+# ------------------------------------------------------------------
+
+
+def test_get_news_returns_company_articles():
+
+    service, db = make_service()
+
+    company = make_company()
+
+    articles = [
+        Mock(),
+        Mock(),
+    ]
+
+    service.company_repo.get_by_symbol.return_value = (
+        company
+    )
+
+    service.news_repo.get_for_company.return_value = (
+        articles
+    )
+
+    result = service.get_news("AAPL")
+
+    assert result == articles
+
+    service.company_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
+
+    service.news_repo.get_for_company.assert_called_once_with(
+        1
+    )
+
+    service.client.get_news.assert_not_called()
+
+    service.news_repo.commit.assert_not_called()
+
+
+def test_get_news_normalizes_symbol():
+
+    service, db = make_service()
+
+    company = make_company()
+
+    service.company_repo.get_by_symbol.return_value = (
+        company
+    )
+
+    service.news_repo.get_for_company.return_value = []
+
+    result = service.get_news("aapl")
+
+    assert result == []
+
+    service.company_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
+
+    service.news_repo.get_for_company.assert_called_once_with(
+        1
+    )
+
+    service.client.get_news.assert_not_called()
+
+
+def test_get_news_company_not_found():
+
+    service, db = make_service()
+
+    service.company_repo.get_by_symbol.return_value = (
+        None
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="AAPL not found in database.",
+    ):
+        service.get_news("AAPL")
+
+    service.company_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
+
+    service.news_repo.get_for_company.assert_not_called()
+
+    service.client.get_news.assert_not_called()
+
+    service.news_repo.commit.assert_not_called()
+
+
+def test_get_news_empty_result():
+
+    service, db = make_service()
+
+    company = make_company()
+
+    service.company_repo.get_by_symbol.return_value = (
+        company
+    )
+
+    service.news_repo.get_for_company.return_value = []
+
+    result = service.get_news("AAPL")
+
+    assert result == []
+
+    service.news_repo.get_for_company.assert_called_once_with(
+        1
+    )
+
+    service.client.get_news.assert_not_called()
+
+
+# ------------------------------------------------------------------
+# SYNC NEWS
+# ------------------------------------------------------------------
+
+
 def test_sync_news_inserts_new_articles():
 
     service, db = make_service()

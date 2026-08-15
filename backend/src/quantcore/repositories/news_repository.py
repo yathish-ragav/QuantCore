@@ -7,18 +7,27 @@ from quantcore.models.news import News
 
 
 class NewsRepository:
+
     def __init__(self, db: Session):
         self.db = db
 
     def create(self, **kwargs) -> News:
         article = News(**kwargs)
+
         self.db.add(article)
+
         return article
 
-    def get_by_url(self, url: str) -> News | None:
+    def get_by_url(
+        self,
+        url: str,
+    ) -> News | None:
+
         stmt = (
             select(News)
-            .where(News.url == url)
+            .where(
+                News.url == url
+            )
         )
 
         return self.db.scalar(stmt)
@@ -38,6 +47,25 @@ class NewsRepository:
         )
 
         return self.db.scalar(stmt)
+
+    def get_for_company(
+        self,
+        company_id: int,
+    ) -> list[News]:
+
+        stmt = (
+            select(News)
+            .where(
+                News.company_id == company_id
+            )
+            .order_by(
+                News.published_at.desc()
+            )
+        )
+
+        return list(
+            self.db.scalars(stmt).all()
+        )
 
     def commit(self):
         self.db.commit()

@@ -19,31 +19,33 @@ def make_company():
     company.industry = "Consumer Electronics"
     company.country = "United States"
     company.website = "https://www.apple.com"
-    company.market_cap = 3_000_000_000_000
+    company.market_cap = 3000000000000
 
     return company
 
 
-@patch(
-    "quantcore.api.endpoints.companies.CompanyService"
-)
-def test_get_company_returns_company_data(
-    mock_service,
-):
+def test_get_company_returns_company_data():
+
     company = make_company()
 
-    service = Mock()
-    service.sync_company.return_value = company
+    with patch(
+        "quantcore.api.endpoints.companies.CompanyService"
+    ) as mock_service:
 
-    mock_service.return_value = service
+        service = Mock()
+        service.get_company.return_value = company
 
-    response = client.get(
-        "/companies/AAPL"
-    )
+        mock_service.return_value = service
+
+        response = client.get(
+            "/companies/AAPL"
+        )
 
     assert response.status_code == 200
 
-    assert response.json() == {
+    data = response.json()
+
+    assert data == {
         "id": 1,
         "symbol": "AAPL",
         "name": "Apple Inc.",
@@ -51,7 +53,127 @@ def test_get_company_returns_company_data(
         "industry": "Consumer Electronics",
         "country": "United States",
         "website": "https://www.apple.com",
-        "market_cap": 3_000_000_000_000,
+        "market_cap": 3000000000000,
+    }
+
+    service.get_company.assert_called_once_with(
+        "AAPL"
+    )
+
+
+def test_get_company_normalizes_lowercase_symbol():
+
+    company = make_company()
+
+    with patch(
+        "quantcore.api.endpoints.companies.CompanyService"
+    ) as mock_service:
+
+        service = Mock()
+        service.get_company.return_value = company
+
+        mock_service.return_value = service
+
+        response = client.get(
+            "/companies/aapl"
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["symbol"] == "AAPL"
+
+    service.get_company.assert_called_once_with(
+        "aapl"
+    )
+
+
+def test_get_company_normalizes_mixed_case_symbol():
+
+    company = make_company()
+
+    with patch(
+        "quantcore.api.endpoints.companies.CompanyService"
+    ) as mock_service:
+
+        service = Mock()
+        service.get_company.return_value = company
+
+        mock_service.return_value = service
+
+        response = client.get(
+            "/companies/aApL"
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["symbol"] == "AAPL"
+
+    service.get_company.assert_called_once_with(
+        "aApL"
+    )
+
+
+def test_get_company_propagates_service_error():
+
+    with patch(
+        "quantcore.api.endpoints.companies.CompanyService"
+    ) as mock_service:
+
+        service = Mock()
+
+        service.get_company.side_effect = ValueError(
+            "Company not found"
+        )
+
+        mock_service.return_value = service
+
+        with pytest.raises(
+            ValueError,
+            match="Company not found",
+        ):
+            client.get(
+                "/companies/AAPL"
+            )
+
+        service.get_company.assert_called_once_with(
+            "AAPL"
+        )
+
+
+def test_sync_company_returns_company_data():
+
+    company = make_company()
+
+    with patch(
+        "quantcore.api.endpoints.companies.CompanyService"
+    ) as mock_service:
+
+        service = Mock()
+        service.sync_company.return_value = company
+
+        mock_service.return_value = service
+
+        response = client.post(
+            "/companies/AAPL/sync"
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data == {
+        "id": 1,
+        "symbol": "AAPL",
+        "name": "Apple Inc.",
+        "sector": "Technology",
+        "industry": "Consumer Electronics",
+        "country": "United States",
+        "website": "https://www.apple.com",
+        "market_cap": 3000000000000,
     }
 
     service.sync_company.assert_called_once_with(
@@ -59,76 +181,56 @@ def test_get_company_returns_company_data(
     )
 
 
-@patch(
-    "quantcore.api.endpoints.companies.CompanyService"
-)
-def test_get_company_normalizes_lowercase_symbol(
-    mock_service,
-):
+def test_sync_company_normalizes_lowercase_symbol():
+
     company = make_company()
 
-    service = Mock()
-    service.sync_company.return_value = company
+    with patch(
+        "quantcore.api.endpoints.companies.CompanyService"
+    ) as mock_service:
 
-    mock_service.return_value = service
+        service = Mock()
+        service.sync_company.return_value = company
 
-    response = client.get(
-        "/companies/aapl"
-    )
+        mock_service.return_value = service
 
-    assert response.status_code == 200
-
-    service.sync_company.assert_called_once_with(
-        "AAPL"
-    )
-
-
-@patch(
-    "quantcore.api.endpoints.companies.CompanyService"
-)
-def test_get_company_normalizes_mixed_case_symbol(
-    mock_service,
-):
-    company = make_company()
-
-    service = Mock()
-    service.sync_company.return_value = company
-
-    mock_service.return_value = service
-
-    response = client.get(
-        "/companies/aApL"
-    )
-
-    assert response.status_code == 200
-
-    service.sync_company.assert_called_once_with(
-        "AAPL"
-    )
-
-
-@patch(
-    "quantcore.api.endpoints.companies.CompanyService"
-)
-def test_get_company_propagates_service_error(
-    mock_service,
-):
-    service = Mock()
-
-    service.sync_company.side_effect = ValueError(
-        "Company not found"
-    )
-
-    mock_service.return_value = service
-
-    with pytest.raises(
-        ValueError,
-        match="Company not found",
-    ):
-        client.get(
-            "/companies/AAPL"
+        response = client.post(
+            "/companies/aapl/sync"
         )
 
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["symbol"] == "AAPL"
+
     service.sync_company.assert_called_once_with(
-        "AAPL"
+        "aapl"
     )
+
+
+def test_sync_company_propagates_service_error():
+
+    with patch(
+        "quantcore.api.endpoints.companies.CompanyService"
+    ) as mock_service:
+
+        service = Mock()
+
+        service.sync_company.side_effect = ValueError(
+            "Company not found"
+        )
+
+        mock_service.return_value = service
+
+        with pytest.raises(
+            ValueError,
+            match="Company not found",
+        ):
+            client.post(
+                "/companies/AAPL/sync"
+            )
+
+        service.sync_company.assert_called_once_with(
+            "AAPL"
+        )

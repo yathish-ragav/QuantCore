@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from quantcore.db.database import get_db
 from quantcore.services.company_service import CompanyService
 
+
 router = APIRouter(
     prefix="/companies",
 )
@@ -17,13 +18,45 @@ def get_company(
 
     service = CompanyService(db)
 
-    company = service.sync_company(
-        symbol.upper()
+    company = service.get_company(
+        symbol
+    )
+
+    normalized_symbol = (
+        symbol.strip().upper()
     )
 
     return {
         "id": company.id,
-        "symbol": company.symbol,
+        "symbol": normalized_symbol,
+        "name": company.name,
+        "sector": company.sector,
+        "industry": company.industry,
+        "country": company.country,
+        "website": company.website,
+        "market_cap": company.market_cap,
+    }
+
+
+@router.post("/{symbol}/sync")
+def sync_company(
+    symbol: str,
+    db: Session = Depends(get_db),
+):
+
+    service = CompanyService(db)
+
+    company = service.sync_company(
+        symbol
+    )
+
+    normalized_symbol = (
+        symbol.strip().upper()
+    )
+
+    return {
+        "id": company.id,
+        "symbol": normalized_symbol,
         "name": company.name,
         "sector": company.sector,
         "industry": company.industry,
