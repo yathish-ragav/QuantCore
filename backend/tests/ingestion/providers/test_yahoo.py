@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pandas as pd
@@ -9,6 +10,7 @@ from quantcore.schemas.price import PriceData
 
 
 def test_yahoo_get_company_info():
+
     fake_ticker = Mock()
 
     fake_ticker.info = {
@@ -41,6 +43,7 @@ def test_yahoo_get_company_info():
 
 
 def test_yahoo_get_company_info_missing_fields():
+
     fake_ticker = Mock()
 
     fake_ticker.info = {
@@ -65,6 +68,7 @@ def test_yahoo_get_company_info_missing_fields():
 
 
 def test_yahoo_get_price_history():
+
     fake_ticker = Mock()
 
     dates = pd.to_datetime(
@@ -100,6 +104,7 @@ def test_yahoo_get_price_history():
         )
 
     mock_ticker.assert_called_once_with("AAPL")
+
     fake_ticker.history.assert_called_once_with(
         period="5y"
     )
@@ -111,6 +116,7 @@ def test_yahoo_get_price_history():
         for price in result
     )
 
+    assert result[0].date == dates[0].to_pydatetime()
     assert result[0].open == 100.0
     assert result[0].high == 110.0
     assert result[0].low == 95.0
@@ -119,13 +125,16 @@ def test_yahoo_get_price_history():
     assert result[0].dividends == 0.0
     assert result[0].stock_splits == 0.0
 
+    assert result[1].date == dates[1].to_pydatetime()
     assert result[1].open == 105.0
     assert result[1].close == 112.0
     assert result[1].volume == 1200000
     assert result[1].dividends == 0.25
+    assert result[1].stock_splits == 0.0
 
 
 def test_yahoo_get_price_history_empty():
+
     fake_ticker = Mock()
 
     fake_ticker.history.return_value = pd.DataFrame()
@@ -140,14 +149,19 @@ def test_yahoo_get_price_history_empty():
 
 
 def test_yahoo_get_news():
+
     fake_ticker = Mock()
+
+    published_timestamp = 1735819200000
 
     fake_ticker.news = [
         {
             "content": {
                 "title": "Apple reports strong results",
-                "summary": "Apple reported strong quarterly results.",
-                "pubDate": "2025-01-02T12:00:00Z",
+                "summary": (
+                    "Apple reported strong quarterly results."
+                ),
+                "pubDate": published_timestamp,
                 "provider": {
                     "displayName": "Example News"
                 },
@@ -170,13 +184,24 @@ def test_yahoo_get_news():
     assert len(result) == 1
     assert isinstance(result[0], NewsData)
 
-    assert result[0].title == "Apple reports strong results"
-    assert result[0].publisher == "Example News"
-    assert (
-        result[0].summary
-        == "Apple reported strong quarterly results."
+    assert result[0].title == (
+        "Apple reports strong results"
     )
-    assert (
-        result[0].url
-        == "https://example.com/apple"
+
+    assert result[0].publisher == (
+        "Example News"
+    )
+
+    assert result[0].summary == (
+        "Apple reported strong quarterly results."
+    )
+
+    assert result[0].url == (
+        "https://example.com/apple"
+    )
+
+    assert result[0].published_at == (
+        datetime.fromtimestamp(
+            published_timestamp / 1000
+        )
     )

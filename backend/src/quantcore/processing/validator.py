@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from math import isfinite
 
 
@@ -158,6 +158,65 @@ class DataValidator:
         return True
 
     @staticmethod
+    def validate_income_statement(data) -> bool:
+        if not data:
+            return False
+
+        fiscal_date = getattr(
+            data,
+            "fiscal_date",
+            None,
+        )
+
+        if not isinstance(fiscal_date, date):
+            return False
+
+        numeric_fields = [
+            "total_revenue",
+            "gross_profit",
+            "operating_income",
+            "net_income",
+            "eps",
+        ]
+
+        for field in numeric_fields:
+            value = getattr(
+                data,
+                field,
+                None,
+            )
+
+            if value is None:
+                continue
+
+            if not isinstance(
+                value,
+                (int, float),
+            ):
+                return False
+
+            if not isfinite(value):
+                return False
+
+        shares_outstanding = getattr(
+            data,
+            "shares_outstanding",
+            None,
+        )
+
+        if shares_outstanding is not None:
+            if not isinstance(
+                shares_outstanding,
+                int,
+            ):
+                return False
+
+            if shares_outstanding < 0:
+                return False
+
+        return True
+
+    @staticmethod
     def validate_prices(data) -> bool:
         if data is None:
             return False
@@ -181,6 +240,21 @@ class DataValidator:
         return all(
             DataValidator.validate_news(article)
             for article in data
+        )
+
+    @staticmethod
+    def validate_income_statements(data) -> bool:
+        if data is None:
+            return False
+
+        if not isinstance(data, list):
+            return False
+
+        return all(
+            DataValidator.validate_income_statement(
+                statement
+            )
+            for statement in data
         )
 
     @staticmethod

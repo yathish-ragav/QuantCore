@@ -1,4 +1,5 @@
 from quantcore.schemas.company import CompanyData
+from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
 
@@ -14,7 +15,8 @@ class DataTransformer:
             return CompanyData.model_validate(data)
 
         raise TypeError(
-            "Company data must be a CompanyData instance or dictionary."
+            "Company data must be a CompanyData instance "
+            "or dictionary."
         )
 
     @staticmethod
@@ -26,7 +28,8 @@ class DataTransformer:
             return PriceData.model_validate(data)
 
         raise TypeError(
-            "Price data must be a PriceData instance or dictionary."
+            "Price data must be a PriceData instance "
+            "or dictionary."
         )
 
     @staticmethod
@@ -38,11 +41,33 @@ class DataTransformer:
             return NewsData.model_validate(data)
 
         raise TypeError(
-            "News data must be a NewsData instance or dictionary."
+            "News data must be a NewsData instance "
+            "or dictionary."
         )
 
     @staticmethod
-    def companies(data) -> list[CompanyData]:
+    def income_statement(
+        data,
+    ) -> IncomeStatementData:
+
+        if isinstance(data, IncomeStatementData):
+            return data
+
+        if isinstance(data, dict):
+            return IncomeStatementData.model_validate(
+                data
+            )
+
+        raise TypeError(
+            "Income statement data must be an "
+            "IncomeStatementData instance or dictionary."
+        )
+
+    @staticmethod
+    def companies(
+        data,
+    ) -> list[CompanyData]:
+
         if not isinstance(data, list):
             raise TypeError(
                 "Company data must be a list."
@@ -54,7 +79,10 @@ class DataTransformer:
         ]
 
     @staticmethod
-    def prices(data) -> list[PriceData]:
+    def prices(
+        data,
+    ) -> list[PriceData]:
+
         if not isinstance(data, list):
             raise TypeError(
                 "Price data must be a list."
@@ -66,7 +94,10 @@ class DataTransformer:
         ]
 
     @staticmethod
-    def news_articles(data) -> list[NewsData]:
+    def news_articles(
+        data,
+    ) -> list[NewsData]:
+
         if not isinstance(data, list):
             raise TypeError(
                 "News data must be a list."
@@ -74,5 +105,20 @@ class DataTransformer:
 
         return [
             DataTransformer.news(item)
+            for item in data
+        ]
+
+    @staticmethod
+    def income_statements(
+        data,
+    ) -> list[IncomeStatementData]:
+
+        if not isinstance(data, list):
+            raise TypeError(
+                "Income statement data must be a list."
+            )
+
+        return [
+            DataTransformer.income_statement(item)
             for item in data
         ]

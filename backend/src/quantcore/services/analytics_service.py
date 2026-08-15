@@ -39,26 +39,31 @@ from quantcore.analytics import (
     CoppockCurve,
     KnowSureThing
 )
-from quantcore.repositories.company_repository import CompanyRepository
+
 from quantcore.repositories.price_repository import PriceRepository
+from quantcore.repositories.security_repository import SecurityRepository
 
 
 class AnalyticsService:
 
     def __init__(self, db: Session):
-        self.company_repo = CompanyRepository(db)
+        self.security_repo = SecurityRepository(db)
         self.price_repo = PriceRepository(db)
 
     def _get_prices(self, symbol: str):
 
-        company = self.company_repo.get_by_symbol(symbol)
+        security = self.security_repo.get_by_symbol(
+            symbol
+        )
 
-        if company is None:
+        if security is None:
             raise ValueError(
                 f"{symbol} not found."
             )
 
-        return self.price_repo.get_for_company(company.id)
+        return self.price_repo.get_for_security(
+            security.id
+        )
 
     def sma(
         self,
@@ -788,12 +793,7 @@ class AnalyticsService:
             symbol: str,
             period: int = 14,
     ):
-        company = self.company_repo.get_by_symbol(symbol)
-
-        if company is None:
-            raise ValueError(f"{symbol} not found.")
-
-        prices = self.price_repo.get_for_company(company.id)
+        prices = self._get_prices(symbol)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -824,12 +824,7 @@ class AnalyticsService:
         self,
         symbol: str,
     ):
-        company = self.company_repo.get_by_symbol(symbol)
-
-        if company is None:
-            raise ValueError(f"{symbol} not found.")
-
-        prices = self.price_repo.get_for_company(company.id)
+        prices = self._get_prices(symbol)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -860,12 +855,7 @@ class AnalyticsService:
         self,
         symbol: str,
     ):
-        company = self.company_repo.get_by_symbol(symbol)
-
-        if company is None:
-            raise ValueError(f"{symbol} not found.")
-
-        prices = self.price_repo.get_for_company(company.id)
+        prices = self._get_prices(symbol)
 
         closes = [p.close for p in prices]
         volumes = [p.volume for p in prices]
@@ -892,12 +882,7 @@ class AnalyticsService:
         self,
         symbol: str,
     ):
-        company = self.company_repo.get_by_symbol(symbol)
-
-        if company is None:
-            raise ValueError(f"{symbol} not found.")
-
-        prices = self.price_repo.get_for_company(company.id)
+        prices = self._get_prices(symbol)
 
         closes = [p.close for p in prices]
         volumes = [p.volume for p in prices]
@@ -924,12 +909,7 @@ class AnalyticsService:
         self,
         symbol: str,
     ):
-        company = self.company_repo.get_by_symbol(symbol)
-
-        if company is None:
-            raise ValueError(f"{symbol} not found.")
-
-        prices = self.price_repo.get_for_company(company.id)
+        prices = self._get_prices(symbol)
 
         closes = [p.close for p in prices]
         volumes = [p.volume for p in prices]
@@ -960,12 +940,7 @@ class AnalyticsService:
         slow_period: int = 55,
         signal_period: int = 13,
     ):
-        company = self.company_repo.get_by_symbol(symbol)
-
-        if company is None:
-            raise ValueError(f"{symbol} not found.")
-
-        prices = self.price_repo.get_for_company(company.id)
+        prices = self._get_prices(symbol)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -1002,12 +977,7 @@ class AnalyticsService:
         fast_period: int = 3,
         slow_period: int = 10,
     ):
-        company = self.company_repo.get_by_symbol(symbol)
-
-        if company is None:
-            raise ValueError(f"{symbol} not found.")
-
-        prices = self.price_repo.get_for_company(company.id)
+        prices = self._get_prices(symbol)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]

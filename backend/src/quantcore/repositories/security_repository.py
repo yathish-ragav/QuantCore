@@ -44,7 +44,9 @@ class SecurityRepository:
 
         return (
             self.db.query(Security)
-            .filter(Security.company_id.in_(company_ids))
+            .filter(
+                Security.company_id.in_(company_ids)
+            )
             .all()
         )
 

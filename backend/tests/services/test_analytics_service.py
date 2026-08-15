@@ -33,7 +33,7 @@ def make_service():
         AnalyticsService
     )
 
-    service.company_repo = Mock()
+    service.security_repo = Mock()
     service.price_repo = Mock()
 
     return service, db
@@ -65,16 +65,17 @@ def setup_service():
 
     service, db = make_service()
 
-    company = Mock()
-    company.id = 1
-    company.symbol = "AAPL"
+    security = Mock()
+    security.id = 10
+    security.symbol = "AAPL"
+    security.company_id = 1
 
     prices = make_prices()
 
-    service.company_repo.get_by_symbol.return_value = company
-    service.price_repo.get_for_company.return_value = prices
+    service.security_repo.get_by_symbol.return_value = security
+    service.price_repo.get_for_security.return_value = prices
 
-    return service, db, company, prices
+    return service, db, security, prices
 
 
 # ------------------------------------------------------------------
@@ -82,28 +83,28 @@ def setup_service():
 # ------------------------------------------------------------------
 
 
-def test_get_prices_returns_company_prices():
+def test_get_prices_returns_security_prices():
 
-    service, db, company, prices = setup_service()
+    service, db, security, prices = setup_service()
 
     result = service._get_prices("AAPL")
 
     assert result == prices
 
-    service.company_repo.get_by_symbol.assert_called_once_with(
+    service.security_repo.get_by_symbol.assert_called_once_with(
         "AAPL"
     )
 
-    service.price_repo.get_for_company.assert_called_once_with(
-        1
+    service.price_repo.get_for_security.assert_called_once_with(
+        10
     )
 
 
-def test_get_prices_company_not_found():
+def test_get_prices_security_not_found():
 
     service, db = make_service()
 
-    service.company_repo.get_by_symbol.return_value = None
+    service.security_repo.get_by_symbol.return_value = None
 
     with pytest.raises(
         ValueError,
@@ -111,7 +112,7 @@ def test_get_prices_company_not_found():
     ):
         service._get_prices("AAPL")
 
-    service.price_repo.get_for_company.assert_not_called()
+    service.price_repo.get_for_security.assert_not_called()
 
 
 # ------------------------------------------------------------------

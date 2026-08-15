@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 
 from quantcore.schemas.company import CompanyData
+from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
 
@@ -28,7 +29,9 @@ class DataCleaner:
             return ""
 
         if not isinstance(value, str):
-            raise TypeError("Text value must be a string or None.")
+            raise TypeError(
+                "Text value must be a string or None."
+            )
 
         return re.sub(
             r"\s+",
@@ -80,4 +83,43 @@ class DataCleaner:
             volume=int(data.volume),
             dividends=float(data.dividends),
             stock_splits=float(data.stock_splits),
+        )
+
+    @staticmethod
+    def clean_income_statement(
+        data: IncomeStatementData,
+    ) -> IncomeStatementData:
+
+        return IncomeStatementData(
+            fiscal_date=data.fiscal_date,
+            total_revenue=(
+                float(data.total_revenue)
+                if data.total_revenue is not None
+                else None
+            ),
+            gross_profit=(
+                float(data.gross_profit)
+                if data.gross_profit is not None
+                else None
+            ),
+            operating_income=(
+                float(data.operating_income)
+                if data.operating_income is not None
+                else None
+            ),
+            net_income=(
+                float(data.net_income)
+                if data.net_income is not None
+                else None
+            ),
+            eps=(
+                float(data.eps)
+                if data.eps is not None
+                else None
+            ),
+            shares_outstanding=(
+                int(data.shares_outstanding)
+                if data.shares_outstanding is not None
+                else None
+            ),
         )

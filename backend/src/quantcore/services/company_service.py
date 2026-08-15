@@ -4,6 +4,7 @@ from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
+from quantcore.repositories.security_repository import SecurityRepository
 from quantcore.repositories.company_repository import CompanyRepository
 
 
@@ -12,7 +13,9 @@ class CompanyService:
     def __init__(self, db: Session):
         self.db = db
         self.client = ProviderFactory.get_provider()
-        self.repo = CompanyRepository(db)
+
+        self.security_repo = SecurityRepository(db)
+        self.company_repo = CompanyRepository(db)
 
     def sync_company(self, symbol: str):
 
@@ -22,6 +25,24 @@ class CompanyService:
             if not symbol:
                 raise ValueError(
                     "Symbol must not be empty."
+                )
+
+            security = self.security_repo.get_by_symbol(
+                symbol
+            )
+
+            if security is None:
+                raise ValueError(
+                    f"Security '{symbol}' not found. "
+                    "Run universe sync first."
+                )
+
+            company = security.company
+
+            if company is None:
+                raise ValueError(
+                    f"Company for security '{symbol}' "
+                    "not found."
                 )
 
             raw_data = self.client.get_company_info(
@@ -50,33 +71,15 @@ class CompanyService:
                     f"symbol '{symbol}'."
                 )
 
-            existing = self.repo.get_by_symbol(
-                symbol
+            company = self.company_repo.update(
+                company=company,
+                name=data.name,
+                sector=data.sector,
+                industry=data.industry,
+                country=data.country,
+                website=data.website,
+                market_cap=data.market_cap,
             )
-
-            if existing:
-
-                company = self.repo.update(
-                    company=existing,
-                    name=data.name,
-                    sector=data.sector,
-                    industry=data.industry,
-                    country=data.country,
-                    website=data.website,
-                    market_cap=data.market_cap,
-                )
-
-            else:
-
-                company = self.repo.create(
-                    symbol=data.symbol,
-                    name=data.name,
-                    sector=data.sector,
-                    industry=data.industry,
-                    country=data.country,
-                    website=data.website,
-                    market_cap=data.market_cap,
-                )
 
             self.db.commit()
             self.db.refresh(company)

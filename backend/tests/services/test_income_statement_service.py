@@ -3,6 +3,9 @@ from unittest.mock import Mock
 
 import pytest
 
+from quantcore.schemas.income_statement import (
+    IncomeStatementData,
+)
 from quantcore.services.income_statement_service import (
     IncomeStatementService,
 )
@@ -19,21 +22,18 @@ def make_statement(
     fiscal_date,
     revenue=1000.0,
 ):
-    statement = Mock()
-
-    statement.fiscal_date = fiscal_date
-    statement.total_revenue = revenue
-    statement.gross_profit = 400.0
-    statement.operating_income = 200.0
-    statement.net_income = 150.0
-    statement.eps = 5.0
-    statement.shares_outstanding = 100
-
-    return statement
+    return IncomeStatementData(
+        fiscal_date=fiscal_date,
+        total_revenue=revenue,
+        gross_profit=400.0,
+        operating_income=200.0,
+        net_income=150.0,
+        eps=5.0,
+        shares_outstanding=100,
+    )
 
 
-def test_sync_income_statements_creates_new_statements():
-
+def make_service():
     db = Mock()
 
     service = IncomeStatementService.__new__(
@@ -41,10 +41,16 @@ def test_sync_income_statements_creates_new_statements():
     )
 
     service.db = db
-
     service.provider = Mock()
     service.company_repo = Mock()
     service.statement_repo = Mock()
+
+    return service, db
+
+
+def test_sync_income_statements_creates_new_statements():
+
+    service, db = make_service()
 
     service.company_repo.get_by_symbol.return_value = (
         make_company()
@@ -70,20 +76,12 @@ def test_sync_income_statements_creates_new_statements():
 
     service.statement_repo.commit.assert_called_once()
 
+    db.rollback.assert_not_called()
+
 
 def test_sync_income_statements_skips_existing():
 
-    db = Mock()
-
-    service = IncomeStatementService.__new__(
-        IncomeStatementService
-    )
-
-    service.db = db
-
-    service.provider = Mock()
-    service.company_repo = Mock()
-    service.statement_repo = Mock()
+    service, db = make_service()
 
     service.company_repo.get_by_symbol.return_value = (
         make_company()
@@ -105,20 +103,12 @@ def test_sync_income_statements_skips_existing():
 
     service.statement_repo.commit.assert_called_once()
 
+    db.rollback.assert_not_called()
+
 
 def test_sync_income_statements_company_not_found():
 
-    db = Mock()
-
-    service = IncomeStatementService.__new__(
-        IncomeStatementService
-    )
-
-    service.db = db
-
-    service.provider = Mock()
-    service.company_repo = Mock()
-    service.statement_repo = Mock()
+    service, db = make_service()
 
     service.company_repo.get_by_symbol.return_value = (
         None
@@ -132,20 +122,12 @@ def test_sync_income_statements_company_not_found():
 
     service.provider.get_income_statements.assert_not_called()
 
+    db.rollback.assert_called_once()
+
 
 def test_sync_income_statements_rolls_back_on_error():
 
-    db = Mock()
-
-    service = IncomeStatementService.__new__(
-        IncomeStatementService
-    )
-
-    service.db = db
-
-    service.provider = Mock()
-    service.company_repo = Mock()
-    service.statement_repo = Mock()
+    service, db = make_service()
 
     service.company_repo.get_by_symbol.return_value = (
         make_company()
@@ -170,3 +152,5 @@ def test_sync_income_statements_rolls_back_on_error():
         service.sync_income_statements("AAPL")
 
     db.rollback.assert_called_once()
+
+    service.statement_repo.commit.assert_not_called()
