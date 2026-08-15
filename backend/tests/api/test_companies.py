@@ -33,6 +33,7 @@ def test_get_company_returns_company_data():
     ) as mock_service:
 
         service = Mock()
+
         service.get_company.return_value = company
 
         mock_service.return_value = service
@@ -60,6 +61,8 @@ def test_get_company_returns_company_data():
         "AAPL"
     )
 
+    service.sync_company.assert_not_called()
+
 
 def test_get_company_normalizes_lowercase_symbol():
 
@@ -70,6 +73,7 @@ def test_get_company_normalizes_lowercase_symbol():
     ) as mock_service:
 
         service = Mock()
+
         service.get_company.return_value = company
 
         mock_service.return_value = service
@@ -85,8 +89,10 @@ def test_get_company_normalizes_lowercase_symbol():
     assert data["symbol"] == "AAPL"
 
     service.get_company.assert_called_once_with(
-        "aapl"
+        "AAPL"
     )
+
+    service.sync_company.assert_not_called()
 
 
 def test_get_company_normalizes_mixed_case_symbol():
@@ -98,6 +104,7 @@ def test_get_company_normalizes_mixed_case_symbol():
     ) as mock_service:
 
         service = Mock()
+
         service.get_company.return_value = company
 
         mock_service.return_value = service
@@ -113,8 +120,10 @@ def test_get_company_normalizes_mixed_case_symbol():
     assert data["symbol"] == "AAPL"
 
     service.get_company.assert_called_once_with(
-        "aApL"
+        "AAPL"
     )
+
+    service.sync_company.assert_not_called()
 
 
 def test_get_company_propagates_service_error():
@@ -143,6 +152,8 @@ def test_get_company_propagates_service_error():
             "AAPL"
         )
 
+        service.sync_company.assert_not_called()
+
 
 def test_sync_company_returns_company_data():
 
@@ -153,6 +164,7 @@ def test_sync_company_returns_company_data():
     ) as mock_service:
 
         service = Mock()
+
         service.sync_company.return_value = company
 
         mock_service.return_value = service
@@ -180,6 +192,8 @@ def test_sync_company_returns_company_data():
         "AAPL"
     )
 
+    service.get_company.assert_not_called()
+
 
 def test_sync_company_normalizes_lowercase_symbol():
 
@@ -190,6 +204,7 @@ def test_sync_company_normalizes_lowercase_symbol():
     ) as mock_service:
 
         service = Mock()
+
         service.sync_company.return_value = company
 
         mock_service.return_value = service
@@ -205,8 +220,41 @@ def test_sync_company_normalizes_lowercase_symbol():
     assert data["symbol"] == "AAPL"
 
     service.sync_company.assert_called_once_with(
-        "aapl"
+        "AAPL"
     )
+
+    service.get_company.assert_not_called()
+
+
+def test_sync_company_normalizes_mixed_case_symbol():
+
+    company = make_company()
+
+    with patch(
+        "quantcore.api.endpoints.companies.CompanyService"
+    ) as mock_service:
+
+        service = Mock()
+
+        service.sync_company.return_value = company
+
+        mock_service.return_value = service
+
+        response = client.post(
+            "/companies/aApL/sync"
+        )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["symbol"] == "AAPL"
+
+    service.sync_company.assert_called_once_with(
+        "AAPL"
+    )
+
+    service.get_company.assert_not_called()
 
 
 def test_sync_company_propagates_service_error():
@@ -234,3 +282,5 @@ def test_sync_company_propagates_service_error():
         service.sync_company.assert_called_once_with(
             "AAPL"
         )
+
+        service.get_company.assert_not_called()

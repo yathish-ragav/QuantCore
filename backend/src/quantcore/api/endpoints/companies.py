@@ -7,6 +7,7 @@ from quantcore.services.company_service import CompanyService
 
 router = APIRouter(
     prefix="/companies",
+    tags=["Companies"],
 )
 
 
@@ -15,20 +16,17 @@ def get_company(
     symbol: str,
     db: Session = Depends(get_db),
 ):
+    normalized_symbol = symbol.strip().upper()
 
     service = CompanyService(db)
 
     company = service.get_company(
-        symbol
-    )
-
-    normalized_symbol = (
-        symbol.strip().upper()
+        normalized_symbol
     )
 
     return {
         "id": company.id,
-        "symbol": normalized_symbol,
+        "symbol": company.symbol,
         "name": company.name,
         "sector": company.sector,
         "industry": company.industry,
@@ -43,20 +41,17 @@ def sync_company(
     symbol: str,
     db: Session = Depends(get_db),
 ):
+    normalized_symbol = symbol.strip().upper()
 
     service = CompanyService(db)
 
     company = service.sync_company(
-        symbol
-    )
-
-    normalized_symbol = (
-        symbol.strip().upper()
+        normalized_symbol
     )
 
     return {
         "id": company.id,
-        "symbol": normalized_symbol,
+        "symbol": company.symbol,
         "name": company.name,
         "sector": company.sector,
         "industry": company.industry,
