@@ -1,19 +1,25 @@
 from quantcore.core.config import settings
 
+from .base import MarketDataProvider
 from .yahoo import YahooClient
-from .fmp import FMPClient
 
 
 class ProviderFactory:
+    """
+    Factory for market-data providers.
+
+    Financial-data providers such as FMP are intentionally not
+    registered here. They implement FinancialDataProvider and are
+    resolved by FinancialProviderFactory instead.
+    """
 
     @staticmethod
-    def get_provider():
-        provider = settings.market_data_provider.lower()
+    def get_provider() -> MarketDataProvider:
+        provider = settings.market_data_provider.strip().lower()
 
         if provider == "yahoo":
             return YahooClient()
 
-        if provider == "fmp":
-            return FMPClient()
-
-        raise ValueError(f"Unknown provider: {provider}")
+        raise ValueError(
+            f"Unknown market data provider: {provider}"
+        )
