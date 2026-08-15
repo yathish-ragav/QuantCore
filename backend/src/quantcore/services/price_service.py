@@ -1,6 +1,9 @@
 from sqlalchemy.orm import Session
 
 from quantcore.ingestion.providers.factory import ProviderFactory
+from quantcore.processing.cleaner import DataCleaner
+from quantcore.processing.transformer import DataTransformer
+from quantcore.processing.validator import DataValidator
 from quantcore.repositories.price_repository import PriceRepository
 from quantcore.repositories.security_repository import SecurityRepository
 
@@ -18,7 +21,12 @@ class PriceService:
         self,
         symbol: str,
     ):
-        symbol = symbol.upper()
+        symbol = DataCleaner.clean_symbol(symbol)
+
+        if not symbol:
+            raise ValueError(
+                "Symbol must not be empty."
+            )
 
         security = self.security_repo.get_by_symbol(
             symbol
@@ -38,46 +46,73 @@ class PriceService:
         period: str = "5y",
     ) -> int:
 
-        symbol = symbol.upper()
+        symbol = DataCleaner.clean_symbol(symbol)
+
+        if not symbol:
+            raise ValueError(
+                "Symbol must not be empty."
+            )
 
         security = self._get_security(symbol)
 
-        history = self.client.get_price_history(
-            symbol,
-            period=period,
-        )
+        try:
+            raw_history = self.client.get_price_history(
+                symbol,
+                period=period,
+            )
 
-        inserted = 0
+            prices = DataTransformer.prices(
+                raw_history
+            )
 
-        for data in history:
+            prices = [
+                DataCleaner.clean_price(price)
+                for price in prices
+            ]
 
-            existing = (
-                self.price_repo.get_by_security_and_date(
-                    security.id,
-                    data.date,
+            if not DataValidator.validate_prices(
+                prices
+            ):
+                raise ValueError(
+                    f"Invalid price data for '{symbol}'."
                 )
-            )
 
-            if existing:
-                continue
+            inserted = 0
 
-            self.price_repo.create(
-                security_id=security.id,
-                date=data.date,
-                open=data.open,
-                high=data.high,
-                low=data.low,
-                close=data.close,
-                volume=data.volume,
-                dividends=data.dividends,
-                stock_splits=data.stock_splits,
-            )
+            for data in prices:
 
-            inserted += 1
+                existing = (
+                    self.price_repo
+                    .get_by_security_and_date(
+                        security.id,
+                        data.date,
+                    )
+                )
 
-        self.price_repo.commit()
+                if existing:
+                    continue
 
-        return inserted
+                self.price_repo.create(
+                    security_id=security.id,
+                    date=data.date,
+                    open=data.open,
+                    high=data.high,
+                    low=data.low,
+                    close=data.close,
+                    volume=data.volume,
+                    dividends=data.dividends,
+                    stock_splits=data.stock_splits,
+                )
+
+                inserted += 1
+
+            self.price_repo.commit()
+
+            return inserted
+
+        except Exception:
+            self.db.rollback()
+            raise
 
     def get_price_history(
         self,

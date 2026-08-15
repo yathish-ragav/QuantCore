@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from quantcore.schemas.news import NewsData
 from quantcore.services.news_service import NewsService
 
 
@@ -34,21 +35,19 @@ def make_company():
 
 def make_article(
     url="https://example.com/article-1",
+    title="Apple reports strong quarterly results",
+    publisher="Example News",
+    summary="Apple reported strong quarterly results.",
+    published_at=datetime(2026, 1, 2),
 ):
 
-    article = Mock()
-
-    article.title = "Apple reports strong quarterly results"
-    article.publisher = "Example News"
-    article.summary = "Apple reported strong quarterly results."
-    article.url = url
-    article.published_at = datetime(
-        2026,
-        1,
-        2,
+    return NewsData(
+        title=title,
+        publisher=publisher,
+        summary=summary,
+        url=url,
+        published_at=published_at,
     )
-
-    return article
 
 
 def test_sync_news_inserts_new_articles():
@@ -121,6 +120,14 @@ def test_sync_news_skips_existing_articles():
 
     assert result == 0
 
+    service.company_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
+
+    service.client.get_news.assert_called_once_with(
+        "AAPL"
+    )
+
     service.news_repo.get_by_url.assert_called_once_with(
         article.url
     )
@@ -137,11 +144,11 @@ def test_sync_news_inserts_multiple_new_articles():
     company = make_company()
 
     article_1 = make_article(
-        "https://example.com/article-1"
+        url="https://example.com/article-1"
     )
 
     article_2 = make_article(
-        "https://example.com/article-2"
+        url="https://example.com/article-2"
     )
 
     service.company_repo.get_by_symbol.return_value = (
@@ -179,11 +186,11 @@ def test_sync_news_inserts_only_new_articles():
     company = make_company()
 
     article_1 = make_article(
-        "https://example.com/existing"
+        url="https://example.com/existing"
     )
 
     article_2 = make_article(
-        "https://example.com/new"
+        url="https://example.com/new"
     )
 
     service.company_repo.get_by_symbol.return_value = (
@@ -235,6 +242,10 @@ def test_sync_news_company_not_found():
     ):
         service.sync_news("AAPL")
 
+    service.company_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
+
     service.client.get_news.assert_not_called()
 
     service.news_repo.get_by_url.assert_not_called()
@@ -259,6 +270,10 @@ def test_sync_news_no_articles():
     result = service.sync_news("AAPL")
 
     assert result == 0
+
+    service.company_repo.get_by_symbol.assert_called_once_with(
+        "AAPL"
+    )
 
     service.client.get_news.assert_called_once_with(
         "AAPL"
@@ -301,6 +316,82 @@ def test_sync_news_uses_company_id_for_insert():
         summary=article.summary,
         url=article.url,
         published_at=article.published_at,
+    )
+
+    service.news_repo.commit.assert_called_once()
+
+
+def test_sync_news_handles_news_with_no_published_at():
+
+    service, db = make_service()
+
+    company = make_company()
+
+    article = make_article(
+        published_at=None
+    )
+
+    service.company_repo.get_by_symbol.return_value = (
+        company
+    )
+
+    service.client.get_news.return_value = [
+        article
+    ]
+
+    service.news_repo.get_by_url.return_value = None
+
+    result = service.sync_news("AAPL")
+
+    assert result == 1
+
+    service.news_repo.create.assert_called_once_with(
+        company_id=1,
+        title=article.title,
+        publisher=article.publisher,
+        summary=article.summary,
+        url=article.url,
+        published_at=None,
+    )
+
+    service.news_repo.commit.assert_called_once()
+
+
+def test_sync_news_normalizes_dictionary_articles():
+
+    service, db = make_service()
+
+    company = make_company()
+
+    article = {
+        "title": "Apple reports strong quarterly results",
+        "publisher": "Example News",
+        "summary": "Apple reported strong quarterly results.",
+        "url": "https://example.com/article-1",
+        "published_at": datetime(2026, 1, 2),
+    }
+
+    service.company_repo.get_by_symbol.return_value = (
+        company
+    )
+
+    service.client.get_news.return_value = [
+        article
+    ]
+
+    service.news_repo.get_by_url.return_value = None
+
+    result = service.sync_news("AAPL")
+
+    assert result == 1
+
+    service.news_repo.create.assert_called_once_with(
+        company_id=1,
+        title=article["title"],
+        publisher=article["publisher"],
+        summary=article["summary"],
+        url=article["url"],
+        published_at=article["published_at"],
     )
 
     service.news_repo.commit.assert_called_once()
