@@ -1,36 +1,23 @@
 from logging.config import fileConfig
-import os
-import sys
-
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
-from dotenv import load_dotenv
 
 from alembic import context
+from sqlalchemy import engine_from_config
+from sqlalchemy import pool
 
-load_dotenv()
-
-sys.path.insert(
-    0,
-    os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            "..",
-            "src",
-        )
-    ),
-)
-
+from quantcore.core.config import settings
 from quantcore.db.database import Base
 
-# Import all models so SQLAlchemy metadata knows about them.
+# Import every model so SQLAlchemy metadata contains
+# the complete application schema.
 from quantcore.models.company import Company
+from quantcore.models.security import Security
 from quantcore.models.price import Price
 from quantcore.models.news import News
 from quantcore.models.income_statement import IncomeStatement
 
 
 config = context.config
+
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
@@ -39,28 +26,15 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
-def get_database_url() -> str:
-    database_url = os.getenv("DATABASE_URL")
-
-    if not database_url:
-        database_url = (
-            "postgresql+psycopg://"
-            "quantcore:quantcore123"
-            "@localhost:5432/quantcore"
-        )
-
-    return database_url
-
-
 def run_migrations_offline() -> None:
-    url = get_database_url()
+    url = settings.DATABASE_URL
 
     context.configure(
         url=url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={
-            "paramstyle": "named"
+            "paramstyle": "named",
         },
     )
 
@@ -74,7 +48,7 @@ def run_migrations_online() -> None:
         {},
     )
 
-    configuration["sqlalchemy.url"] = get_database_url()
+    configuration["sqlalchemy.url"] = settings.DATABASE_URL
 
     connectable = engine_from_config(
         configuration,
