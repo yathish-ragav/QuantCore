@@ -132,28 +132,28 @@ def upgrade() -> None:
     # If not, abort the migration instead of losing data.
     # ---------------------------------------------------------
 
-    connection = op.get_bind()
-
-    missing_prices = connection.execute(
-        sa.text(
-            """
+    op.execute(
+    sa.text(
+        """
+        DO $$
+        DECLARE
+            missing_prices INTEGER;
+        BEGIN
             SELECT COUNT(*)
+            INTO missing_prices
             FROM prices
-            WHERE security_id IS NULL
-            """
-        )
-    ).scalar_one()
+            WHERE security_id IS NULL;
 
-    if missing_prices != 0:
-        raise RuntimeError(
-            f"Migration aborted: {missing_prices} price rows "
-            "could not be mapped to a security."
-        )
-
-    # ---------------------------------------------------------
-    # 6. Make security_id mandatory
-    # ---------------------------------------------------------
-
+            IF missing_prices <> 0 THEN
+                RAISE EXCEPTION
+                    'Migration aborted: % price rows could not be mapped to a security.',
+                    missing_prices;
+            END IF;
+        END
+        $$;
+        """
+    )
+)
     op.alter_column(
         "prices",
         "security_id",
