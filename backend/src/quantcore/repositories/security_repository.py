@@ -34,6 +34,20 @@ class SecurityRepository:
             .first()
         )
 
+    def get_by_symbols(
+        self,
+        symbols: list[str],
+    ) -> list[Security]:
+
+        if not symbols:
+            return []
+
+        return (
+            self.db.query(Security)
+            .filter(Security.symbol.in_(symbols))
+            .all()
+        )
+
     def get_by_company_ids(
         self,
         company_ids: list[int],

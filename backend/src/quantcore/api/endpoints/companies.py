@@ -26,7 +26,7 @@ def get_company(
 
     return {
         "id": company.id,
-        "symbol": company.symbol,
+        "symbol": normalized_symbol,
         "name": company.name,
         "sector": company.sector,
         "industry": company.industry,
@@ -51,7 +51,7 @@ def sync_company(
 
     return {
         "id": company.id,
-        "symbol": company.symbol,
+        "symbol": normalized_symbol,
         "name": company.name,
         "sector": company.sector,
         "industry": company.industry,

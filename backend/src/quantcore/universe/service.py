@@ -20,7 +20,6 @@ class UniverseService:
         companies = self.provider.fetch()
 
         companies = normalize_companies(companies)
-
         companies = filter_us_equities(companies)
 
         if not companies:
@@ -29,18 +28,14 @@ class UniverseService:
         synced = 0
 
         try:
-
             # -------------------------------------------------
-            # 1. Group SEC records by CIK
+            # 1. Group SEC records by CIK.
             #
-            # One CIK = one Company
-            # Multiple symbols = multiple Securities
+            # One CIK = one Company.
+            # Each SEC symbol becomes a Security belonging to
+            # that Company.
             # -------------------------------------------------
-
-            companies_by_cik: dict[
-                str,
-                list
-            ] = {}
+            companies_by_cik: dict[str, list] = {}
 
             for company in companies:
                 companies_by_cik.setdefault(
@@ -50,15 +45,13 @@ class UniverseService:
 
             ciks = list(companies_by_cik.keys())
 
-            symbols = [
-                company.symbol
-                for company in companies
-            ]
-
             # -------------------------------------------------
-            # 2. Load existing companies in bulk
+            # 2. Load existing companies by issuer identity.
+            #
+            # CIK is the authoritative Company identity. There is
+            # deliberately no symbol fallback because symbols
+            # belong to Security, not Company.
             # -------------------------------------------------
-
             existing_by_cik = {
                 company.cik: company
                 for company in self.company_repo.get_by_ciks(
@@ -66,134 +59,92 @@ class UniverseService:
                 )
             }
 
-            existing_by_symbol = {
-                company.symbol: company
-                for company in self.company_repo.get_by_symbols(
-                    symbols
-                )
-            }
-
-            # -------------------------------------------------
-            # 3. Reconcile companies
-            #
-            # Only one Company is created per CIK.
-            # -------------------------------------------------
-
             synced_companies_by_cik = {}
 
+            # -------------------------------------------------
+            # 3. Reconcile Companies.
+            # -------------------------------------------------
             for cik, universe_companies in (
                 companies_by_cik.items()
             ):
-
                 representative = universe_companies[0]
+                company = existing_by_cik.get(cik)
 
-                existing = existing_by_cik.get(cik)
-
-                # Fallback to symbol if CIK does not match.
-                if existing is None:
-
-                    for universe_company in (
-                        universe_companies
-                    ):
-                        existing = existing_by_symbol.get(
-                            universe_company.symbol
-                        )
-
-                        if existing is not None:
-                            break
-
-                if existing:
-
-                    existing.cik = cik
-                    existing.symbol = representative.symbol
-                    existing.name = representative.name
-                    existing.exchange = representative.exchange
-
-                else:
-
-                    existing = self.company_repo.create(
+                if company is None:
+                    company = self.company_repo.create(
                         cik=cik,
-                        symbol=representative.symbol,
                         name=representative.name,
-                        exchange=representative.exchange,
                         sector="",
                         industry="",
                         country="",
                         website="",
                         market_cap=None,
                     )
+                else:
+                    company.cik = cik
+                    company.name = representative.name
 
-                synced_companies_by_cik[cik] = existing
-
+                synced_companies_by_cik[cik] = company
                 synced += len(universe_companies)
 
             # -------------------------------------------------
-            # 4. Assign IDs to newly-created companies
+            # 4. Assign IDs to newly-created Companies.
             # -------------------------------------------------
-
             self.db.flush()
 
             # -------------------------------------------------
-            # 5. Load existing securities in bulk
+            # 5. Load existing Securities in bulk.
             # -------------------------------------------------
-
-            company_ids = [
-                company.id
-                for company in synced_companies_by_cik.values()
+            symbols = [
+                company.symbol
+                for company in companies
             ]
 
-            securities = self.security_repo.get_by_company_ids(
-                company_ids
-            )
-
             existing_securities = {
-                (
-                    security.company_id,
-                    security.symbol,
-                ): security
-                for security in securities
+                security.symbol: security
+                for security in self.security_repo.get_by_symbols(
+                    symbols
+                )
             }
 
             # -------------------------------------------------
-            # 6. Reconcile securities
+            # 6. Reconcile Securities.
+            #
+            # Symbol belongs to Security. A Company may therefore
+            # have multiple securities without duplicating Company
+            # rows.
             # -------------------------------------------------
-
             for universe_company in companies:
-
                 company = synced_companies_by_cik[
                     universe_company.cik
                 ]
 
-                key = (
-                    company.id,
-                    universe_company.symbol,
+                security = existing_securities.get(
+                    universe_company.symbol
                 )
 
-                security = existing_securities.get(key)
-
                 if security is None:
-
                     self.security_repo.create(
                         company_id=company.id,
                         symbol=universe_company.symbol,
                         exchange=universe_company.exchange,
                     )
-
                 else:
+                    if security.company_id != company.id:
+                        raise ValueError(
+                            f"Security '{universe_company.symbol}' "
+                            "is already assigned to another company."
+                        )
 
-                    security.symbol = universe_company.symbol
                     security.exchange = universe_company.exchange
 
             # -------------------------------------------------
-            # 7. Commit entire universe transaction
+            # 7. Commit the complete universe transaction.
             # -------------------------------------------------
-
             self.db.commit()
 
             return synced
 
         except Exception:
-
             self.db.rollback()
-
             raise

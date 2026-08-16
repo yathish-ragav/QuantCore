@@ -4,7 +4,7 @@ from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
-from quantcore.repositories.company_repository import CompanyRepository
+from quantcore.repositories.security_repository import SecurityRepository
 from quantcore.repositories.news_repository import NewsRepository
 
 
@@ -13,7 +13,7 @@ class NewsService:
     def __init__(self, db: Session):
         self.db = db
         self.client = ProviderFactory.get_provider()
-        self.company_repo = CompanyRepository(db)
+        self.security_repo = SecurityRepository(db)
         self.news_repo = NewsRepository(db)
 
     def get_news(self, symbol: str):
@@ -25,9 +25,11 @@ class NewsService:
                 "Symbol must not be empty."
             )
 
-        company = self.company_repo.get_by_symbol(
+        security = self.security_repo.get_by_symbol(
             symbol
         )
+
+        company = security.company if security else None
 
         if company is None:
             raise ValueError(
@@ -48,9 +50,11 @@ class NewsService:
             )
 
         try:
-            company = self.company_repo.get_by_symbol(
+            security = self.security_repo.get_by_symbol(
                 symbol
             )
+
+            company = security.company if security else None
 
             if company is None:
                 raise ValueError(

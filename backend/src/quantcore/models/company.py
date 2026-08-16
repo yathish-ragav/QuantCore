@@ -16,19 +16,7 @@ class Company(Base):
         index=True,
     )
 
-    symbol: Mapped[str] = mapped_column(
-        String(10),
-        unique=True,
-        nullable=False,
-        index=True,
-    )
-
     name: Mapped[str] = mapped_column(String(255))
-
-    exchange: Mapped[str] = mapped_column(
-        String(50),
-        nullable=False,
-    )
 
     sector: Mapped[str] = mapped_column(String(255))
 
@@ -43,13 +31,10 @@ class Company(Base):
         nullable=True,
     )
 
-    
-
     securities = relationship(
         "Security",
         back_populates="company",
         cascade="all, delete-orphan",
-
     )
 
     news = relationship(

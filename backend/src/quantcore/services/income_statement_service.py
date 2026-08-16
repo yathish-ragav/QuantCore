@@ -6,8 +6,8 @@ from quantcore.ingestion.providers.financial_factory import (
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
-from quantcore.repositories.company_repository import (
-    CompanyRepository,
+from quantcore.repositories.security_repository import (
+    SecurityRepository,
 )
 from quantcore.repositories.income_statement_repository import (
     IncomeStatementRepository,
@@ -23,7 +23,7 @@ class IncomeStatementService:
             FinancialProviderFactory.get_provider()
         )
 
-        self.company_repo = CompanyRepository(db)
+        self.security_repo = SecurityRepository(db)
 
         self.statement_repo = (
             IncomeStatementRepository(db)
@@ -44,11 +44,11 @@ class IncomeStatementService:
                     "Symbol must not be empty."
                 )
 
-            company = (
-                self.company_repo.get_by_symbol(
-                    symbol
-                )
+            security = self.security_repo.get_by_symbol(
+                symbol
             )
+
+            company = security.company if security else None
 
             if company is None:
                 raise ValueError(

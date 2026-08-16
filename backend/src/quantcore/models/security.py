@@ -9,9 +9,8 @@ class Security(Base):
 
     __table_args__ = (
         UniqueConstraint(
-            "company_id",
             "symbol",
-            name="uq_security_company_symbol",
+            name="uq_security_symbol",
         ),
     )
 

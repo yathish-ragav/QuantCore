@@ -13,7 +13,6 @@ def make_company():
     company = Mock()
 
     company.id = 1
-    company.symbol = "AAPL"
     company.name = "Apple Inc."
     company.sector = "Technology"
     company.industry = "Consumer Electronics"
