@@ -46,6 +46,3 @@ class PriceRepository:
         self.db.add(price)
 
         return price
-
-    def commit(self):
-        self.db.commit()

@@ -26,8 +26,7 @@ class IncomeStatementRepository:
 
     def create(self, **kwargs):
         statement = IncomeStatement(**kwargs)
-        self.db.add(statement)
-        return statement
 
-    def commit(self):
-        self.db.commit()
+        self.db.add(statement)
+
+        return statement

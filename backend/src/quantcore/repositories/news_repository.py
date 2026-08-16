@@ -66,6 +66,3 @@ class NewsRepository:
         return list(
             self.db.scalars(stmt).all()
         )
-
-    def commit(self):
-        self.db.commit()

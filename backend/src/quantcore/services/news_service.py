@@ -13,6 +13,7 @@ class NewsService:
     def __init__(self, db: Session):
         self.db = db
         self.client = ProviderFactory.get_provider()
+
         self.security_repo = SecurityRepository(db)
         self.news_repo = NewsRepository(db)
 
@@ -105,7 +106,7 @@ class NewsService:
 
                 inserted += 1
 
-            self.news_repo.commit()
+            self.db.commit()
 
             return inserted
 

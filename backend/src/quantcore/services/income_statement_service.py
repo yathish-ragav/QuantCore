@@ -116,7 +116,7 @@ class IncomeStatementService:
                     statement
                 )
 
-            self.statement_repo.commit()
+            self.db.commit()
 
             return created_statements
 

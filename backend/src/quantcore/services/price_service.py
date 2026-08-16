@@ -106,7 +106,7 @@ class PriceService:
 
                 inserted += 1
 
-            self.price_repo.commit()
+            self.db.commit()
 
             return inserted
 
