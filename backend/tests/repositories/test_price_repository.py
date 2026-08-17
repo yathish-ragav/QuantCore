@@ -21,22 +21,15 @@ def test_get_for_security_returns_prices():
         Mock(spec=Price),
     ]
 
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    ordered_query = filtered_query.order_by.return_value
-    ordered_query.all.return_value = prices
+    db.scalars.return_value.all.return_value = prices
 
     result = repository.get_for_security(
         security_id=1
     )
 
-    db.query.assert_called_once_with(Price)
+    db.scalars.assert_called_once()
 
-    query.filter.assert_called_once()
-
-    filtered_query.order_by.assert_called_once()
-
-    ordered_query.all.assert_called_once()
+    db.scalars.return_value.all.assert_called_once()
 
     assert result == prices
 
@@ -45,14 +38,15 @@ def test_get_for_security_returns_empty_list():
 
     repository, db = make_repository()
 
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    ordered_query = filtered_query.order_by.return_value
-    ordered_query.all.return_value = []
+    db.scalars.return_value.all.return_value = []
 
     result = repository.get_for_security(
         security_id=999
     )
+
+    db.scalars.assert_called_once()
+
+    db.scalars.return_value.all.assert_called_once()
 
     assert result == []
 
@@ -63,9 +57,7 @@ def test_get_by_security_and_date_returns_price():
 
     price = Mock(spec=Price)
 
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    filtered_query.first.return_value = price
+    db.scalar.return_value = price
 
     date = datetime(
         2026,
@@ -78,11 +70,7 @@ def test_get_by_security_and_date_returns_price():
         date=date,
     )
 
-    db.query.assert_called_once_with(Price)
-
-    query.filter.assert_called_once()
-
-    filtered_query.first.assert_called_once()
+    db.scalar.assert_called_once()
 
     assert result == price
 
@@ -91,9 +79,7 @@ def test_get_by_security_and_date_returns_none():
 
     repository, db = make_repository()
 
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    filtered_query.first.return_value = None
+    db.scalar.return_value = None
 
     date = datetime(
         2026,
@@ -105,6 +91,8 @@ def test_get_by_security_and_date_returns_none():
         security_id=1,
         date=date,
     )
+
+    db.scalar.assert_called_once()
 
     assert result is None
 
@@ -147,12 +135,4 @@ def test_create_price():
 
     # Repository must not control the transaction.
     db.commit.assert_not_called()
-
-
-def test_commit():
-
-    repository, db = make_repository()
-
-    repository.commit()
-
-    db.commit.assert_called_once()
+    db.rollback.assert_not_called()

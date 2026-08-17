@@ -6,11 +6,11 @@ from quantcore.ingestion.providers.financial_factory import (
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
-from quantcore.repositories.security_repository import (
-    SecurityRepository,
-)
 from quantcore.repositories.income_statement_repository import (
     IncomeStatementRepository,
+)
+from quantcore.repositories.security_repository import (
+    SecurityRepository,
 )
 
 
@@ -29,12 +29,43 @@ class IncomeStatementService:
             IncomeStatementRepository(db)
         )
 
+    def _get_company_for_symbol(
+        self,
+        symbol: str,
+    ):
+        symbol = DataCleaner.clean_symbol(symbol)
+
+        if not symbol:
+            raise ValueError(
+                "Symbol must not be empty."
+            )
+
+        security = self.security_repo.get_by_symbol(
+            symbol
+        )
+
+        company = (
+            security.company
+            if security is not None
+            else None
+        )
+
+        if company is None:
+            raise ValueError(
+                f"Company not found: {symbol}"
+            )
+
+        return security, company
+
     def sync_income_statements(
         self,
         symbol: str,
     ):
 
         try:
+            # -------------------------------------------------
+            # 1. Clean and validate symbol.
+            # -------------------------------------------------
             symbol = DataCleaner.clean_symbol(
                 symbol
             )
@@ -44,29 +75,34 @@ class IncomeStatementService:
                     "Symbol must not be empty."
                 )
 
-            security = self.security_repo.get_by_symbol(
-                symbol
+            # -------------------------------------------------
+            # 2. Resolve Company identity.
+            # -------------------------------------------------
+            _, company = (
+                self._get_company_for_symbol(symbol)
             )
 
-            company = security.company if security else None
-
-            if company is None:
-                raise ValueError(
-                    f"Company not found: {symbol}"
-                )
-
+            # -------------------------------------------------
+            # 3. Fetch external financial data.
+            # -------------------------------------------------
             raw_statements = (
                 self.provider.get_income_statements(
                     symbol
                 )
             )
 
+            # -------------------------------------------------
+            # 4. Transform.
+            # -------------------------------------------------
             statements = (
                 DataTransformer.income_statements(
                     raw_statements
                 )
             )
 
+            # -------------------------------------------------
+            # 5. Clean.
+            # -------------------------------------------------
             statements = [
                 DataCleaner.clean_income_statement(
                     statement
@@ -74,6 +110,9 @@ class IncomeStatementService:
                 for statement in statements
             ]
 
+            # -------------------------------------------------
+            # 6. Validate complete dataset before mutation.
+            # -------------------------------------------------
             if not DataValidator.validate_income_statements(
                 statements
             ):
@@ -84,6 +123,9 @@ class IncomeStatementService:
 
             created_statements = []
 
+            # -------------------------------------------------
+            # 7. Reconcile statements.
+            # -------------------------------------------------
             for data in statements:
 
                 existing = (
@@ -94,7 +136,7 @@ class IncomeStatementService:
                     )
                 )
 
-                if existing:
+                if existing is not None:
                     continue
 
                 statement = (
@@ -116,10 +158,16 @@ class IncomeStatementService:
                     statement
                 )
 
+            # -------------------------------------------------
+            # 8. Commit entire operation once.
+            # -------------------------------------------------
             self.db.commit()
 
             return created_statements
 
         except Exception:
+            # -------------------------------------------------
+            # Atomic failure semantics.
+            # -------------------------------------------------
             self.db.rollback()
             raise

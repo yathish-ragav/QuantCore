@@ -58,6 +58,10 @@ def test_create_adds_article_to_database():
 
     db.add.assert_called_once_with(article)
 
+    # Repository must not control the transaction.
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
 
 def test_get_by_url_returns_existing_article():
 
@@ -75,6 +79,9 @@ def test_get_by_url_returns_existing_article():
 
     db.scalar.assert_called_once()
 
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
 
 def test_get_by_url_returns_none_when_article_not_found():
 
@@ -89,6 +96,9 @@ def test_get_by_url_returns_none_when_article_not_found():
     assert result is None
 
     db.scalar.assert_called_once()
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 
 def test_get_by_company_and_date_returns_article():
@@ -107,6 +117,9 @@ def test_get_by_company_and_date_returns_article():
     assert result == article
 
     db.scalar.assert_called_once()
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 
 def test_get_by_company_and_date_returns_none_when_not_found():
@@ -130,11 +143,50 @@ def test_get_by_company_and_date_returns_none_when_not_found():
 
     db.scalar.assert_called_once()
 
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
-def test_commit_commits_database_transaction():
+
+def test_get_for_company_returns_articles():
 
     repository, db = make_repository()
 
-    repository.commit()
+    articles = [
+        make_news(),
+        make_news(),
+    ]
 
-    db.commit.assert_called_once()
+    db.scalars.return_value.all.return_value = articles
+
+    result = repository.get_for_company(
+        company_id=10
+    )
+
+    assert result == articles
+
+    db.scalars.assert_called_once()
+
+    db.scalars.return_value.all.assert_called_once()
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
+
+def test_get_for_company_returns_empty_list():
+
+    repository, db = make_repository()
+
+    db.scalars.return_value.all.return_value = []
+
+    result = repository.get_for_company(
+        company_id=999
+    )
+
+    assert result == []
+
+    db.scalars.assert_called_once()
+
+    db.scalars.return_value.all.assert_called_once()
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()

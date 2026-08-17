@@ -8,67 +8,62 @@ from quantcore.repositories.income_statement_repository import (
 
 
 def make_repository():
+
     db = Mock()
+
     repository = IncomeStatementRepository(db)
 
     return repository, db
-
-
-def make_income_statement():
-    statement = IncomeStatement(
-        company_id=1,
-        fiscal_date=date(2024, 9, 28),
-        total_revenue=394_000_000_000,
-        gross_profit=175_000_000_000,
-        operating_income=119_000_000_000,
-        net_income=99_000_000_000,
-        eps=6.4,
-        shares_outstanding=15_000_000_000,
-    )
-
-    return statement
 
 
 def test_get_by_company_and_date_returns_statement():
 
     repository, db = make_repository()
 
-    statement = Mock(spec=IncomeStatement)
+    statement = Mock(
+        spec=IncomeStatement
+    )
 
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    filtered_query.first.return_value = statement
+    db.scalar.return_value = statement
 
     result = repository.get_by_company_and_date(
         company_id=1,
-        fiscal_date=date(2024, 9, 28),
+        fiscal_date=date(
+            2024,
+            9,
+            28,
+        ),
     )
 
-    db.query.assert_called_once_with(
-        IncomeStatement
-    )
-
-    query.filter.assert_called_once()
-
-    filtered_query.first.assert_called_once()
+    db.scalar.assert_called_once()
 
     assert result == statement
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 
 def test_get_by_company_and_date_returns_none():
 
     repository, db = make_repository()
 
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    filtered_query.first.return_value = None
+    db.scalar.return_value = None
 
     result = repository.get_by_company_and_date(
         company_id=1,
-        fiscal_date=date(2024, 9, 28),
+        fiscal_date=date(
+            2024,
+            9,
+            28,
+        ),
     )
 
+    db.scalar.assert_called_once()
+
     assert result is None
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 
 def test_create_income_statement():
@@ -77,7 +72,11 @@ def test_create_income_statement():
 
     statement = repository.create(
         company_id=1,
-        fiscal_date=date(2024, 9, 28),
+        fiscal_date=date(
+            2024,
+            9,
+            28,
+        ),
         total_revenue=394_000_000_000,
         gross_profit=175_000_000_000,
         operating_income=119_000_000_000,
@@ -86,24 +85,38 @@ def test_create_income_statement():
         shares_outstanding=15_000_000_000,
     )
 
-    db.add.assert_called_once()
+    db.add.assert_called_once_with(
+        statement
+    )
 
-    assert isinstance(statement, IncomeStatement)
+    assert isinstance(
+        statement,
+        IncomeStatement,
+    )
 
     assert statement.company_id == 1
-    assert statement.fiscal_date == date(2024, 9, 28)
-    assert statement.total_revenue == 394_000_000_000
-    assert statement.gross_profit == 175_000_000_000
-    assert statement.operating_income == 119_000_000_000
-    assert statement.net_income == 99_000_000_000
+    assert statement.fiscal_date == date(
+        2024,
+        9,
+        28,
+    )
+    assert statement.total_revenue == (
+        394_000_000_000
+    )
+    assert statement.gross_profit == (
+        175_000_000_000
+    )
+    assert statement.operating_income == (
+        119_000_000_000
+    )
+    assert statement.net_income == (
+        99_000_000_000
+    )
     assert statement.eps == 6.4
-    assert statement.shares_outstanding == 15_000_000_000
+    assert statement.shares_outstanding == (
+        15_000_000_000
+    )
 
-
-def test_commit():
-
-    repository, db = make_repository()
-
-    repository.commit()
-
-    db.commit.assert_called_once()
+    # Repository must not control the transaction.
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()

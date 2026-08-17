@@ -116,8 +116,7 @@ def test_sync_price_history_inserts_new_prices():
         stock_splits=data.stock_splits,
     )
 
-    service.price_repo.commit.assert_called_once()
-
+    db.commit.assert_called_once()
     db.rollback.assert_not_called()
 
 
@@ -159,8 +158,7 @@ def test_sync_price_history_skips_existing_prices():
 
     service.price_repo.create.assert_not_called()
 
-    service.price_repo.commit.assert_called_once()
-
+    db.commit.assert_called_once()
     db.rollback.assert_not_called()
 
 
@@ -186,9 +184,8 @@ def test_sync_price_history_security_not_found():
 
     service.price_repo.create.assert_not_called()
 
-    service.price_repo.commit.assert_not_called()
-
-    db.rollback.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
 
 
 def test_sync_price_history_passes_period_to_provider():
@@ -219,8 +216,7 @@ def test_sync_price_history_passes_period_to_provider():
         period="1y",
     )
 
-    service.price_repo.commit.assert_called_once()
-
+    db.commit.assert_called_once()
     db.rollback.assert_not_called()
 
 
@@ -251,7 +247,8 @@ def test_sync_price_history_normalizes_symbol():
         period="5y",
     )
 
-    service.price_repo.commit.assert_called_once()
+    db.commit.assert_called_once()
+    db.rollback.assert_not_called()
 
 
 def test_sync_price_history_transforms_raw_dictionary_data():
@@ -307,6 +304,9 @@ def test_sync_price_history_transforms_raw_dictionary_data():
         stock_splits=0.0,
     )
 
+    db.commit.assert_called_once()
+    db.rollback.assert_not_called()
+
 
 def test_sync_price_history_cleans_price_values():
 
@@ -352,6 +352,9 @@ def test_sync_price_history_cleans_price_values():
     assert created["close"] == 253.0
     assert created["volume"] == 1_000_000
 
+    db.commit.assert_called_once()
+    db.rollback.assert_not_called()
+
 
 def test_sync_price_history_rejects_invalid_ohlc():
 
@@ -378,8 +381,7 @@ def test_sync_price_history_rejects_invalid_ohlc():
 
     service.price_repo.create.assert_not_called()
 
-    service.price_repo.commit.assert_not_called()
-
+    db.commit.assert_not_called()
     db.rollback.assert_called_once()
 
 
@@ -407,8 +409,7 @@ def test_sync_price_history_rejects_negative_volume():
 
     service.price_repo.create.assert_not_called()
 
-    service.price_repo.commit.assert_not_called()
-
+    db.commit.assert_not_called()
     db.rollback.assert_called_once()
 
 
@@ -434,8 +435,7 @@ def test_sync_price_history_rolls_back_on_provider_error():
 
     service.price_repo.create.assert_not_called()
 
-    service.price_repo.commit.assert_not_called()
-
+    db.commit.assert_not_called()
     db.rollback.assert_called_once()
 
 
@@ -469,8 +469,7 @@ def test_sync_price_history_rolls_back_on_repository_error():
         service.sync_price_history("AAPL")
 
     db.rollback.assert_called_once()
-
-    service.price_repo.commit.assert_not_called()
+    db.commit.assert_not_called()
 
 
 def test_sync_price_history_rejects_empty_symbol():
@@ -489,8 +488,9 @@ def test_sync_price_history_rejects_empty_symbol():
 
     service.price_repo.create.assert_not_called()
 
-    service.price_repo.commit.assert_not_called()
-
+    # Empty-symbol validation happens before the transaction
+    # try/except block.
+    db.commit.assert_not_called()
     db.rollback.assert_not_called()
 
 
@@ -527,6 +527,9 @@ def test_get_price_history_returns_prices():
         10
     )
 
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
 
 def test_get_price_history_normalizes_symbol():
 
@@ -554,6 +557,9 @@ def test_get_price_history_normalizes_symbol():
         10
     )
 
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
 
 def test_get_price_history_security_not_found():
 
@@ -572,3 +578,6 @@ def test_get_price_history_security_not_found():
     )
 
     service.price_repo.get_for_security.assert_not_called()
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()

@@ -1,5 +1,6 @@
 from datetime import datetime
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from quantcore.models.price import Price
@@ -13,34 +14,43 @@ class PriceRepository:
     def get_for_security(
         self,
         security_id: int,
-    ):
-        return (
-            self.db.query(Price)
-            .filter(
+    ) -> list[Price]:
+
+        stmt = (
+            select(Price)
+            .where(
                 Price.security_id == security_id
             )
-            .order_by(Price.date)
-            .all()
+            .order_by(
+                Price.date
+            )
+        )
+
+        return list(
+            self.db.scalars(stmt).all()
         )
 
     def get_by_security_and_date(
         self,
         security_id: int,
         date: datetime,
-    ):
-        return (
-            self.db.query(Price)
-            .filter(
+    ) -> Price | None:
+
+        stmt = (
+            select(Price)
+            .where(
                 Price.security_id == security_id,
                 Price.date == date,
             )
-            .first()
         )
+
+        return self.db.scalar(stmt)
 
     def create(
         self,
         **kwargs,
-    ):
+    ) -> Price:
+
         price = Price(**kwargs)
 
         self.db.add(price)

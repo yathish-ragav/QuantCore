@@ -12,6 +12,7 @@ class PriceService:
 
     def __init__(self, db: Session):
         self.db = db
+
         self.client = ProviderFactory.get_provider()
 
         self.security_repo = SecurityRepository(db)
@@ -53,23 +54,40 @@ class PriceService:
                 "Symbol must not be empty."
             )
 
-        security = self._get_security(symbol)
-
         try:
+            # -------------------------------------------------
+            # 1. Resolve Security identity.
+            # -------------------------------------------------
+            security = self._get_security(symbol)
+
+            # -------------------------------------------------
+            # 2. Fetch external data.
+            #
+            # No database mutation has happened yet.
+            # -------------------------------------------------
             raw_history = self.client.get_price_history(
                 symbol,
                 period=period,
             )
 
+            # -------------------------------------------------
+            # 3. Transform external data.
+            # -------------------------------------------------
             prices = DataTransformer.prices(
                 raw_history
             )
 
+            # -------------------------------------------------
+            # 4. Clean transformed data.
+            # -------------------------------------------------
             prices = [
                 DataCleaner.clean_price(price)
                 for price in prices
             ]
 
+            # -------------------------------------------------
+            # 5. Validate the complete dataset BEFORE writing.
+            # -------------------------------------------------
             if not DataValidator.validate_prices(
                 prices
             ):
@@ -79,6 +97,9 @@ class PriceService:
 
             inserted = 0
 
+            # -------------------------------------------------
+            # 6. Reconcile existing prices.
+            # -------------------------------------------------
             for data in prices:
 
                 existing = (
@@ -89,7 +110,7 @@ class PriceService:
                     )
                 )
 
-                if existing:
+                if existing is not None:
                     continue
 
                 self.price_repo.create(
@@ -106,11 +127,20 @@ class PriceService:
 
                 inserted += 1
 
+            # -------------------------------------------------
+            # 7. ONE transaction boundary.
+            #
+            # Nothing is committed until every price has been
+            # successfully processed.
+            # -------------------------------------------------
             self.db.commit()
 
             return inserted
 
         except Exception:
+            # -------------------------------------------------
+            # Any failure means the entire sync is rolled back.
+            # -------------------------------------------------
             self.db.rollback()
             raise
 
@@ -118,7 +148,6 @@ class PriceService:
         self,
         symbol: str,
     ):
-
         security = self._get_security(symbol)
 
         return self.price_repo.get_for_security(

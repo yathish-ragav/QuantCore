@@ -11,7 +11,11 @@ class NewsRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def create(self, **kwargs) -> News:
+    def create(
+        self,
+        **kwargs,
+    ) -> News:
+
         article = News(**kwargs)
 
         self.db.add(article)
