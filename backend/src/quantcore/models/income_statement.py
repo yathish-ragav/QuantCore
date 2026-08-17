@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, Integer
+from sqlalchemy import Date, Float, ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
@@ -8,6 +8,14 @@ from quantcore.db.database import Base
 
 class IncomeStatement(Base):
     __tablename__ = "income_statements"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "company_id",
+            "fiscal_date",
+            name="uq_income_statement_company_fiscal_date",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
