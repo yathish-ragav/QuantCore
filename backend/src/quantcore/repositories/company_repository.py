@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from quantcore.models.company import Company
@@ -8,12 +9,16 @@ class CompanyRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get_by_cik(self, cik: str):
-        return (
-            self.db.query(Company)
-            .filter(Company.cik == cik)
-            .first()
+    def get_by_cik(
+        self,
+        cik: str,
+    ) -> Company | None:
+
+        stmt = select(Company).where(
+            Company.cik == cik
         )
+
+        return self.db.scalar(stmt)
 
     def get_by_ciks(
         self,
@@ -23,10 +28,12 @@ class CompanyRepository:
         if not ciks:
             return []
 
-        return (
-            self.db.query(Company)
-            .filter(Company.cik.in_(ciks))
-            .all()
+        stmt = select(Company).where(
+            Company.cik.in_(ciks)
+        )
+
+        return list(
+            self.db.scalars(stmt).all()
         )
 
     def create(
@@ -39,6 +46,7 @@ class CompanyRepository:
         website: str,
         market_cap: int | None,
     ):
+
         company = Company(
             cik=cik,
             name=name,
@@ -64,6 +72,7 @@ class CompanyRepository:
         market_cap: int | None,
         cik: str | None = None,
     ):
+
         company.name = name
         company.sector = sector
         company.industry = industry

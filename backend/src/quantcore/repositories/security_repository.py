@@ -1,3 +1,4 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from quantcore.models.security import Security
@@ -13,11 +14,11 @@ class SecurityRepository:
         symbol: str,
     ) -> Security | None:
 
-        return (
-            self.db.query(Security)
-            .filter(Security.symbol == symbol)
-            .first()
+        stmt = select(Security).where(
+            Security.symbol == symbol
         )
+
+        return self.db.scalar(stmt)
 
     def get_by_company_and_symbol(
         self,
@@ -25,14 +26,12 @@ class SecurityRepository:
         symbol: str,
     ) -> Security | None:
 
-        return (
-            self.db.query(Security)
-            .filter(
-                Security.company_id == company_id,
-                Security.symbol == symbol,
-            )
-            .first()
+        stmt = select(Security).where(
+            Security.company_id == company_id,
+            Security.symbol == symbol,
         )
+
+        return self.db.scalar(stmt)
 
     def get_by_symbols(
         self,
@@ -42,10 +41,12 @@ class SecurityRepository:
         if not symbols:
             return []
 
-        return (
-            self.db.query(Security)
-            .filter(Security.symbol.in_(symbols))
-            .all()
+        stmt = select(Security).where(
+            Security.symbol.in_(symbols)
+        )
+
+        return list(
+            self.db.scalars(stmt).all()
         )
 
     def get_by_company_ids(
@@ -56,12 +57,12 @@ class SecurityRepository:
         if not company_ids:
             return []
 
-        return (
-            self.db.query(Security)
-            .filter(
-                Security.company_id.in_(company_ids)
-            )
-            .all()
+        stmt = select(Security).where(
+            Security.company_id.in_(company_ids)
+        )
+
+        return list(
+            self.db.scalars(stmt).all()
         )
 
     def create(

@@ -5,62 +5,98 @@ from quantcore.repositories.company_repository import CompanyRepository
 
 
 def make_repository():
+
     db = Mock()
+
     repository = CompanyRepository(db)
+
     return repository, db
 
 
 def test_get_by_cik_returns_company():
+
     repository, db = make_repository()
 
     company = Mock(spec=Company)
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    filtered_query.first.return_value = company
 
-    result = repository.get_by_cik("0000320193")
+    db.scalar.return_value = company
 
-    db.query.assert_called_once_with(Company)
-    query.filter.assert_called_once()
-    filtered_query.first.assert_called_once()
+    result = repository.get_by_cik(
+        "0000320193"
+    )
+
+    db.scalar.assert_called_once()
+
     assert result == company
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 
 def test_get_by_cik_returns_none_when_not_found():
+
     repository, db = make_repository()
 
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    filtered_query.first.return_value = None
+    db.scalar.return_value = None
 
-    result = repository.get_by_cik("UNKNOWN")
+    result = repository.get_by_cik(
+        "UNKNOWN"
+    )
+
+    db.scalar.assert_called_once()
 
     assert result is None
 
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
 
 def test_get_by_ciks_returns_empty_for_empty_input():
+
     repository, db = make_repository()
 
-    assert repository.get_by_ciks([]) == []
+    result = repository.get_by_ciks([])
+
+    assert result == []
+
+    db.scalar.assert_not_called()
+    db.scalars.assert_not_called()
     db.query.assert_not_called()
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 
 def test_get_by_ciks_returns_companies():
+
     repository, db = make_repository()
 
-    companies = [Mock(spec=Company)]
-    query = db.query.return_value
-    filtered_query = query.filter.return_value
-    filtered_query.all.return_value = companies
+    companies = [
+        Mock(spec=Company),
+    ]
 
-    result = repository.get_by_ciks(["0000320193"])
+    db.scalars.return_value.all.return_value = (
+        companies
+    )
+
+    result = repository.get_by_ciks(
+        ["0000320193"]
+    )
 
     assert result == companies
-    db.query.assert_called_once_with(Company)
-    query.filter.assert_called_once()
+
+    db.scalars.assert_called_once()
+
+    db.scalars.return_value.all.assert_called_once()
+
+    db.query.assert_not_called()
+
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 
 def test_create_company():
+
     repository, db = make_repository()
 
     company = repository.create(
@@ -73,22 +109,33 @@ def test_create_company():
         market_cap=3_000_000_000_000,
     )
 
-    db.add.assert_called_once_with(company)
+    db.add.assert_called_once_with(
+        company
+    )
 
-    assert isinstance(company, Company)
+    assert isinstance(
+        company,
+        Company,
+    )
+
     assert company.cik == "0000320193"
     assert company.name == "Apple Inc."
     assert company.sector == "Technology"
     assert company.industry == "Consumer Electronics"
     assert company.country == "United States"
     assert company.website == "https://www.apple.com"
-    assert company.market_cap == 3_000_000_000_000
+    assert company.market_cap == (
+        3_000_000_000_000
+    )
 
+    # Repository must not control the transaction.
     db.commit.assert_not_called()
+    db.rollback.assert_not_called()
     db.refresh.assert_not_called()
 
 
 def test_update_company():
+
     repository, db = make_repository()
 
     company = Company(
@@ -113,13 +160,18 @@ def test_update_company():
     )
 
     assert result is company
+
     assert company.cik == "0000320193"
     assert company.name == "Apple Inc."
     assert company.sector == "Technology"
     assert company.industry == "Consumer Electronics"
     assert company.country == "United States"
     assert company.website == "https://www.apple.com"
-    assert company.market_cap == 3_000_000_000_000
+    assert company.market_cap == (
+        3_000_000_000_000
+    )
 
+    # Repository must not control the transaction.
     db.commit.assert_not_called()
+    db.rollback.assert_not_called()
     db.refresh.assert_not_called()
