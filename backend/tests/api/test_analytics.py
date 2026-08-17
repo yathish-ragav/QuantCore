@@ -53,7 +53,7 @@ def make_service():
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_sma_endpoint(mock_service):
 
@@ -74,7 +74,7 @@ def test_sma_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_ema_endpoint(mock_service):
 
@@ -95,7 +95,7 @@ def test_ema_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_macd_endpoint(mock_service):
 
@@ -115,7 +115,7 @@ def test_macd_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_rsi_endpoint(mock_service):
 
@@ -136,7 +136,7 @@ def test_rsi_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_bollinger_endpoint(mock_service):
 
@@ -157,7 +157,7 @@ def test_bollinger_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_atr_endpoint(mock_service):
 
@@ -178,7 +178,7 @@ def test_atr_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_adx_endpoint(mock_service):
 
@@ -199,7 +199,7 @@ def test_adx_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_supertrend_endpoint(mock_service):
 
@@ -221,7 +221,7 @@ def test_supertrend_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_stochastic_endpoint(mock_service):
 
@@ -243,7 +243,7 @@ def test_stochastic_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_psar_endpoint(mock_service):
 
@@ -263,7 +263,7 @@ def test_psar_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_vwap_endpoint(mock_service):
 
@@ -283,7 +283,7 @@ def test_vwap_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_obv_endpoint(mock_service):
 
@@ -303,7 +303,7 @@ def test_obv_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_mfi_endpoint(mock_service):
 
@@ -324,7 +324,7 @@ def test_mfi_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_cmf_endpoint(mock_service):
 
@@ -345,7 +345,7 @@ def test_cmf_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_ichimoku_endpoint(mock_service):
 
@@ -365,7 +365,7 @@ def test_ichimoku_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_donchian_endpoint(mock_service):
 
@@ -386,7 +386,7 @@ def test_donchian_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_keltner_endpoint(mock_service):
 
@@ -408,7 +408,7 @@ def test_keltner_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_cci_endpoint(mock_service):
 
@@ -429,7 +429,7 @@ def test_cci_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_williams_r_endpoint(mock_service):
 
@@ -450,7 +450,7 @@ def test_williams_r_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_roc_endpoint(mock_service):
 
@@ -471,7 +471,7 @@ def test_roc_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_ultimate_oscillator_endpoint(mock_service):
 
@@ -494,7 +494,7 @@ def test_ultimate_oscillator_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_trix_endpoint(mock_service):
 
@@ -515,7 +515,7 @@ def test_trix_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_aroon_endpoint(mock_service):
 
@@ -536,7 +536,7 @@ def test_aroon_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_aroon_oscillator_endpoint(mock_service):
 
@@ -557,7 +557,7 @@ def test_aroon_oscillator_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_dpo_endpoint(mock_service):
 
@@ -578,7 +578,7 @@ def test_dpo_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_vortex_endpoint(mock_service):
 
@@ -599,7 +599,7 @@ def test_vortex_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_emv_endpoint(mock_service):
 
@@ -620,7 +620,7 @@ def test_emv_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_accumulation_distribution_endpoint(
     mock_service,
@@ -642,7 +642,7 @@ def test_accumulation_distribution_endpoint(
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_force_index_endpoint(mock_service):
 
@@ -662,7 +662,7 @@ def test_force_index_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_nvi_endpoint(mock_service):
 
@@ -682,7 +682,7 @@ def test_nvi_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_pvi_endpoint(mock_service):
 
@@ -702,7 +702,7 @@ def test_pvi_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_kvo_endpoint(mock_service):
 
@@ -725,7 +725,7 @@ def test_kvo_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_chaikin_oscillator_endpoint(mock_service):
 
@@ -747,7 +747,7 @@ def test_chaikin_oscillator_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_elder_ray_endpoint(mock_service):
 
@@ -768,7 +768,7 @@ def test_elder_ray_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_rvi_endpoint(mock_service):
 
@@ -789,7 +789,7 @@ def test_rvi_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_coppock_endpoint(mock_service):
 
@@ -812,7 +812,7 @@ def test_coppock_endpoint(mock_service):
 
 
 @patch(
-    "quantcore.api.endpoints.analytics.AnalyticsService"
+    "quantcore.api.dependencies.AnalyticsService"
 )
 def test_kst_endpoint(mock_service):
 

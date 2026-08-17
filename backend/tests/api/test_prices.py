@@ -40,7 +40,7 @@ def make_price(
 
 
 @patch(
-    "quantcore.api.endpoints.prices.PriceService"
+    "quantcore.api.dependencies.PriceService"
 )
 def test_get_prices_returns_price_history(
     mock_service,
@@ -97,7 +97,7 @@ def test_get_prices_returns_price_history(
 
 
 @patch(
-    "quantcore.api.endpoints.prices.PriceService"
+    "quantcore.api.dependencies.PriceService"
 )
 def test_get_prices_normalizes_lowercase_symbol(
     mock_service,
@@ -122,7 +122,7 @@ def test_get_prices_normalizes_lowercase_symbol(
 
 
 @patch(
-    "quantcore.api.endpoints.prices.PriceService"
+    "quantcore.api.dependencies.PriceService"
 )
 def test_get_prices_normalizes_mixed_case_symbol(
     mock_service,
@@ -147,7 +147,7 @@ def test_get_prices_normalizes_mixed_case_symbol(
 
 
 @patch(
-    "quantcore.api.endpoints.prices.PriceService"
+    "quantcore.api.dependencies.PriceService"
 )
 def test_get_prices_returns_empty_list_when_no_prices(
     mock_service,
@@ -171,7 +171,7 @@ def test_get_prices_returns_empty_list_when_no_prices(
 
 
 @patch(
-    "quantcore.api.endpoints.prices.PriceService"
+    "quantcore.api.dependencies.PriceService"
 )
 def test_get_prices_preserves_dividends_and_stock_splits(
     mock_service,
@@ -213,7 +213,7 @@ def test_get_prices_preserves_dividends_and_stock_splits(
 
 
 @patch(
-    "quantcore.api.endpoints.prices.PriceService"
+    "quantcore.api.dependencies.PriceService"
 )
 def test_get_prices_propagates_service_error(
     mock_service,

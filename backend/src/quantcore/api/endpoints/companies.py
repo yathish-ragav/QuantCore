@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
-from quantcore.db.database import get_db
+from quantcore.api.dependencies import get_company_service
 from quantcore.services.company_service import CompanyService
 
 
@@ -14,11 +13,9 @@ router = APIRouter(
 @router.get("/{symbol}")
 def get_company(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: CompanyService = Depends(get_company_service),
 ):
     normalized_symbol = symbol.strip().upper()
-
-    service = CompanyService(db)
 
     company = service.get_company(
         normalized_symbol
@@ -39,11 +36,9 @@ def get_company(
 @router.post("/{symbol}/sync")
 def sync_company(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: CompanyService = Depends(get_company_service),
 ):
     normalized_symbol = symbol.strip().upper()
-
-    service = CompanyService(db)
 
     company = service.sync_company(
         normalized_symbol

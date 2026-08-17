@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 
-from quantcore.db.database import get_db
+from quantcore.api.dependencies import get_price_service
 from quantcore.services.price_service import PriceService
+
 
 router = APIRouter(
     prefix="/prices",
@@ -12,13 +12,11 @@ router = APIRouter(
 @router.get("/{symbol}")
 def get_prices(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: PriceService = Depends(get_price_service),
 ):
 
-    service = PriceService(db)
-
     prices = service.get_price_history(
-        symbol.upper()
+        symbol.strip().upper()
     )
 
     return [

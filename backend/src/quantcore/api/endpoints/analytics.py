@@ -1,7 +1,6 @@
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
 
-from quantcore.db.database import get_db
+from quantcore.api.dependencies import get_analytics_service
 from quantcore.services.analytics_service import AnalyticsService
 
 
@@ -11,18 +10,7 @@ router = APIRouter(
 )
 
 
-def _get_service(db: Session) -> AnalyticsService:
-    """
-    Construct the analytics service for the current request.
-
-    Keeping service construction in one place prevents every endpoint
-    from duplicating the same initialization logic while preserving
-    the existing service architecture.
-    """
-    return AnalyticsService(db)
-
-
-def _normalize_symbol(symbol: str) -> str:
+def normalize_symbol(symbol: str) -> str:
     """
     Normalize equity symbols at the API boundary.
     """
@@ -33,12 +21,10 @@ def _normalize_symbol(symbol: str) -> str:
 def get_sma(
     symbol: str,
     period: int = Query(default=20, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.sma(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -47,12 +33,10 @@ def get_sma(
 def get_ema(
     symbol: str,
     period: int = Query(default=20, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.ema(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -60,12 +44,10 @@ def get_ema(
 @router.get("/macd/{symbol}")
 def get_macd(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.macd(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
@@ -73,12 +55,10 @@ def get_macd(
 def get_rsi(
     symbol: str,
     period: int = Query(default=14, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.rsi(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -87,12 +67,10 @@ def get_rsi(
 def get_bollinger(
     symbol: str,
     period: int = Query(default=20, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.bollinger(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -101,12 +79,10 @@ def get_bollinger(
 def get_atr(
     symbol: str,
     period: int = Query(default=14, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.atr(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -115,12 +91,10 @@ def get_atr(
 def get_adx(
     symbol: str,
     period: int = Query(default=14, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.adx(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -130,12 +104,10 @@ def get_supertrend(
     symbol: str,
     period: int = Query(default=10, gt=0),
     multiplier: float = Query(default=3.0, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.supertrend(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
         multiplier=multiplier,
     )
@@ -146,12 +118,10 @@ def get_stochastic(
     symbol: str,
     period: int = Query(default=14, gt=0),
     signal_period: int = Query(default=3, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.stochastic(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
         signal_period=signal_period,
     )
@@ -160,36 +130,30 @@ def get_stochastic(
 @router.get("/psar/{symbol}")
 def get_psar(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.parabolic_sar(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
 @router.get("/vwap/{symbol}")
 def get_vwap(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.vwap(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
 @router.get("/obv/{symbol}")
 def get_obv(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.obv(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
@@ -197,12 +161,10 @@ def get_obv(
 def get_mfi(
     symbol: str,
     period: int = Query(default=14, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.mfi(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -211,12 +173,10 @@ def get_mfi(
 def get_cmf(
     symbol: str,
     period: int = Query(default=20, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.cmf(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -224,12 +184,10 @@ def get_cmf(
 @router.get("/ichimoku/{symbol}")
 def get_ichimoku(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.ichimoku(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
@@ -237,12 +195,10 @@ def get_ichimoku(
 def get_donchian(
     symbol: str,
     period: int = Query(default=20, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.donchian(
-        symbol=_normalize_symbol(symbol),
+        symbol=normalize_symbol(symbol),
         period=period,
     )
 
@@ -252,12 +208,10 @@ def get_keltner(
     symbol: str,
     period: int = Query(default=20, gt=0),
     multiplier: float = Query(default=2.0, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.keltner(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
         multiplier,
     )
@@ -267,12 +221,10 @@ def get_keltner(
 def get_cci(
     symbol: str,
     period: int = Query(default=20, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.cci(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -281,12 +233,10 @@ def get_cci(
 def get_williams_r(
     symbol: str,
     period: int = Query(default=14, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.williams_r(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -295,12 +245,10 @@ def get_williams_r(
 def get_roc(
     symbol: str,
     period: int = Query(default=12, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.roc(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -311,12 +259,10 @@ def get_ultimate_oscillator(
     short_period: int = Query(default=7, gt=0),
     medium_period: int = Query(default=14, gt=0),
     long_period: int = Query(default=28, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.ultimate_oscillator(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         short_period,
         medium_period,
         long_period,
@@ -327,12 +273,10 @@ def get_ultimate_oscillator(
 def get_trix(
     symbol: str,
     period: int = Query(default=15, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.trix(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -341,12 +285,10 @@ def get_trix(
 def get_aroon(
     symbol: str,
     period: int = Query(default=25, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.aroon(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -355,12 +297,10 @@ def get_aroon(
 def get_aroon_oscillator(
     symbol: str,
     period: int = Query(default=25, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.aroon_oscillator(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -369,12 +309,10 @@ def get_aroon_oscillator(
 def get_dpo(
     symbol: str,
     period: int = Query(default=20, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.dpo(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -383,12 +321,10 @@ def get_dpo(
 def get_vortex(
     symbol: str,
     period: int = Query(default=14, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.vortex(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -397,12 +333,10 @@ def get_vortex(
 def get_emv(
     symbol: str,
     period: int = Query(default=14, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.emv(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -410,48 +344,40 @@ def get_emv(
 @router.get("/accumulation-distribution/{symbol}")
 def get_accumulation_distribution(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.accumulation_distribution(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
 @router.get("/force-index/{symbol}")
 def force_index(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.force_index(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
 @router.get("/nvi/{symbol}")
 def nvi(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.nvi(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
 @router.get("/pvi/{symbol}")
 def pvi(
     symbol: str,
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.pvi(
-        _normalize_symbol(symbol)
+        normalize_symbol(symbol)
     )
 
 
@@ -461,12 +387,10 @@ def kvo(
     fast_period: int = Query(default=34, gt=0),
     slow_period: int = Query(default=55, gt=0),
     signal_period: int = Query(default=13, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.kvo(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         fast_period,
         slow_period,
         signal_period,
@@ -478,12 +402,10 @@ def chaikin_oscillator(
     symbol: str,
     fast_period: int = Query(default=3, gt=0),
     slow_period: int = Query(default=10, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.chaikin_oscillator(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         fast_period,
         slow_period,
     )
@@ -493,12 +415,10 @@ def chaikin_oscillator(
 def elder_ray(
     symbol: str,
     period: int = Query(default=13, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.elder_ray(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -507,12 +427,10 @@ def elder_ray(
 def rvi(
     symbol: str,
     period: int = Query(default=10, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.rvi(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         period,
     )
 
@@ -523,12 +441,10 @@ def coppock(
     roc_fast_period: int = Query(default=14, gt=0),
     roc_slow_period: int = Query(default=11, gt=0),
     wma_period: int = Query(default=10, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.coppock(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         roc_fast_period,
         roc_slow_period,
         wma_period,
@@ -546,12 +462,10 @@ def kst(
     sma2_period: int = Query(default=10, gt=0),
     sma3_period: int = Query(default=10, gt=0),
     sma4_period: int = Query(default=15, gt=0),
-    db: Session = Depends(get_db),
+    service: AnalyticsService = Depends(get_analytics_service),
 ):
-    service = _get_service(db)
-
     return service.kst(
-        _normalize_symbol(symbol),
+        normalize_symbol(symbol),
         roc1_period,
         roc2_period,
         roc3_period,

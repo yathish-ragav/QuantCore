@@ -31,7 +31,7 @@ def test_get_news_returns_articles():
     article = make_article()
 
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -81,7 +81,7 @@ def test_get_news_returns_multiple_articles():
     )
 
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -125,7 +125,7 @@ def test_get_news_returns_multiple_articles():
 
 def test_get_news_returns_empty_list():
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -153,7 +153,7 @@ def test_get_news_returns_empty_list():
 
 def test_get_news_preserves_symbol():
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -179,7 +179,7 @@ def test_get_news_normalizes_lowercase_symbol():
     article = make_article()
 
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -207,7 +207,7 @@ def test_get_news_normalizes_mixed_case_symbol():
     article = make_article()
 
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -233,7 +233,7 @@ def test_get_news_normalizes_mixed_case_symbol():
 
 def test_sync_news_returns_articles_added():
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -262,7 +262,7 @@ def test_sync_news_returns_articles_added():
 
 def test_sync_news_returns_zero_when_no_articles_added():
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -289,7 +289,7 @@ def test_sync_news_returns_zero_when_no_articles_added():
 
 def test_sync_news_preserves_symbol():
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -313,7 +313,7 @@ def test_sync_news_preserves_symbol():
 
 def test_sync_news_normalizes_lowercase_symbol():
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -340,7 +340,7 @@ def test_sync_news_normalizes_lowercase_symbol():
 
 def test_sync_news_normalizes_mixed_case_symbol():
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()
@@ -367,7 +367,7 @@ def test_sync_news_normalizes_mixed_case_symbol():
 
 def test_sync_news_creates_service_with_database():
     with patch(
-        "quantcore.api.endpoints.news.NewsService"
+        "quantcore.api.dependencies.NewsService"
     ) as mock_service_class:
 
         service = Mock()

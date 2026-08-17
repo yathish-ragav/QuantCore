@@ -28,7 +28,7 @@ def test_get_company_returns_company_data():
     company = make_company()
 
     with patch(
-        "quantcore.api.endpoints.companies.CompanyService"
+        "quantcore.api.dependencies.CompanyService"
     ) as mock_service:
 
         service = Mock()
@@ -68,7 +68,7 @@ def test_get_company_normalizes_lowercase_symbol():
     company = make_company()
 
     with patch(
-        "quantcore.api.endpoints.companies.CompanyService"
+        "quantcore.api.dependencies.CompanyService"
     ) as mock_service:
 
         service = Mock()
@@ -99,7 +99,7 @@ def test_get_company_normalizes_mixed_case_symbol():
     company = make_company()
 
     with patch(
-        "quantcore.api.endpoints.companies.CompanyService"
+        "quantcore.api.dependencies.CompanyService"
     ) as mock_service:
 
         service = Mock()
@@ -128,7 +128,7 @@ def test_get_company_normalizes_mixed_case_symbol():
 def test_get_company_propagates_service_error():
 
     with patch(
-        "quantcore.api.endpoints.companies.CompanyService"
+        "quantcore.api.dependencies.CompanyService"
     ) as mock_service:
 
         service = Mock()
@@ -159,7 +159,7 @@ def test_sync_company_returns_company_data():
     company = make_company()
 
     with patch(
-        "quantcore.api.endpoints.companies.CompanyService"
+        "quantcore.api.dependencies.CompanyService"
     ) as mock_service:
 
         service = Mock()
@@ -199,7 +199,7 @@ def test_sync_company_normalizes_lowercase_symbol():
     company = make_company()
 
     with patch(
-        "quantcore.api.endpoints.companies.CompanyService"
+        "quantcore.api.dependencies.CompanyService"
     ) as mock_service:
 
         service = Mock()
@@ -230,7 +230,7 @@ def test_sync_company_normalizes_mixed_case_symbol():
     company = make_company()
 
     with patch(
-        "quantcore.api.endpoints.companies.CompanyService"
+        "quantcore.api.dependencies.CompanyService"
     ) as mock_service:
 
         service = Mock()
@@ -259,7 +259,7 @@ def test_sync_company_normalizes_mixed_case_symbol():
 def test_sync_company_propagates_service_error():
 
     with patch(
-        "quantcore.api.endpoints.companies.CompanyService"
+        "quantcore.api.dependencies.CompanyService"
     ) as mock_service:
 
         service = Mock()
