@@ -25,6 +25,20 @@ class UniverseService:
         if not companies:
             return 0
 
+        symbol_to_cik: dict[str, str] = {}
+
+        for company in companies:
+            existing_cik = symbol_to_cik.get(company.symbol)
+
+            if existing_cik is not None and existing_cik != company.cik:
+                raise ValueError(
+                    f"Security symbol '{company.symbol}' "
+                    f"is associated with multiple companies: "
+                    f"{existing_cik} and {company.cik}."
+                )
+
+            symbol_to_cik[company.symbol] = company.cik
+
         synced = 0
 
         try:
@@ -54,9 +68,7 @@ class UniverseService:
             # -------------------------------------------------
             existing_by_cik = {
                 company.cik: company
-                for company in self.company_repo.get_by_ciks(
-                    ciks
-                )
+                for company in self.company_repo.get_by_ciks(ciks)
             }
 
             synced_companies_by_cik = {}
@@ -64,9 +76,7 @@ class UniverseService:
             # -------------------------------------------------
             # 3. Reconcile Companies.
             # -------------------------------------------------
-            for cik, universe_companies in (
-                companies_by_cik.items()
-            ):
+            for cik, universe_companies in companies_by_cik.items():
                 representative = universe_companies[0]
                 company = existing_by_cik.get(cik)
 
@@ -95,16 +105,11 @@ class UniverseService:
             # -------------------------------------------------
             # 5. Load existing Securities in bulk.
             # -------------------------------------------------
-            symbols = [
-                company.symbol
-                for company in companies
-            ]
+            symbols = [company.symbol for company in companies]
 
             existing_securities = {
                 security.symbol: security
-                for security in self.security_repo.get_by_symbols(
-                    symbols
-                )
+                for security in self.security_repo.get_by_symbols(symbols)
             }
 
             # -------------------------------------------------
@@ -115,13 +120,9 @@ class UniverseService:
             # rows.
             # -------------------------------------------------
             for universe_company in companies:
-                company = synced_companies_by_cik[
-                    universe_company.cik
-                ]
+                company = synced_companies_by_cik[universe_company.cik]
 
-                security = existing_securities.get(
-                    universe_company.symbol
-                )
+                security = existing_securities.get(universe_company.symbol)
 
                 if security is None:
                     self.security_repo.create(
