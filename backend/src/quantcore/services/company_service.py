@@ -1,5 +1,10 @@
 from sqlalchemy.orm import Session
 
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
@@ -21,11 +26,10 @@ class CompanyService:
         self,
         symbol: str,
     ):
-
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise ValueError(
+            raise InvalidInputError(
                 "Symbol must not be empty."
             )
 
@@ -34,7 +38,7 @@ class CompanyService:
         )
 
         if security is None:
-            raise ValueError(
+            raise ResourceNotFoundError(
                 f"Security '{symbol}' not found. "
                 "Run universe sync first."
             )
@@ -42,7 +46,7 @@ class CompanyService:
         company = security.company
 
         if company is None:
-            raise ValueError(
+            raise ResourceNotFoundError(
                 f"Company for security '{symbol}' "
                 "not found."
             )
@@ -53,12 +57,11 @@ class CompanyService:
         self,
         symbol: str,
     ):
-
         try:
             symbol = DataCleaner.clean_symbol(symbol)
 
             if not symbol:
-                raise ValueError(
+                raise InvalidInputError(
                     "Symbol must not be empty."
                 )
 
@@ -67,7 +70,7 @@ class CompanyService:
             )
 
             if security is None:
-                raise ValueError(
+                raise ResourceNotFoundError(
                     f"Security '{symbol}' not found. "
                     "Run universe sync first."
                 )
@@ -75,7 +78,7 @@ class CompanyService:
             company = security.company
 
             if company is None:
-                raise ValueError(
+                raise ResourceNotFoundError(
                     f"Company for security '{symbol}' "
                     "not found."
                 )
@@ -95,12 +98,12 @@ class CompanyService:
             if not DataValidator.validate_company(
                 data
             ):
-                raise ValueError(
+                raise DataValidationError(
                     f"Invalid company data for '{symbol}'."
                 )
 
             if data.symbol != symbol:
-                raise ValueError(
+                raise DataValidationError(
                     f"Provider returned symbol "
                     f"'{data.symbol}' for requested "
                     f"symbol '{symbol}'."

@@ -1,5 +1,10 @@
 from sqlalchemy.orm import Session
 
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.ingestion.providers.financial_factory import (
     FinancialProviderFactory,
 )
@@ -29,14 +34,14 @@ class IncomeStatementService:
             IncomeStatementRepository(db)
         )
 
-    def _get_company_for_symbol(
+    def get_company_for_symbol(
         self,
         symbol: str,
     ):
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise ValueError(
+            raise InvalidInputError(
                 "Symbol must not be empty."
             )
 
@@ -51,7 +56,7 @@ class IncomeStatementService:
         )
 
         if company is None:
-            raise ValueError(
+            raise ResourceNotFoundError(
                 f"Company not found: {symbol}"
             )
 
@@ -71,7 +76,7 @@ class IncomeStatementService:
             )
 
             if not symbol:
-                raise ValueError(
+                raise InvalidInputError(
                     "Symbol must not be empty."
                 )
 
@@ -79,7 +84,7 @@ class IncomeStatementService:
             # 2. Resolve Company identity.
             # -------------------------------------------------
             _, company = (
-                self._get_company_for_symbol(symbol)
+                self.get_company_for_symbol(symbol)
             )
 
             # -------------------------------------------------
@@ -116,7 +121,7 @@ class IncomeStatementService:
             if not DataValidator.validate_income_statements(
                 statements
             ):
-                raise ValueError(
+                raise DataValidationError(
                     f"Invalid income statement data "
                     f"for '{symbol}'."
                 )

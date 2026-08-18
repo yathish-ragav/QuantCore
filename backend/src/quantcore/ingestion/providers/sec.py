@@ -1,7 +1,12 @@
-import requests
 from datetime import date
 from typing import Any
 
+import requests
+
+from quantcore.core.exceptions import (
+    ExternalDataError,
+    InvalidInputError,
+)
 from quantcore.schemas.income_statement import IncomeStatementData
 
 from .financial_provider import FinancialDataProvider
@@ -10,6 +15,10 @@ from .financial_provider import FinancialDataProvider
 class SECProvider(FinancialDataProvider):
     """
     SEC EDGAR XBRL financial data provider.
+
+    This provider is responsible for communicating with SEC EDGAR
+    and translating external transport failures into QuantCore
+    application-level exceptions.
     """
 
     BASE_URL = "https://data.sec.gov"
@@ -25,20 +34,32 @@ class SECProvider(FinancialDataProvider):
     def _load_ticker_map(self) -> dict[str, str]:
         """
         Load the SEC's official ticker -> CIK mapping.
+
+        The mapping is cached for the lifetime of the process.
+
+        External network failures are translated into
+        ExternalDataError so that lower-level requests exceptions
+        do not leak through the provider boundary.
         """
 
         if SECProvider._ticker_to_cik is not None:
             return SECProvider._ticker_to_cik
 
-        response = requests.get(
-            self.TICKER_URL,
-            headers=self.HEADERS,
-            timeout=30,
-        )
+        try:
+            response = requests.get(
+                self.TICKER_URL,
+                headers=self.HEADERS,
+                timeout=30,
+            )
 
-        response.raise_for_status()
+            response.raise_for_status()
 
-        data = response.json()
+            data = response.json()
+
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve SEC ticker mapping."
+            ) from exc
 
         mapping: dict[str, str] = {}
 
@@ -58,6 +79,8 @@ class SECProvider(FinancialDataProvider):
     def _get_cik(self, symbol: str) -> str:
         """
         Resolve a ticker symbol to its SEC CIK.
+
+        Unknown symbols are treated as invalid client input.
         """
 
         symbol = symbol.upper().strip()
@@ -66,10 +89,11 @@ class SECProvider(FinancialDataProvider):
 
         try:
             return mapping[symbol]
-        except KeyError:
-            raise ValueError(
+
+        except KeyError as exc:
+            raise InvalidInputError(
                 f"SEC CIK not found for ticker: {symbol}"
-            )
+            ) from exc
 
     def get_income_statements(
         self,
@@ -79,19 +103,53 @@ class SECProvider(FinancialDataProvider):
         Retrieve annual income statements from SEC XBRL CompanyFacts.
         """
 
+        # -------------------------------------------------
+        # 1. Validate caller input.
+        # -------------------------------------------------
+        symbol = symbol.strip()
+
+        if not symbol:
+            raise InvalidInputError(
+                "Symbol must not be empty."
+            )
+
+        # -------------------------------------------------
+        # 2. Resolve ticker -> SEC CIK.
+        # -------------------------------------------------
         cik = self._get_cik(symbol)
 
-        response = requests.get(
-            f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
-            headers=self.HEADERS,
-            timeout=30,
+        # -------------------------------------------------
+        # 3. Retrieve CompanyFacts from SEC.
+        #
+        # Transport/provider failures are translated into
+        # an application-level ExternalDataError.
+        # -------------------------------------------------
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
+                headers=self.HEADERS,
+                timeout=30,
+            )
+
+            response.raise_for_status()
+
+            data = response.json()
+
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve income statement data from SEC."
+            ) from exc
+
+        # -------------------------------------------------
+        # 4. Extract US GAAP facts.
+        # -------------------------------------------------
+        us_gaap = data.get(
+            "facts",
+            {},
+        ).get(
+            "us-gaap",
+            {},
         )
-
-        response.raise_for_status()
-
-        data = response.json()
-
-        us_gaap = data.get("facts", {}).get("us-gaap", {})
 
         revenue = self._get_fact(
             us_gaap,
@@ -142,9 +200,17 @@ class SECProvider(FinancialDataProvider):
             preferred_unit="shares",
         )
 
-        fiscal_dates = self._get_fiscal_dates(revenue)
+        # -------------------------------------------------
+        # 5. Determine annual fiscal dates from revenue.
+        # -------------------------------------------------
+        fiscal_dates = self._get_fiscal_dates(
+            revenue
+        )
 
-        statements = []
+        # -------------------------------------------------
+        # 6. Build normalized domain objects.
+        # -------------------------------------------------
+        statements: list[IncomeStatementData] = []
 
         for fiscal_date in fiscal_dates:
             statements.append(
@@ -206,7 +272,9 @@ class SECProvider(FinancialDataProvider):
         return []
 
     @staticmethod
-    def _is_annual_fact(fact: dict[str, Any]) -> bool:
+    def _is_annual_fact(
+        fact: dict[str, Any],
+    ) -> bool:
         """
         Determine whether an XBRL fact represents an annual 10-K result.
         """
@@ -236,7 +304,9 @@ class SECProvider(FinancialDataProvider):
             if not end:
                 continue
 
-            dates.add(date.fromisoformat(end))
+            dates.add(
+                date.fromisoformat(end)
+            )
 
         return sorted(dates)
 
@@ -250,7 +320,7 @@ class SECProvider(FinancialDataProvider):
         Get the latest filed annual value for a fiscal date.
         """
 
-        matching_facts = []
+        matching_facts: list[dict[str, Any]] = []
 
         for fact in facts:
             if not cls._is_annual_fact(fact):

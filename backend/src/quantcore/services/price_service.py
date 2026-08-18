@@ -1,5 +1,10 @@
 from sqlalchemy.orm import Session
 
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
@@ -18,14 +23,14 @@ class PriceService:
         self.security_repo = SecurityRepository(db)
         self.price_repo = PriceRepository(db)
 
-    def _get_security(
+    def get_security(
         self,
         symbol: str,
     ):
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise ValueError(
+            raise InvalidInputError(
                 "Symbol must not be empty."
             )
 
@@ -34,7 +39,7 @@ class PriceService:
         )
 
         if security is None:
-            raise ValueError(
+            raise ResourceNotFoundError(
                 f"Security '{symbol}' not found. "
                 "Run security sync first."
             )
@@ -50,7 +55,7 @@ class PriceService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise ValueError(
+            raise InvalidInputError(
                 "Symbol must not be empty."
             )
 
@@ -58,7 +63,7 @@ class PriceService:
             # -------------------------------------------------
             # 1. Resolve Security identity.
             # -------------------------------------------------
-            security = self._get_security(symbol)
+            security = self.get_security(symbol)
 
             # -------------------------------------------------
             # 2. Fetch external data.
@@ -86,12 +91,12 @@ class PriceService:
             ]
 
             # -------------------------------------------------
-            # 5. Validate the complete dataset BEFORE writing.
+            # 5. Validate complete dataset BEFORE writing.
             # -------------------------------------------------
             if not DataValidator.validate_prices(
                 prices
             ):
-                raise ValueError(
+                raise DataValidationError(
                     f"Invalid price data for '{symbol}'."
                 )
 
@@ -129,18 +134,12 @@ class PriceService:
 
             # -------------------------------------------------
             # 7. ONE transaction boundary.
-            #
-            # Nothing is committed until every price has been
-            # successfully processed.
             # -------------------------------------------------
             self.db.commit()
 
             return inserted
 
         except Exception:
-            # -------------------------------------------------
-            # Any failure means the entire sync is rolled back.
-            # -------------------------------------------------
             self.db.rollback()
             raise
 
@@ -148,7 +147,7 @@ class PriceService:
         self,
         symbol: str,
     ):
-        security = self._get_security(symbol)
+        security = self.get_security(symbol)
 
         return self.price_repo.get_for_security(
             security.id

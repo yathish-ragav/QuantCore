@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class CompanyResponse(BaseModel):
@@ -36,3 +36,22 @@ class NewsResponse(BaseModel):
 class NewsSyncResponse(BaseModel):
     symbol: str
     articles_added: int
+
+
+class APIError(BaseModel):
+    code: str = Field(
+        ...,
+        description="Stable machine-readable error code.",
+    )
+    message: str = Field(
+        ...,
+        description="Human-readable error message.",
+    )
+    request_id: str | None = Field(
+        default=None,
+        description="Request identifier for tracing and diagnostics.",
+    )
+
+
+class APIErrorResponse(BaseModel):
+    error: APIError

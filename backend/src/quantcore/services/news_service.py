@@ -1,5 +1,10 @@
 from sqlalchemy.orm import Session
 
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
@@ -18,14 +23,14 @@ class NewsService:
         self.security_repo = SecurityRepository(db)
         self.news_repo = NewsRepository(db)
 
-    def _get_company_for_symbol(
+    def get_company_for_symbol(
         self,
         symbol: str,
     ):
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise ValueError(
+            raise InvalidInputError(
                 "Symbol must not be empty."
             )
 
@@ -40,7 +45,7 @@ class NewsService:
         )
 
         if company is None:
-            raise ValueError(
+            raise ResourceNotFoundError(
                 f"{symbol} not found in database."
             )
 
@@ -50,8 +55,7 @@ class NewsService:
         self,
         symbol: str,
     ):
-
-        _, company = self._get_company_for_symbol(
+        _, company = self.get_company_for_symbol(
             symbol
         )
 
@@ -67,7 +71,7 @@ class NewsService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise ValueError(
+            raise InvalidInputError(
                 "Symbol must not be empty."
             )
 
@@ -76,7 +80,7 @@ class NewsService:
             # 1. Resolve Company identity.
             # -------------------------------------------------
             security, company = (
-                self._get_company_for_symbol(symbol)
+                self.get_company_for_symbol(symbol)
             )
 
             # -------------------------------------------------
@@ -104,12 +108,12 @@ class NewsService:
             ]
 
             # -------------------------------------------------
-            # 5. Validate entire dataset before mutation.
+            # 5. Validate complete dataset before mutation.
             # -------------------------------------------------
             if not DataValidator.validate_news_articles(
                 articles
             ):
-                raise ValueError(
+                raise DataValidationError(
                     f"Invalid news data for '{symbol}'."
                 )
 
@@ -139,7 +143,7 @@ class NewsService:
                 inserted += 1
 
             # -------------------------------------------------
-            # 7. Commit the entire sync atomically.
+            # 7. Commit entire sync atomically.
             # -------------------------------------------------
             self.db.commit()
 
