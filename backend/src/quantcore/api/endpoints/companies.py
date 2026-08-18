@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from quantcore.api.dependencies import get_company_service
+from quantcore.schemas.responses import CompanyResponse
 from quantcore.services.company_service import CompanyService
 
 
@@ -10,7 +11,26 @@ router = APIRouter(
 )
 
 
-@router.get("/{symbol}")
+def _to_company_response(
+    company,
+    symbol: str,
+) -> CompanyResponse:
+    return CompanyResponse(
+        id=company.id,
+        symbol=symbol,
+        name=company.name,
+        sector=company.sector,
+        industry=company.industry,
+        country=company.country,
+        website=company.website,
+        market_cap=company.market_cap,
+    )
+
+
+@router.get(
+    "/{symbol}",
+    response_model=CompanyResponse,
+)
 def get_company(
     symbol: str,
     service: CompanyService = Depends(get_company_service),
@@ -21,19 +41,16 @@ def get_company(
         normalized_symbol
     )
 
-    return {
-        "id": company.id,
-        "symbol": normalized_symbol,
-        "name": company.name,
-        "sector": company.sector,
-        "industry": company.industry,
-        "country": company.country,
-        "website": company.website,
-        "market_cap": company.market_cap,
-    }
+    return _to_company_response(
+        company,
+        normalized_symbol,
+    )
 
 
-@router.post("/{symbol}/sync")
+@router.post(
+    "/{symbol}/sync",
+    response_model=CompanyResponse,
+)
 def sync_company(
     symbol: str,
     service: CompanyService = Depends(get_company_service),
@@ -44,13 +61,7 @@ def sync_company(
         normalized_symbol
     )
 
-    return {
-        "id": company.id,
-        "symbol": normalized_symbol,
-        "name": company.name,
-        "sector": company.sector,
-        "industry": company.industry,
-        "country": company.country,
-        "website": company.website,
-        "market_cap": company.market_cap,
-    }
+    return _to_company_response(
+        company,
+        normalized_symbol,
+    )
