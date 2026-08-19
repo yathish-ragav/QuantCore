@@ -1,4 +1,5 @@
 from quantcore.core.config import settings
+from quantcore.core.exceptions import ConfigurationError
 
 from .base import MarketDataProvider
 from .yahoo import YahooClient
@@ -20,6 +21,6 @@ class ProviderFactory:
         if provider == "yahoo":
             return YahooClient()
 
-        raise ValueError(
+        raise ConfigurationError(
             f"Unknown market data provider: {provider}"
         )

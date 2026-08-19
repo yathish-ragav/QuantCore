@@ -1,21 +1,31 @@
+from datetime import datetime, timezone
+
 import requests
+from pydantic import ValidationError
 
 from quantcore.core.config import settings
-from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    ExternalDataError,
+    InvalidInputError,
+)
 from quantcore.schemas.income_statement import IncomeStatementData
+from quantcore.schemas.quote import QuoteData
 
 from .financial_provider import FinancialDataProvider
+from .quote_provider import QuoteProvider
 
 
-class FMPClient(FinancialDataProvider):
+class FMPClient(FinancialDataProvider, QuoteProvider):
     """
     Financial Modeling Prep data provider.
 
-    This class is responsible only for communicating with FMP and
-    transforming the provider response into QuantCore domain schemas.
-
-    HTTP/network exceptions intentionally propagate from this layer.
-    Application-level error translation is handled by higher layers.
+    Responsibilities:
+    - validate provider method input
+    - communicate with FMP
+    - translate transport failures into QuantCore errors
+    - validate provider response structure
+    - transform provider data into domain schemas
     """
 
     BASE_URL = "https://financialmodelingprep.com/stable"
@@ -29,31 +39,18 @@ class FMPClient(FinancialDataProvider):
         limit: int = 10,
     ) -> list[IncomeStatementData]:
         """
-        Retrieve income statement data from Financial Modeling Prep.
-
-        Parameters
-        ----------
-        symbol:
-            Equity ticker symbol.
-
-        limit:
-            Maximum number of statements to retrieve.
-
-        Returns
-        -------
-        list[IncomeStatementData]
-            Normalized income statement records.
+        Retrieve income statement data from FMP.
 
         Raises
         ------
         InvalidInputError
-            If symbol or limit is invalid.
+            Invalid caller input.
 
-        requests.RequestException
-            If the external HTTP request fails.
+        ExternalDataError
+            FMP could not be reached or returned an HTTP error.
 
-        ValueError
-            If FMP returns data in an unexpected format.
+        DataValidationError
+            FMP returned malformed or unexpected data.
         """
 
         # ---------------------------------------------------------
@@ -73,48 +70,42 @@ class FMPClient(FinancialDataProvider):
         # ---------------------------------------------------------
         # 2. Call external provider.
         #
-        # HTTP/network exceptions intentionally propagate.
-        #
-        # The provider layer should not translate transport
-        # failures into application-level errors.
+        # All requests-layer failures are translated here so they
+        # cannot leak beyond the provider boundary.
         # ---------------------------------------------------------
 
-        response = requests.get(
-            f"{self.BASE_URL}/income-statement",
-            params={
-                "symbol": symbol,
-                "limit": limit,
-                "apikey": self.api_key,
-            },
-            timeout=30,
-        )
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/income-statement",
+                params={
+                    "symbol": symbol,
+                    "limit": limit,
+                    "apikey": self.api_key,
+                },
+                timeout=30,
+            )
+
+            response.raise_for_status()
+
+            data = response.json()
+
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve income statement data "
+                "from Financial Modeling Prep."
+            ) from exc
 
         # ---------------------------------------------------------
-        # 3. Raise HTTP errors unchanged.
-        #
-        # This preserves requests.HTTPError semantics for callers
-        # and keeps provider responsibilities clean.
-        # ---------------------------------------------------------
-
-        response.raise_for_status()
-
-        # ---------------------------------------------------------
-        # 4. Decode response.
-        # ---------------------------------------------------------
-
-        data = response.json()
-
-        # ---------------------------------------------------------
-        # 5. Validate provider response structure.
+        # 3. Validate top-level provider response.
         # ---------------------------------------------------------
 
         if not isinstance(data, list):
-            raise ValueError(
+            raise DataValidationError(
                 "FMP income statement response must be a list."
             )
 
         # ---------------------------------------------------------
-        # 6. Transform provider records into domain schemas.
+        # 4. Transform provider records.
         # ---------------------------------------------------------
 
         statements: list[IncomeStatementData] = []
@@ -122,28 +113,117 @@ class FMPClient(FinancialDataProvider):
         for item in data:
 
             if not isinstance(item, dict):
-                raise ValueError(
+                raise DataValidationError(
                     "FMP income statement item must be an object."
                 )
 
-            statements.append(
-                IncomeStatementData(
-                    fiscal_date=item["date"],
-                    total_revenue=item.get("revenue"),
-                    gross_profit=item.get("grossProfit"),
-                    operating_income=item.get(
-                        "operatingIncome"
-                    ),
-                    net_income=item.get("netIncome"),
-                    eps=item.get("eps"),
-                    shares_outstanding=item.get(
-                        "weightedAverageShsOut"
-                    ),
+            try:
+                statements.append(
+                    IncomeStatementData(
+                        fiscal_date=item["date"],
+                        total_revenue=item.get("revenue"),
+                        gross_profit=item.get(
+                            "grossProfit"
+                        ),
+                        operating_income=item.get(
+                            "operatingIncome"
+                        ),
+                        net_income=item.get(
+                            "netIncome"
+                        ),
+                        eps=item.get("eps"),
+                        shares_outstanding=item.get(
+                            "weightedAverageShsOut"
+                        ),
+                    )
+                )
+
+            except (KeyError, TypeError, ValueError) as exc:
+                raise DataValidationError(
+                    "Invalid FMP income statement item."
+                ) from exc
+
+        return statements
+
+    def get_quote(self, symbol: str) -> QuoteData:
+        """Retrieve the current market quote for a symbol from FMP."""
+
+        symbol = symbol.strip().upper()
+
+        if not symbol:
+            raise InvalidInputError(
+                "Symbol must not be empty."
+            )
+
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/quote",
+                params={
+                    "symbol": symbol,
+                    "apikey": self.api_key,
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve quote data from "
+                "Financial Modeling Prep."
+            ) from exc
+
+        if not isinstance(data, list) or not data:
+            raise DataValidationError(
+                "FMP quote response must be a non-empty list."
+            )
+
+        item = data[0]
+
+        if not isinstance(item, dict):
+            raise DataValidationError(
+                "FMP quote item must be an object."
+            )
+
+        try:
+            timestamp = item["timestamp"]
+            quote_timestamp = (
+                timestamp
+                if isinstance(timestamp, datetime)
+                else datetime.fromtimestamp(
+                    float(timestamp),
+                    tz=timezone.utc,
                 )
             )
 
-        # ---------------------------------------------------------
-        # 7. Return normalized domain objects.
-        # ---------------------------------------------------------
+            return QuoteData(
+                symbol=item["symbol"],
+                name=item["name"],
+                price=item["price"],
+                change=item["change"],
+                change_percent=item["changePercentage"],
+                day_low=item.get("dayLow"),
+                day_high=item.get("dayHigh"),
+                year_low=item.get("yearLow"),
+                year_high=item.get("yearHigh"),
+                market_cap=item.get("marketCap"),
+                price_avg_50=item.get("priceAvg50"),
+                price_avg_200=item.get("priceAvg200"),
+                volume=item.get("volume"),
+                exchange=item.get("exchange"),
+                open=item.get("open"),
+                previous_close=item.get("previousClose"),
+                timestamp=quote_timestamp,
+                source="fmp",
+            )
 
-        return statements
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+            OverflowError,
+            ValidationError,
+        ) as exc:
+            raise DataValidationError(
+                "Invalid FMP quote item."
+            ) from exc

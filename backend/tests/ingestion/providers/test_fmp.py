@@ -3,6 +3,7 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
+from quantcore.core.exceptions import ExternalDataError
 from quantcore.ingestion.providers.fmp import FMPClient
 from quantcore.schemas.income_statement import IncomeStatementData
 
@@ -79,7 +80,7 @@ def test_fmp_http_error():
         "quantcore.ingestion.providers.fmp.requests.get",
         return_value=fake_response,
     ):
-        with pytest.raises(requests.HTTPError):
+        with pytest.raises(ExternalDataError):
             FMPClient().get_income_statements("AAPL")
 
 
@@ -88,7 +89,7 @@ def test_fmp_timeout():
         "quantcore.ingestion.providers.fmp.requests.get",
         side_effect=requests.Timeout("Request timed out"),
     ):
-        with pytest.raises(requests.Timeout):
+        with pytest.raises(ExternalDataError):
             FMPClient().get_income_statements("AAPL")
 
 

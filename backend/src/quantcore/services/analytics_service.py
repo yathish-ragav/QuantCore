@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
 
+from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
+
 from quantcore.analytics import (
     MovingAverage,
     ExponentialMovingAverage,
@@ -52,13 +54,20 @@ class AnalyticsService:
 
     def _get_prices(self, symbol: str):
 
+        symbol = symbol.strip().upper()
+
+        if not symbol:
+            raise InvalidInputError(
+                "Symbol must not be empty."
+            )
+
         security = self.security_repo.get_by_symbol(
             symbol
         )
 
         if security is None:
-            raise ValueError(
-                f"{symbol} not found."
+            raise ResourceNotFoundError(
+                f"Security '{symbol}' not found."
             )
 
         return self.price_repo.get_for_security(

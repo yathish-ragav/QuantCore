@@ -4,6 +4,7 @@ from typing import Any
 import requests
 
 from quantcore.core.exceptions import (
+    DataValidationError,
     ExternalDataError,
     InvalidInputError,
 )
@@ -61,16 +62,29 @@ class SECProvider(FinancialDataProvider):
                 "Failed to retrieve SEC ticker mapping."
             ) from exc
 
+        if not isinstance(data, dict):
+            raise DataValidationError(
+                "SEC ticker mapping response must be an object."
+            )
+
         mapping: dict[str, str] = {}
 
-        for company in data.values():
-            ticker = company.get("ticker")
-            cik = company.get("cik_str")
+        try:
+            for company in data.values():
+                if not isinstance(company, dict):
+                    continue
 
-            if not ticker or cik is None:
-                continue
+                ticker = company.get("ticker")
+                cik = company.get("cik_str")
 
-            mapping[ticker.upper()] = f"{int(cik):010d}"
+                if not ticker or cik is None:
+                    continue
+
+                mapping[str(ticker).upper()] = f"{int(cik):010d}"
+        except (TypeError, ValueError) as exc:
+            raise DataValidationError(
+                "Invalid SEC ticker mapping data."
+            ) from exc
 
         SECProvider._ticker_to_cik = mapping
 
@@ -143,13 +157,22 @@ class SECProvider(FinancialDataProvider):
         # -------------------------------------------------
         # 4. Extract US GAAP facts.
         # -------------------------------------------------
-        us_gaap = data.get(
-            "facts",
-            {},
-        ).get(
-            "us-gaap",
-            {},
-        )
+        if not isinstance(data, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts response must be an object."
+            )
+
+        facts = data.get("facts", {})
+        if not isinstance(facts, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts 'facts' field must be an object."
+            )
+
+        us_gaap = facts.get("us-gaap", {})
+        if not isinstance(us_gaap, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts us-gaap data must be an object."
+            )
 
         revenue = self._get_fact(
             us_gaap,

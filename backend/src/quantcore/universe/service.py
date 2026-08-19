@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
 
+from quantcore.core.exceptions import DataValidationError
+
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.security_repository import SecurityRepository
 from quantcore.universe.filters import filter_us_equities
@@ -31,7 +33,7 @@ class UniverseService:
             existing_cik = symbol_to_cik.get(company.symbol)
 
             if existing_cik is not None and existing_cik != company.cik:
-                raise ValueError(
+                raise DataValidationError(
                     f"Security symbol '{company.symbol}' "
                     f"is associated with multiple companies: "
                     f"{existing_cik} and {company.cik}."
@@ -132,7 +134,7 @@ class UniverseService:
                     )
                 else:
                     if security.company_id != company.id:
-                        raise ValueError(
+                        raise DataValidationError(
                             f"Security '{universe_company.symbol}' "
                             "is already assigned to another company."
                         )

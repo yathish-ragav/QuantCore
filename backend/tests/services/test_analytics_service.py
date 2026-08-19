@@ -108,7 +108,7 @@ def test_get_prices_security_not_found():
 
     with pytest.raises(
         ValueError,
-        match="AAPL not found.",
+        match="Security 'AAPL' not found\\.",
     ):
         service._get_prices("AAPL")
 

@@ -2,6 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
+from quantcore.core.exceptions import ConfigurationError
 from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.ingestion.providers.yahoo import YahooClient
 
@@ -46,7 +47,7 @@ def test_factory_rejects_financial_provider():
         "fmp",
     ):
         with pytest.raises(
-            ValueError,
+            ConfigurationError,
             match="Unknown market data provider: fmp",
         ):
             ProviderFactory.get_provider()
@@ -59,7 +60,7 @@ def test_factory_rejects_unknown_provider():
         "unknown",
     ):
         with pytest.raises(
-            ValueError,
+            ConfigurationError,
             match="Unknown market data provider: unknown",
         ):
             ProviderFactory.get_provider()

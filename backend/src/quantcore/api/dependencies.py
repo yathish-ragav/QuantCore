@@ -9,6 +9,7 @@ from quantcore.services.company_service import CompanyService
 from quantcore.services.income_statement_service import IncomeStatementService
 from quantcore.services.news_service import NewsService
 from quantcore.services.price_service import PriceService
+from quantcore.services.quote_service import QuoteService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -42,3 +43,6 @@ def get_analytics_service(
     db: DbSession,
 ) -> AnalyticsService:
     return AnalyticsService(db)
+
+def get_quote_service() -> QuoteService:
+    return QuoteService()

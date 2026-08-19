@@ -45,3 +45,12 @@ class ExternalDataError(QuantCoreError):
 
     status_code = 502
     code = "EXTERNAL_DATA_ERROR"
+
+class ConfigurationError(QuantCoreError):
+    """
+    The application is configured with an invalid or unavailable
+    provider/component.
+    """
+
+    status_code = 500
+    code = "CONFIGURATION_ERROR"
