@@ -3,10 +3,10 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from quantcore.models.income_statement import IncomeStatement
+from quantcore.models.cash_flow_statement import CashFlowStatement
 
 
-class IncomeStatementRepository:
+class CashFlowStatementRepository:
 
     def __init__(self, db: Session):
         self.db = db
@@ -15,13 +15,13 @@ class IncomeStatementRepository:
         self,
         company_id: int,
         fiscal_date: date,
-    ) -> IncomeStatement | None:
+    ) -> CashFlowStatement | None:
 
         stmt = (
-            select(IncomeStatement)
+            select(CashFlowStatement)
             .where(
-                IncomeStatement.company_id == company_id,
-                IncomeStatement.fiscal_date == fiscal_date,
+                CashFlowStatement.company_id == company_id,
+                CashFlowStatement.fiscal_date == fiscal_date,
             )
         )
 
@@ -30,15 +30,15 @@ class IncomeStatementRepository:
     def get_for_company(
         self,
         company_id: int,
-    ) -> list[IncomeStatement]:
+    ) -> list[CashFlowStatement]:
 
         stmt = (
-            select(IncomeStatement)
+            select(CashFlowStatement)
             .where(
-                IncomeStatement.company_id == company_id
+                CashFlowStatement.company_id == company_id
             )
             .order_by(
-                IncomeStatement.fiscal_date.desc()
+                CashFlowStatement.fiscal_date.desc()
             )
         )
 
@@ -49,9 +49,9 @@ class IncomeStatementRepository:
     def create(
         self,
         **kwargs,
-    ) -> IncomeStatement:
+    ) -> CashFlowStatement:
 
-        statement = IncomeStatement(**kwargs)
+        statement = CashFlowStatement(**kwargs)
 
         self.db.add(statement)
 

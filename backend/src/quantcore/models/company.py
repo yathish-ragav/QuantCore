@@ -48,3 +48,9 @@ class Company(Base):
         back_populates="company",
         cascade="all, delete-orphan",
     )
+
+    cash_flow_statements = relationship(
+        "CashFlowStatement",
+        back_populates="company",
+        cascade="all, delete-orphan",
+    )

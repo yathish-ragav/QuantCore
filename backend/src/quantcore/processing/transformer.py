@@ -1,3 +1,4 @@
+from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.schemas.news import NewsData
@@ -120,5 +121,38 @@ class DataTransformer:
 
         return [
             DataTransformer.income_statement(item)
+            for item in data
+        ]
+
+    @staticmethod
+    def cash_flow_statement(
+        data,
+    ) -> CashFlowStatementData:
+
+        if isinstance(data, CashFlowStatementData):
+            return data
+
+        if isinstance(data, dict):
+            return CashFlowStatementData.model_validate(
+                data
+            )
+
+        raise TypeError(
+            "Cash flow statement data must be a "
+            "CashFlowStatementData instance or dictionary."
+        )
+
+    @staticmethod
+    def cash_flow_statements(
+        data,
+    ) -> list[CashFlowStatementData]:
+
+        if not isinstance(data, list):
+            raise TypeError(
+                "Cash flow statement data must be a list."
+            )
+
+        return [
+            DataTransformer.cash_flow_statement(item)
             for item in data
         ]

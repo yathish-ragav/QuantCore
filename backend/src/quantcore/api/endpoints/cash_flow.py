@@ -1,0 +1,88 @@
+from fastapi import APIRouter, Depends
+
+from quantcore.api.dependencies import get_cash_flow_statement_service
+from quantcore.schemas.responses import (
+    CashFlowStatementResponse,
+    CashFlowStatementSyncResponse,
+)
+from quantcore.services.cash_flow_statement_service import (
+    CashFlowStatementService,
+)
+
+
+router = APIRouter(
+    prefix="/cash-flow-statements",
+    tags=["Cash Flow Statements"],
+)
+
+
+@router.get(
+    "/{symbol}",
+    response_model=list[CashFlowStatementResponse],
+)
+def get_cash_flow_statements(
+    symbol: str,
+    service: CashFlowStatementService = Depends(
+        get_cash_flow_statement_service
+    ),
+):
+    normalized_symbol = symbol.strip().upper()
+
+    statements = service.get_cash_flow_statements(
+        normalized_symbol
+    )
+
+    return [
+        CashFlowStatementResponse(
+            fiscal_date=statement.fiscal_date,
+            operating_cash_flow=(
+                statement.operating_cash_flow
+            ),
+            capital_expenditure=(
+                statement.capital_expenditure
+            ),
+            free_cash_flow=statement.free_cash_flow,
+            investing_cash_flow=(
+                statement.investing_cash_flow
+            ),
+            financing_cash_flow=(
+                statement.financing_cash_flow
+            ),
+            depreciation_and_amortization=(
+                statement.depreciation_and_amortization
+            ),
+            stock_based_compensation=(
+                statement.stock_based_compensation
+            ),
+            dividends_paid=statement.dividends_paid,
+            share_repurchases=(
+                statement.share_repurchases
+            ),
+            net_change_in_cash=(
+                statement.net_change_in_cash
+            ),
+        )
+        for statement in statements
+    ]
+
+
+@router.post(
+    "/{symbol}/sync",
+    response_model=CashFlowStatementSyncResponse,
+)
+def sync_cash_flow_statements(
+    symbol: str,
+    service: CashFlowStatementService = Depends(
+        get_cash_flow_statement_service
+    ),
+):
+    normalized_symbol = symbol.strip().upper()
+
+    created = service.sync_cash_flow_statements(
+        normalized_symbol
+    )
+
+    return CashFlowStatementSyncResponse(
+        symbol=normalized_symbol,
+        statements_added=len(created),
+    )

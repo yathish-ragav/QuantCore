@@ -3,11 +3,11 @@ from unittest.mock import Mock
 
 import pytest
 
-from quantcore.schemas.income_statement import (
-    IncomeStatementData,
+from quantcore.schemas.cash_flow_statement import (
+    CashFlowStatementData,
 )
-from quantcore.services.income_statement_service import (
-    IncomeStatementService,
+from quantcore.services.cash_flow_statement_service import (
+    CashFlowStatementService,
 )
 
 
@@ -35,17 +35,21 @@ def make_security(company):
 
 def make_statement(
     fiscal_date,
-    revenue=1000.0,
+    operating_cash_flow=1000.0,
 ):
 
-    return IncomeStatementData(
+    return CashFlowStatementData(
         fiscal_date=fiscal_date,
-        total_revenue=revenue,
-        gross_profit=400.0,
-        operating_income=200.0,
-        net_income=150.0,
-        eps=5.0,
-        shares_outstanding=100,
+        operating_cash_flow=operating_cash_flow,
+        capital_expenditure=-200.0,
+        free_cash_flow=800.0,
+        investing_cash_flow=-150.0,
+        financing_cash_flow=-500.0,
+        depreciation_and_amortization=100.0,
+        stock_based_compensation=90.0,
+        dividends_paid=-60.0,
+        share_repurchases=-400.0,
+        net_change_in_cash=350.0,
     )
 
 
@@ -53,8 +57,8 @@ def make_service():
 
     db = Mock()
 
-    service = IncomeStatementService.__new__(
-        IncomeStatementService
+    service = CashFlowStatementService.__new__(
+        CashFlowStatementService
     )
 
     service.db = db
@@ -65,7 +69,7 @@ def make_service():
     return service, db
 
 
-def test_get_income_statements_returns_statements():
+def test_get_cash_flow_statements_returns_statements():
 
     service, db = make_service()
 
@@ -81,7 +85,7 @@ def test_get_income_statements_returns_statements():
         statements
     )
 
-    result = service.get_income_statements("AAPL")
+    result = service.get_cash_flow_statements("AAPL")
 
     assert result == statements
 
@@ -90,7 +94,7 @@ def test_get_income_statements_returns_statements():
     )
 
 
-def test_get_income_statements_company_not_found():
+def test_get_cash_flow_statements_company_not_found():
 
     service, db = make_service()
 
@@ -100,12 +104,12 @@ def test_get_income_statements_company_not_found():
         ValueError,
         match="Company not found: AAPL",
     ):
-        service.get_income_statements("AAPL")
+        service.get_cash_flow_statements("AAPL")
 
     service.statement_repo.get_for_company.assert_not_called()
 
 
-def test_sync_income_statements_creates_new_statements():
+def test_sync_cash_flow_statements_creates_new_statements():
 
     service, db = make_service()
 
@@ -132,7 +136,7 @@ def test_sync_income_statements_creates_new_statements():
         make_security(company)
     )
 
-    service.provider.get_income_statements.return_value = (
+    service.provider.get_cash_flow_statements.return_value = (
         statements
     )
 
@@ -140,7 +144,7 @@ def test_sync_income_statements_creates_new_statements():
         None
     )
 
-    result = service.sync_income_statements(
+    result = service.sync_cash_flow_statements(
         "AAPL"
     )
 
@@ -156,7 +160,7 @@ def test_sync_income_statements_creates_new_statements():
     db.rollback.assert_not_called()
 
 
-def test_sync_income_statements_skips_existing():
+def test_sync_cash_flow_statements_skips_existing():
 
     service, db = make_service()
 
@@ -166,7 +170,7 @@ def test_sync_income_statements_skips_existing():
         make_security(company)
     )
 
-    service.provider.get_income_statements.return_value = [
+    service.provider.get_cash_flow_statements.return_value = [
         make_statement(
             date(
                 2024,
@@ -180,7 +184,7 @@ def test_sync_income_statements_skips_existing():
         Mock()
     )
 
-    result = service.sync_income_statements(
+    result = service.sync_cash_flow_statements(
         "AAPL"
     )
 
@@ -192,7 +196,7 @@ def test_sync_income_statements_skips_existing():
     db.rollback.assert_not_called()
 
 
-def test_sync_income_statements_company_not_found():
+def test_sync_cash_flow_statements_company_not_found():
 
     service, db = make_service()
 
@@ -202,9 +206,9 @@ def test_sync_income_statements_company_not_found():
         ValueError,
         match="Company not found: AAPL",
     ):
-        service.sync_income_statements("AAPL")
+        service.sync_cash_flow_statements("AAPL")
 
-    service.provider.get_income_statements.assert_not_called()
+    service.provider.get_cash_flow_statements.assert_not_called()
 
     service.statement_repo.create.assert_not_called()
 
@@ -212,7 +216,7 @@ def test_sync_income_statements_company_not_found():
     db.rollback.assert_called_once()
 
 
-def test_sync_income_statements_rolls_back_on_provider_error():
+def test_sync_cash_flow_statements_rolls_back_on_provider_error():
 
     service, db = make_service()
 
@@ -222,7 +226,7 @@ def test_sync_income_statements_rolls_back_on_provider_error():
         make_security(company)
     )
 
-    service.provider.get_income_statements.side_effect = (
+    service.provider.get_cash_flow_statements.side_effect = (
         RuntimeError("provider error")
     )
 
@@ -230,7 +234,7 @@ def test_sync_income_statements_rolls_back_on_provider_error():
         RuntimeError,
         match="provider error",
     ):
-        service.sync_income_statements("AAPL")
+        service.sync_cash_flow_statements("AAPL")
 
     service.statement_repo.create.assert_not_called()
 
@@ -238,7 +242,7 @@ def test_sync_income_statements_rolls_back_on_provider_error():
     db.rollback.assert_called_once()
 
 
-def test_sync_income_statements_rolls_back_on_repository_lookup_error():
+def test_sync_cash_flow_statements_rolls_back_on_repository_lookup_error():
 
     service, db = make_service()
 
@@ -248,7 +252,7 @@ def test_sync_income_statements_rolls_back_on_repository_lookup_error():
         make_security(company)
     )
 
-    service.provider.get_income_statements.return_value = [
+    service.provider.get_cash_flow_statements.return_value = [
         make_statement(
             date(
                 2024,
@@ -266,7 +270,7 @@ def test_sync_income_statements_rolls_back_on_repository_lookup_error():
         RuntimeError,
         match="database lookup error",
     ):
-        service.sync_income_statements("AAPL")
+        service.sync_cash_flow_statements("AAPL")
 
     service.statement_repo.create.assert_not_called()
 
@@ -274,7 +278,7 @@ def test_sync_income_statements_rolls_back_on_repository_lookup_error():
     db.rollback.assert_called_once()
 
 
-def test_sync_income_statements_rolls_back_on_repository_create_error():
+def test_sync_cash_flow_statements_rolls_back_on_repository_create_error():
 
     service, db = make_service()
 
@@ -284,7 +288,7 @@ def test_sync_income_statements_rolls_back_on_repository_create_error():
         make_security(company)
     )
 
-    service.provider.get_income_statements.return_value = [
+    service.provider.get_cash_flow_statements.return_value = [
         make_statement(
             date(
                 2024,
@@ -306,13 +310,13 @@ def test_sync_income_statements_rolls_back_on_repository_create_error():
         RuntimeError,
         match="database error",
     ):
-        service.sync_income_statements("AAPL")
+        service.sync_cash_flow_statements("AAPL")
 
     db.commit.assert_not_called()
     db.rollback.assert_called_once()
 
 
-def test_sync_income_statements_rejects_empty_symbol():
+def test_sync_cash_flow_statements_rejects_empty_symbol():
 
     service, db = make_service()
 
@@ -320,15 +324,13 @@ def test_sync_income_statements_rejects_empty_symbol():
         ValueError,
         match="Symbol must not be empty.",
     ):
-        service.sync_income_statements("   ")
+        service.sync_cash_flow_statements("   ")
 
     service.security_repo.get_by_symbol.assert_not_called()
 
-    service.provider.get_income_statements.assert_not_called()
+    service.provider.get_cash_flow_statements.assert_not_called()
 
     service.statement_repo.create.assert_not_called()
 
-    # Unlike PriceService/NewsService, IncomeStatementService
-    # performs symbol validation inside its transaction block.
     db.commit.assert_not_called()
     db.rollback.assert_called_once()

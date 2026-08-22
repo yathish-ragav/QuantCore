@@ -5,6 +5,9 @@ from sqlalchemy.orm import Session
 
 from quantcore.db.database import get_db
 from quantcore.services.analytics_service import AnalyticsService
+from quantcore.services.cash_flow_statement_service import (
+    CashFlowStatementService,
+)
 from quantcore.services.company_service import CompanyService
 from quantcore.services.income_statement_service import IncomeStatementService
 from quantcore.services.news_service import NewsService
@@ -37,6 +40,12 @@ def get_income_statement_service(
     db: DbSession,
 ) -> IncomeStatementService:
     return IncomeStatementService(db)
+
+
+def get_cash_flow_statement_service(
+    db: DbSession,
+) -> CashFlowStatementService:
+    return CashFlowStatementService(db)
 
 
 def get_analytics_service(

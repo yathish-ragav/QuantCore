@@ -9,6 +9,7 @@ from quantcore.core.exceptions import (
     InvalidInputError,
 )
 from quantcore.ingestion.providers.sec import SECProvider
+from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.income_statement import IncomeStatementData
 
 
@@ -543,3 +544,168 @@ def test_sec_integer_value_on_date_returns_none_when_missing():
     )
 
     assert result is None
+
+# ---------------------------------------------------------------------------
+# Cash flow statements
+# ---------------------------------------------------------------------------
+
+
+def test_sec_get_cash_flow_statements_success():
+
+    SECProvider._ticker_to_cik = {
+        "AAPL": "0000320193",
+    }
+
+    fake_response = Mock()
+
+    def annual_fact(value):
+        return {
+            "units": {
+                "USD": [
+                    {
+                        "end": "2024-09-28",
+                        "val": value,
+                        "form": "10-K",
+                        "fp": "FY",
+                        "filed": "2024-11-01",
+                    }
+                ]
+            }
+        }
+
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "NetCashProvidedByUsedInOperatingActivities": (
+                    annual_fact(118254000000)
+                ),
+                "PaymentsToAcquirePropertyPlantAndEquipment": (
+                    annual_fact(9500000000)
+                ),
+                "NetCashProvidedByUsedInInvestingActivities": (
+                    annual_fact(3700000000)
+                ),
+                "NetCashProvidedByUsedInFinancingActivities": (
+                    annual_fact(-121000000000)
+                ),
+                "DepreciationDepletionAndAmortization": (
+                    annual_fact(11400000000)
+                ),
+                "ShareBasedCompensation": (
+                    annual_fact(11700000000)
+                ),
+                "PaymentsOfDividends": (
+                    annual_fact(15200000000)
+                ),
+                "PaymentsForRepurchaseOfCommonStock": (
+                    annual_fact(95000000000)
+                ),
+                "CashAndCashEquivalentsPeriodIncreaseDecrease": (
+                    annual_fact(700000000)
+                ),
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ) as mock_get:
+
+        result = SECProvider().get_cash_flow_statements("AAPL")
+
+    mock_get.assert_called_once_with(
+        (
+            "https://data.sec.gov/"
+            "api/xbrl/companyfacts/"
+            "CIK0000320193.json"
+        ),
+        headers=SECProvider.HEADERS,
+        timeout=30,
+    )
+
+    assert len(result) == 1
+    assert isinstance(result[0], CashFlowStatementData)
+
+    assert result[0].fiscal_date == date(2024, 9, 28)
+    assert result[0].operating_cash_flow == 118254000000
+    assert result[0].capital_expenditure == 9500000000
+
+    # Free cash flow is derived as operating cash flow minus
+    # capital expenditure, using SEC's positive-outflow convention.
+    assert result[0].free_cash_flow == (
+        118254000000 - 9500000000
+    )
+
+    assert result[0].investing_cash_flow == 3700000000
+    assert result[0].financing_cash_flow == -121000000000
+    assert result[0].depreciation_and_amortization == 11400000000
+    assert result[0].stock_based_compensation == 11700000000
+    assert result[0].dividends_paid == 15200000000
+    assert result[0].share_repurchases == 95000000000
+    assert result[0].net_change_in_cash == 700000000
+
+
+def test_sec_get_cash_flow_statements_empty_symbol():
+
+    with pytest.raises(
+        InvalidInputError,
+        match="Symbol must not be empty",
+    ):
+        SECProvider().get_cash_flow_statements("")
+
+
+def test_sec_get_cash_flow_statements_missing_facts_returns_none_fields():
+
+    SECProvider._ticker_to_cik = {
+        "AAPL": "0000320193",
+    }
+
+    fake_response = Mock()
+
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "NetCashProvidedByUsedInOperatingActivities": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2024-09-28",
+                                "val": 100000000,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "filed": "2024-11-01",
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        result = SECProvider().get_cash_flow_statements("AAPL")
+
+    assert len(result) == 1
+    assert result[0].operating_cash_flow == 100000000
+    assert result[0].capital_expenditure is None
+
+    # Free cash flow cannot be derived without capital expenditure.
+    assert result[0].free_cash_flow is None
+
+
+def test_sec_cash_flow_http_error():
+
+    SECProvider._ticker_to_cik = {
+        "AAPL": "0000320193",
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        side_effect=requests.exceptions.HTTPError(),
+    ):
+        with pytest.raises(ExternalDataError):
+            SECProvider().get_cash_flow_statements("AAPL")

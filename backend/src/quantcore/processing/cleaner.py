@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.schemas.news import NewsData
@@ -121,5 +122,51 @@ class DataCleaner:
                 int(data.shares_outstanding)
                 if data.shares_outstanding is not None
                 else None
+            ),
+        )
+
+    @staticmethod
+    def clean_cash_flow_statement(
+        data: CashFlowStatementData,
+    ) -> CashFlowStatementData:
+
+        def _to_float(value):
+            return (
+                float(value)
+                if value is not None
+                else None
+            )
+
+        return CashFlowStatementData(
+            fiscal_date=data.fiscal_date,
+            operating_cash_flow=_to_float(
+                data.operating_cash_flow
+            ),
+            capital_expenditure=_to_float(
+                data.capital_expenditure
+            ),
+            free_cash_flow=_to_float(
+                data.free_cash_flow
+            ),
+            investing_cash_flow=_to_float(
+                data.investing_cash_flow
+            ),
+            financing_cash_flow=_to_float(
+                data.financing_cash_flow
+            ),
+            depreciation_and_amortization=_to_float(
+                data.depreciation_and_amortization
+            ),
+            stock_based_compensation=_to_float(
+                data.stock_based_compensation
+            ),
+            dividends_paid=_to_float(
+                data.dividends_paid
+            ),
+            share_repurchases=_to_float(
+                data.share_repurchases
+            ),
+            net_change_in_cash=_to_float(
+                data.net_change_in_cash
             ),
         )

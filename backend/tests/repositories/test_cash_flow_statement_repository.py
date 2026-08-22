@@ -1,9 +1,9 @@
 from datetime import date
 from unittest.mock import Mock
 
-from quantcore.models.income_statement import IncomeStatement
-from quantcore.repositories.income_statement_repository import (
-    IncomeStatementRepository,
+from quantcore.models.cash_flow_statement import CashFlowStatement
+from quantcore.repositories.cash_flow_statement_repository import (
+    CashFlowStatementRepository,
 )
 
 
@@ -11,7 +11,7 @@ def make_repository():
 
     db = Mock()
 
-    repository = IncomeStatementRepository(db)
+    repository = CashFlowStatementRepository(db)
 
     return repository, db
 
@@ -21,7 +21,7 @@ def test_get_by_company_and_date_returns_statement():
     repository, db = make_repository()
 
     statement = Mock(
-        spec=IncomeStatement
+        spec=CashFlowStatement
     )
 
     db.scalar.return_value = statement
@@ -71,8 +71,8 @@ def test_get_for_company_returns_statements():
     repository, db = make_repository()
 
     statements = [
-        Mock(spec=IncomeStatement),
-        Mock(spec=IncomeStatement),
+        Mock(spec=CashFlowStatement),
+        Mock(spec=CashFlowStatement),
     ]
 
     db.scalars.return_value = statements
@@ -102,7 +102,7 @@ def test_get_for_company_returns_empty_list():
     assert result == []
 
 
-def test_create_income_statement():
+def test_create_cash_flow_statement():
 
     repository, db = make_repository()
 
@@ -113,12 +113,16 @@ def test_create_income_statement():
             9,
             28,
         ),
-        total_revenue=394_000_000_000,
-        gross_profit=175_000_000_000,
-        operating_income=119_000_000_000,
-        net_income=99_000_000_000,
-        eps=6.4,
-        shares_outstanding=15_000_000_000,
+        operating_cash_flow=118_000_000_000,
+        capital_expenditure=-9_500_000_000,
+        free_cash_flow=108_500_000_000,
+        investing_cash_flow=3_700_000_000,
+        financing_cash_flow=-121_000_000_000,
+        depreciation_and_amortization=11_400_000_000,
+        stock_based_compensation=11_700_000_000,
+        dividends_paid=-15_200_000_000,
+        share_repurchases=-95_000_000_000,
+        net_change_in_cash=700_000_000,
     )
 
     db.add.assert_called_once_with(
@@ -127,7 +131,7 @@ def test_create_income_statement():
 
     assert isinstance(
         statement,
-        IncomeStatement,
+        CashFlowStatement,
     )
 
     assert statement.company_id == 1
@@ -136,21 +140,35 @@ def test_create_income_statement():
         9,
         28,
     )
-    assert statement.total_revenue == (
-        394_000_000_000
+    assert statement.operating_cash_flow == (
+        118_000_000_000
     )
-    assert statement.gross_profit == (
-        175_000_000_000
+    assert statement.capital_expenditure == (
+        -9_500_000_000
     )
-    assert statement.operating_income == (
-        119_000_000_000
+    assert statement.free_cash_flow == (
+        108_500_000_000
     )
-    assert statement.net_income == (
-        99_000_000_000
+    assert statement.investing_cash_flow == (
+        3_700_000_000
     )
-    assert statement.eps == 6.4
-    assert statement.shares_outstanding == (
-        15_000_000_000
+    assert statement.financing_cash_flow == (
+        -121_000_000_000
+    )
+    assert statement.depreciation_and_amortization == (
+        11_400_000_000
+    )
+    assert statement.stock_based_compensation == (
+        11_700_000_000
+    )
+    assert statement.dividends_paid == (
+        -15_200_000_000
+    )
+    assert statement.share_repurchases == (
+        -95_000_000_000
+    )
+    assert statement.net_change_in_cash == (
+        700_000_000
     )
 
     # Repository must not control the transaction.

@@ -243,6 +243,69 @@ class DataValidator:
         )
 
     @staticmethod
+    def validate_cash_flow_statement(data) -> bool:
+        if not data:
+            return False
+
+        fiscal_date = getattr(
+            data,
+            "fiscal_date",
+            None,
+        )
+
+        if not isinstance(fiscal_date, date):
+            return False
+
+        numeric_fields = [
+            "operating_cash_flow",
+            "capital_expenditure",
+            "free_cash_flow",
+            "investing_cash_flow",
+            "financing_cash_flow",
+            "depreciation_and_amortization",
+            "stock_based_compensation",
+            "dividends_paid",
+            "share_repurchases",
+            "net_change_in_cash",
+        ]
+
+        for field in numeric_fields:
+            value = getattr(
+                data,
+                field,
+                None,
+            )
+
+            if value is None:
+                continue
+
+            if not isinstance(
+                value,
+                (int, float),
+            ):
+                return False
+
+            if not isfinite(value):
+                return False
+
+        return True
+
+    @staticmethod
+    def validate_cash_flow_statements(data) -> bool:
+        if data is None:
+            return False
+
+        if not isinstance(data, list):
+            return False
+
+        return all(
+            DataValidator.validate_cash_flow_statement(
+                statement
+            )
+            for statement in data
+        )
+
+    @staticmethod
     def validate_income_statements(data) -> bool:
         if data is None:
             return False

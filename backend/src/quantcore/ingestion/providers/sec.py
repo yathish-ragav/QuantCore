@@ -8,6 +8,7 @@ from quantcore.core.exceptions import (
     ExternalDataError,
     InvalidInputError,
 )
+from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.income_statement import IncomeStatementData
 
 from .financial_provider import FinancialDataProvider
@@ -261,6 +262,212 @@ class SECProvider(FinancialDataProvider):
                     ),
                     shares_outstanding=self._integer_value_on_date(
                         shares,
+                        fiscal_date,
+                    ),
+                )
+            )
+
+        return statements
+
+    def get_cash_flow_statements(
+        self,
+        symbol: str,
+    ) -> list[CashFlowStatementData]:
+        """
+        Retrieve annual cash flow statements from SEC XBRL CompanyFacts.
+        """
+
+        # -------------------------------------------------
+        # 1. Validate caller input.
+        # -------------------------------------------------
+        symbol = symbol.strip()
+
+        if not symbol:
+            raise InvalidInputError(
+                "Symbol must not be empty."
+            )
+
+        # -------------------------------------------------
+        # 2. Resolve ticker -> SEC CIK.
+        # -------------------------------------------------
+        cik = self._get_cik(symbol)
+
+        # -------------------------------------------------
+        # 3. Retrieve CompanyFacts from SEC.
+        # -------------------------------------------------
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
+                headers=self.HEADERS,
+                timeout=30,
+            )
+
+            response.raise_for_status()
+
+            data = response.json()
+
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve cash flow statement data from SEC."
+            ) from exc
+
+        # -------------------------------------------------
+        # 4. Extract US GAAP facts.
+        # -------------------------------------------------
+        if not isinstance(data, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts response must be an object."
+            )
+
+        facts = data.get("facts", {})
+        if not isinstance(facts, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts 'facts' field must be an object."
+            )
+
+        us_gaap = facts.get("us-gaap", {})
+        if not isinstance(us_gaap, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts us-gaap data must be an object."
+            )
+
+        operating_cash_flow = self._get_fact(
+            us_gaap,
+            [
+                "NetCashProvidedByUsedInOperatingActivities",
+                "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+            ],
+            preferred_unit="USD",
+        )
+
+        # SEC reports capital expenditure as a positive outflow
+        # figure (unlike FMP, which reports it as negative). This
+        # sign difference is intentional and handled below when
+        # deriving free cash flow.
+        capital_expenditure = self._get_fact(
+            us_gaap,
+            [
+                "PaymentsToAcquirePropertyPlantAndEquipment",
+                "PaymentsForCapitalImprovements",
+            ],
+            preferred_unit="USD",
+        )
+
+        investing_cash_flow = self._get_fact(
+            us_gaap,
+            ["NetCashProvidedByUsedInInvestingActivities"],
+            preferred_unit="USD",
+        )
+
+        financing_cash_flow = self._get_fact(
+            us_gaap,
+            ["NetCashProvidedByUsedInFinancingActivities"],
+            preferred_unit="USD",
+        )
+
+        depreciation_and_amortization = self._get_fact(
+            us_gaap,
+            [
+                "DepreciationDepletionAndAmortization",
+                "DepreciationAmortizationAndAccretionNet",
+            ],
+            preferred_unit="USD",
+        )
+
+        stock_based_compensation = self._get_fact(
+            us_gaap,
+            ["ShareBasedCompensation"],
+            preferred_unit="USD",
+        )
+
+        dividends_paid = self._get_fact(
+            us_gaap,
+            [
+                "PaymentsOfDividends",
+                "PaymentsOfDividendsCommonStock",
+            ],
+            preferred_unit="USD",
+        )
+
+        share_repurchases = self._get_fact(
+            us_gaap,
+            ["PaymentsForRepurchaseOfCommonStock"],
+            preferred_unit="USD",
+        )
+
+        net_change_in_cash = self._get_fact(
+            us_gaap,
+            [
+                "CashAndCashEquivalentsPeriodIncreaseDecrease",
+                "CashCashEquivalentsRestrictedCashAndRestrictedCash"
+                "EquivalentsPeriodIncreaseDecreaseIncludingExchange"
+                "RateEffect",
+            ],
+            preferred_unit="USD",
+        )
+
+        # -------------------------------------------------
+        # 5. Determine annual fiscal dates from operating cash flow.
+        # -------------------------------------------------
+        fiscal_dates = self._get_fiscal_dates(
+            operating_cash_flow
+        )
+
+        # -------------------------------------------------
+        # 6. Build normalized domain objects.
+        # -------------------------------------------------
+        statements: list[CashFlowStatementData] = []
+
+        for fiscal_date in fiscal_dates:
+
+            ocf_value = self._value_on_date(
+                operating_cash_flow,
+                fiscal_date,
+            )
+            capex_value = self._value_on_date(
+                capital_expenditure,
+                fiscal_date,
+            )
+
+            free_cash_flow = (
+                ocf_value - capex_value
+                if ocf_value is not None
+                and capex_value is not None
+                else None
+            )
+
+            statements.append(
+                CashFlowStatementData(
+                    fiscal_date=fiscal_date,
+                    operating_cash_flow=ocf_value,
+                    capital_expenditure=capex_value,
+                    free_cash_flow=free_cash_flow,
+                    investing_cash_flow=self._value_on_date(
+                        investing_cash_flow,
+                        fiscal_date,
+                    ),
+                    financing_cash_flow=self._value_on_date(
+                        financing_cash_flow,
+                        fiscal_date,
+                    ),
+                    depreciation_and_amortization=self._value_on_date(
+                        depreciation_and_amortization,
+                        fiscal_date,
+                    ),
+                    stock_based_compensation=self._value_on_date(
+                        stock_based_compensation,
+                        fiscal_date,
+                    ),
+                    dividends_paid=self._value_on_date(
+                        dividends_paid,
+                        fiscal_date,
+                    ),
+                    share_repurchases=self._value_on_date(
+                        share_repurchases,
+                        fiscal_date,
+                    ),
+                    net_change_in_cash=self._value_on_date(
+                        net_change_in_cash,
                         fiscal_date,
                     ),
                 )

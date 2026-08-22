@@ -11,15 +11,15 @@ from quantcore.ingestion.providers.financial_factory import (
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
-from quantcore.repositories.income_statement_repository import (
-    IncomeStatementRepository,
+from quantcore.repositories.cash_flow_statement_repository import (
+    CashFlowStatementRepository,
 )
 from quantcore.repositories.security_repository import (
     SecurityRepository,
 )
 
 
-class IncomeStatementService:
+class CashFlowStatementService:
 
     def __init__(self, db: Session):
         self.db = db
@@ -31,7 +31,7 @@ class IncomeStatementService:
         self.security_repo = SecurityRepository(db)
 
         self.statement_repo = (
-            IncomeStatementRepository(db)
+            CashFlowStatementRepository(db)
         )
 
     def get_company_for_symbol(
@@ -62,7 +62,7 @@ class IncomeStatementService:
 
         return security, company
 
-    def get_income_statements(
+    def get_cash_flow_statements(
         self,
         symbol: str,
     ):
@@ -74,7 +74,7 @@ class IncomeStatementService:
             company.id
         )
 
-    def sync_income_statements(
+    def sync_cash_flow_statements(
         self,
         symbol: str,
     ):
@@ -103,7 +103,7 @@ class IncomeStatementService:
             # 3. Fetch external financial data.
             # -------------------------------------------------
             raw_statements = (
-                self.provider.get_income_statements(
+                self.provider.get_cash_flow_statements(
                     symbol
                 )
             )
@@ -112,7 +112,7 @@ class IncomeStatementService:
             # 4. Transform.
             # -------------------------------------------------
             statements = (
-                DataTransformer.income_statements(
+                DataTransformer.cash_flow_statements(
                     raw_statements
                 )
             )
@@ -121,7 +121,7 @@ class IncomeStatementService:
             # 5. Clean.
             # -------------------------------------------------
             statements = [
-                DataCleaner.clean_income_statement(
+                DataCleaner.clean_cash_flow_statement(
                     statement
                 )
                 for statement in statements
@@ -130,11 +130,11 @@ class IncomeStatementService:
             # -------------------------------------------------
             # 6. Validate complete dataset before mutation.
             # -------------------------------------------------
-            if not DataValidator.validate_income_statements(
+            if not DataValidator.validate_cash_flow_statements(
                 statements
             ):
                 raise DataValidationError(
-                    f"Invalid income statement data "
+                    f"Invalid cash flow statement data "
                     f"for '{symbol}'."
                 )
 
@@ -160,13 +160,31 @@ class IncomeStatementService:
                     self.statement_repo.create(
                         company_id=company.id,
                         fiscal_date=data.fiscal_date,
-                        total_revenue=data.total_revenue,
-                        gross_profit=data.gross_profit,
-                        operating_income=data.operating_income,
-                        net_income=data.net_income,
-                        eps=data.eps,
-                        shares_outstanding=(
-                            data.shares_outstanding
+                        operating_cash_flow=(
+                            data.operating_cash_flow
+                        ),
+                        capital_expenditure=(
+                            data.capital_expenditure
+                        ),
+                        free_cash_flow=data.free_cash_flow,
+                        investing_cash_flow=(
+                            data.investing_cash_flow
+                        ),
+                        financing_cash_flow=(
+                            data.financing_cash_flow
+                        ),
+                        depreciation_and_amortization=(
+                            data.depreciation_and_amortization
+                        ),
+                        stock_based_compensation=(
+                            data.stock_based_compensation
+                        ),
+                        dividends_paid=data.dividends_paid,
+                        share_repurchases=(
+                            data.share_repurchases
+                        ),
+                        net_change_in_cash=(
+                            data.net_change_in_cash
                         ),
                     )
                 )

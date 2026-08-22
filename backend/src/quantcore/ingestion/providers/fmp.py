@@ -9,6 +9,7 @@ from quantcore.core.exceptions import (
     ExternalDataError,
     InvalidInputError,
 )
+from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.schemas.quote import QuoteData
 
@@ -141,6 +142,151 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
             except (KeyError, TypeError, ValueError) as exc:
                 raise DataValidationError(
                     "Invalid FMP income statement item."
+                ) from exc
+
+        return statements
+
+    def get_cash_flow_statements(
+        self,
+        symbol: str,
+        limit: int = 10,
+    ) -> list[CashFlowStatementData]:
+        """
+        Retrieve cash flow statement data from FMP.
+
+        NOTE: field names below (operatingCashFlow, capitalExpenditure,
+        freeCashFlow, etc.) are mapped against FMP's documented
+        cash-flow-statement response shape. Verify against a live
+        response / current FMP docs before relying on this in
+        production — provider response shapes can change.
+
+        Raises
+        ------
+        InvalidInputError
+            Invalid caller input.
+
+        ExternalDataError
+            FMP could not be reached or returned an HTTP error.
+
+        DataValidationError
+            FMP returned malformed or unexpected data.
+        """
+
+        # ---------------------------------------------------------
+        # 1. Validate caller input.
+        # ---------------------------------------------------------
+
+        if not symbol:
+            raise InvalidInputError(
+                "Symbol must not be empty."
+            )
+
+        if limit <= 0:
+            raise InvalidInputError(
+                "Limit must be greater than zero."
+            )
+
+        # ---------------------------------------------------------
+        # 2. Call external provider.
+        # ---------------------------------------------------------
+
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/cash-flow-statement",
+                params={
+                    "symbol": symbol,
+                    "limit": limit,
+                    "apikey": self.api_key,
+                },
+                timeout=30,
+            )
+
+            response.raise_for_status()
+
+            data = response.json()
+
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve cash flow statement data "
+                "from Financial Modeling Prep."
+            ) from exc
+
+        # ---------------------------------------------------------
+        # 3. Validate top-level provider response.
+        # ---------------------------------------------------------
+
+        if not isinstance(data, list):
+            raise DataValidationError(
+                "FMP cash flow statement response must be a list."
+            )
+
+        # ---------------------------------------------------------
+        # 4. Transform provider records.
+        # ---------------------------------------------------------
+
+        statements: list[CashFlowStatementData] = []
+
+        for item in data:
+
+            if not isinstance(item, dict):
+                raise DataValidationError(
+                    "FMP cash flow statement item must be an object."
+                )
+
+            try:
+                operating_cash_flow = item.get(
+                    "operatingCashFlow"
+                )
+                capital_expenditure = item.get(
+                    "capitalExpenditure"
+                )
+                free_cash_flow = item.get(
+                    "freeCashFlow"
+                )
+
+                if (
+                    free_cash_flow is None
+                    and operating_cash_flow is not None
+                    and capital_expenditure is not None
+                ):
+                    free_cash_flow = (
+                        operating_cash_flow
+                        + capital_expenditure
+                    )
+
+                statements.append(
+                    CashFlowStatementData(
+                        fiscal_date=item["date"],
+                        operating_cash_flow=operating_cash_flow,
+                        capital_expenditure=capital_expenditure,
+                        free_cash_flow=free_cash_flow,
+                        investing_cash_flow=item.get(
+                            "netCashProvidedByInvestingActivities"
+                        ),
+                        financing_cash_flow=item.get(
+                            "netCashProvidedByFinancingActivities"
+                        ),
+                        depreciation_and_amortization=item.get(
+                            "depreciationAndAmortization"
+                        ),
+                        stock_based_compensation=item.get(
+                            "stockBasedCompensation"
+                        ),
+                        dividends_paid=item.get(
+                            "netDividendsPaid"
+                        ),
+                        share_repurchases=item.get(
+                            "commonStockRepurchased"
+                        ),
+                        net_change_in_cash=item.get(
+                            "netChangeInCash"
+                        ),
+                    )
+                )
+
+            except (KeyError, TypeError, ValueError) as exc:
+                raise DataValidationError(
+                    "Invalid FMP cash flow statement item."
                 ) from exc
 
         return statements
