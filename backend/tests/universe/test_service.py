@@ -4,6 +4,7 @@ import pytest
 
 from quantcore.models.company import Company
 from quantcore.models.security import Security
+from quantcore.models.provenance import CompanyField, DataSource
 from quantcore.universe.models import UniverseCompany
 from quantcore.universe.service import UniverseService
 
@@ -61,6 +62,7 @@ def make_service():
     service.provider = Mock()
     service.company_repo = Mock()
     service.security_repo = Mock()
+    service.provenance_repo = Mock()
 
     return service, db
 
@@ -419,3 +421,32 @@ def test_sync_rejects_symbol_for_multiple_companies():
     # Validation happens before the transaction scope.
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
+
+def test_sync_records_sec_provenance_for_company_identity_and_security():
+
+    service, db = make_service()
+
+    service.provider.fetch.return_value = [make_company()]
+    service.company_repo.get_by_ciks.return_value = []
+
+    company = make_existing_company()
+    service.company_repo.create.return_value = company
+    service.security_repo.get_by_symbols.return_value = []
+
+    result = service.sync()
+
+    assert result == 1
+
+    fields = [
+        call.kwargs["field_name"]
+        for call in service.provenance_repo.upsert.call_args_list
+    ]
+
+    assert fields == [
+        CompanyField.CIK,
+        CompanyField.NAME,
+    ]
+
+    security = service.security_repo.create.return_value
+    assert security.source == DataSource.SEC
+    assert security.fetched_at is not None

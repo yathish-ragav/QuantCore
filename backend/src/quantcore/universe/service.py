@@ -1,7 +1,12 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import DataValidationError
-
+from quantcore.models.provenance import CompanyField, DataSource
+from quantcore.repositories.company_field_provenance_repository import (
+    CompanyFieldProvenanceRepository,
+)
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.security_repository import SecurityRepository
 from quantcore.universe.filters import filter_us_equities
@@ -16,6 +21,7 @@ class UniverseService:
         self.provider = SECUniverseProvider()
         self.company_repo = CompanyRepository(db)
         self.security_repo = SecurityRepository(db)
+        self.provenance_repo = CompanyFieldProvenanceRepository(db)
 
     def sync(self) -> int:
 
@@ -42,14 +48,11 @@ class UniverseService:
             symbol_to_cik[company.symbol] = company.cik
 
         synced = 0
+        fetched_at = datetime.now(timezone.utc)
 
         try:
             # -------------------------------------------------
             # 1. Group SEC records by CIK.
-            #
-            # One CIK = one Company.
-            # Each SEC symbol becomes a Security belonging to
-            # that Company.
             # -------------------------------------------------
             companies_by_cik: dict[str, list] = {}
 
@@ -63,10 +66,6 @@ class UniverseService:
 
             # -------------------------------------------------
             # 2. Load existing companies by issuer identity.
-            #
-            # CIK is the authoritative Company identity. There is
-            # deliberately no symbol fallback because symbols
-            # belong to Security, not Company.
             # -------------------------------------------------
             existing_by_cik = {
                 company.cik: company
@@ -104,6 +103,21 @@ class UniverseService:
             # -------------------------------------------------
             self.db.flush()
 
+            # SEC establishes issuer identity after IDs exist.
+            for company in synced_companies_by_cik.values():
+                self.provenance_repo.upsert(
+                    company_id=company.id,
+                    field_name=CompanyField.CIK,
+                    source=DataSource.SEC,
+                    fetched_at=fetched_at,
+                )
+                self.provenance_repo.upsert(
+                    company_id=company.id,
+                    field_name=CompanyField.NAME,
+                    source=DataSource.SEC,
+                    fetched_at=fetched_at,
+                )
+
             # -------------------------------------------------
             # 5. Load existing Securities in bulk.
             # -------------------------------------------------
@@ -116,10 +130,6 @@ class UniverseService:
 
             # -------------------------------------------------
             # 6. Reconcile Securities.
-            #
-            # Symbol belongs to Security. A Company may therefore
-            # have multiple securities without duplicating Company
-            # rows.
             # -------------------------------------------------
             for universe_company in companies:
                 company = synced_companies_by_cik[universe_company.cik]
@@ -127,11 +137,13 @@ class UniverseService:
                 security = existing_securities.get(universe_company.symbol)
 
                 if security is None:
-                    self.security_repo.create(
+                    security = self.security_repo.create(
                         company_id=company.id,
                         symbol=universe_company.symbol,
                         exchange=universe_company.exchange,
                     )
+                    security.source = DataSource.SEC
+                    security.fetched_at = fetched_at
                 else:
                     if security.company_id != company.id:
                         raise DataValidationError(
@@ -140,6 +152,8 @@ class UniverseService:
                         )
 
                     security.exchange = universe_company.exchange
+                    security.source = DataSource.SEC
+                    security.fetched_at = fetched_at
 
             # -------------------------------------------------
             # 7. Commit the complete universe transaction.

@@ -4,9 +4,10 @@ from sqlalchemy import Date, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
+from quantcore.models.provenance import ProvenanceMixin
 
 
-class CashFlowStatement(Base):
+class CashFlowStatement(ProvenanceMixin, Base):
     __tablename__ = "cash_flow_statements"
 
     __table_args__ = (

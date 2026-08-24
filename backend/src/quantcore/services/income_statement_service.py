@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import (
@@ -10,6 +12,7 @@ from quantcore.ingestion.providers.financial_factory import (
 )
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
+from quantcore.models.provenance import DataSource
 from quantcore.processing.validator import DataValidator
 from quantcore.repositories.income_statement_repository import (
     IncomeStatementRepository,
@@ -139,6 +142,8 @@ class IncomeStatementService:
                 )
 
             created_statements = []
+            source = DataSource(self.provider.SOURCE)
+            fetched_at = datetime.now(timezone.utc)
 
             # -------------------------------------------------
             # 7. Reconcile statements.
@@ -168,6 +173,8 @@ class IncomeStatementService:
                         shares_outstanding=(
                             data.shares_outstanding
                         ),
+                        source=source,
+                        fetched_at=fetched_at,
                     )
                 )
 

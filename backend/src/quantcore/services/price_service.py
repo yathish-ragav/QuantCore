@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import (
@@ -8,6 +10,7 @@ from quantcore.core.exceptions import (
 from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
+from quantcore.models.provenance import DataSource
 from quantcore.processing.validator import DataValidator
 from quantcore.repositories.price_repository import PriceRepository
 from quantcore.repositories.security_repository import SecurityRepository
@@ -101,6 +104,8 @@ class PriceService:
                 )
 
             inserted = 0
+            source = DataSource(self.client.SOURCE)
+            fetched_at = datetime.now(timezone.utc)
 
             # -------------------------------------------------
             # 6. Reconcile existing prices.
@@ -128,6 +133,8 @@ class PriceService:
                     volume=data.volume,
                     dividends=data.dividends,
                     stock_splits=data.stock_splits,
+                    source=source,
+                    fetched_at=fetched_at,
                 )
 
                 inserted += 1

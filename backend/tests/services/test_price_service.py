@@ -1,8 +1,9 @@
 from datetime import datetime
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 
+from quantcore.models.provenance import DataSource
 from quantcore.schemas.price import PriceData
 from quantcore.services.price_service import PriceService
 
@@ -17,6 +18,7 @@ def make_service():
 
     service.db = db
     service.client = Mock()
+    service.client.SOURCE = "YAHOO"
     service.security_repo = Mock()
     service.price_repo = Mock()
 
@@ -114,6 +116,8 @@ def test_sync_price_history_inserts_new_prices():
         volume=data.volume,
         dividends=data.dividends,
         stock_splits=data.stock_splits,
+        source=DataSource.YAHOO,
+        fetched_at=ANY,
     )
 
     db.commit.assert_called_once()
@@ -302,6 +306,8 @@ def test_sync_price_history_transforms_raw_dictionary_data():
         volume=1_000_000,
         dividends=0.0,
         stock_splits=0.0,
+        source=DataSource.YAHOO,
+        fetched_at=ANY,
     )
 
     db.commit.assert_called_once()

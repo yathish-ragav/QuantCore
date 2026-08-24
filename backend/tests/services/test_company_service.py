@@ -1,5 +1,7 @@
 from unittest.mock import Mock
 
+from quantcore.models.provenance import CompanyField, DataSource
+
 import pytest
 
 from quantcore.schemas.company import CompanyData
@@ -54,8 +56,11 @@ def make_service():
 
     service.db = db
     service.client = Mock()
+    service.client.SOURCE = "YAHOO"
     service.security_repo = Mock()
     service.company_repo = Mock()
+    service.provenance_repo = Mock()
+    service.provenance_repo.get.return_value = None
 
     return service, db
 
@@ -99,10 +104,12 @@ def test_sync_company_updates_existing_company():
         country="United States",
         website="https://www.apple.com",
         market_cap=3_000_000_000_000,
+        cik=company.cik,
     )
 
     service.company_repo.create.assert_not_called()
 
+    assert service.provenance_repo.upsert.call_count == 6
     assert result == updated_company
 
     db.commit.assert_called_once()
@@ -260,3 +267,81 @@ def test_sync_company_rolls_back_on_error():
     db.rollback.assert_called_once()
 
     db.commit.assert_not_called()
+
+def test_sync_company_does_not_overwrite_sec_owned_name():
+
+    service, db = make_service()
+
+    company = make_company()
+    company.name = "Apple Inc."
+    security = make_security(company)
+
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_company_info.return_value = make_company_data()
+
+    sec_ownership = Mock()
+    sec_ownership.source = DataSource.SEC
+
+    def provenance_owner(company_id, field_name):
+        if field_name == CompanyField.NAME:
+            return sec_ownership
+        return None
+
+    service.provenance_repo.get.side_effect = provenance_owner
+    service.company_repo.update.return_value = company
+
+    result = service.sync_company("AAPL")
+
+    assert result is company
+
+    service.company_repo.update.assert_called_once_with(
+        company=company,
+        name="Apple Inc.",
+        sector="Technology",
+        industry="Consumer Electronics",
+        country="United States",
+        website="https://www.apple.com",
+        market_cap=3_000_000_000_000,
+        cik=company.cik,
+    )
+
+    # SEC remains the owner of name; Yahoo owns only the other fields.
+    upserted_fields = [
+        call.kwargs["field_name"]
+        for call in service.provenance_repo.upsert.call_args_list
+    ]
+    assert CompanyField.NAME not in upserted_fields
+    assert len(upserted_fields) == 5
+
+
+def test_sync_company_records_yahoo_provenance_for_unowned_fields():
+
+    service, db = make_service()
+
+    company = make_company()
+    security = make_security(company)
+
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_company_info.return_value = make_company_data()
+    service.company_repo.update.return_value = company
+
+    service.sync_company("AAPL")
+
+    fields = {
+        call.kwargs["field_name"]
+        for call in service.provenance_repo.upsert.call_args_list
+    }
+
+    assert fields == {
+        CompanyField.NAME,
+        CompanyField.SECTOR,
+        CompanyField.INDUSTRY,
+        CompanyField.COUNTRY,
+        CompanyField.WEBSITE,
+        CompanyField.MARKET_CAP,
+    }
+
+    assert all(
+        call.kwargs["source"] == DataSource.YAHOO
+        for call in service.provenance_repo.upsert.call_args_list
+    )

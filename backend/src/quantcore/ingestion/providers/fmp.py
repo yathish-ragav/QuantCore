@@ -18,6 +18,7 @@ from .quote_provider import QuoteProvider
 
 
 class FMPClient(FinancialDataProvider, QuoteProvider):
+    SOURCE = "FMP"
     """
     Financial Modeling Prep data provider.
 

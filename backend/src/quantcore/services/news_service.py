@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import (
@@ -6,6 +8,7 @@ from quantcore.core.exceptions import (
     ResourceNotFoundError,
 )
 from quantcore.ingestion.providers.factory import ProviderFactory
+from quantcore.models.provenance import DataSource
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
@@ -118,6 +121,8 @@ class NewsService:
                 )
 
             inserted = 0
+            source = DataSource(self.client.SOURCE)
+            fetched_at = datetime.now(timezone.utc)
 
             # -------------------------------------------------
             # 6. Reconcile articles.
@@ -138,6 +143,8 @@ class NewsService:
                     summary=article.summary,
                     url=article.url,
                     published_at=article.published_at,
+                    source=source,
+                    fetched_at=fetched_at,
                 )
 
                 inserted += 1

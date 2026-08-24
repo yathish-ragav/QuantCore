@@ -2,9 +2,10 @@ from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
+from quantcore.models.provenance import ProvenanceMixin
 
 
-class Security(Base):
+class Security(ProvenanceMixin, Base):
     __tablename__ = "securities"
 
     __table_args__ = (

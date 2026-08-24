@@ -10,9 +10,10 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
+from quantcore.models.provenance import ProvenanceMixin
 
 
-class Price(Base):
+class Price(ProvenanceMixin, Base):
     __tablename__ = "prices"
 
     id: Mapped[int] = mapped_column(primary_key=True)

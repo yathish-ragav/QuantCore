@@ -15,6 +15,7 @@ from .financial_provider import FinancialDataProvider
 
 
 class SECProvider(FinancialDataProvider):
+    SOURCE = "SEC"
     """
     SEC EDGAR XBRL financial data provider.
 

@@ -1,9 +1,10 @@
 from datetime import datetime
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 
 from quantcore.schemas.news import NewsData
+from quantcore.models.provenance import DataSource
 from quantcore.services.news_service import NewsService
 
 
@@ -17,6 +18,7 @@ def make_service():
 
     service.db = db
     service.client = Mock()
+    service.client.SOURCE = "YAHOO"
     service.security_repo = Mock()
     service.news_repo = Mock()
 
@@ -217,6 +219,8 @@ def test_sync_news_inserts_new_articles():
         summary=article.summary,
         url=article.url,
         published_at=article.published_at,
+        source=DataSource.YAHOO,
+        fetched_at=ANY,
     )
 
     db.commit.assert_called_once()
@@ -330,6 +334,8 @@ def test_sync_news_inserts_only_new_articles():
         summary=article_2.summary,
         url=article_2.url,
         published_at=article_2.published_at,
+        source=DataSource.YAHOO,
+        fetched_at=ANY,
     )
 
     db.commit.assert_called_once()
@@ -412,6 +418,8 @@ def test_sync_news_uses_company_id_for_insert():
         summary=article.summary,
         url=article.url,
         published_at=article.published_at,
+        source=DataSource.YAHOO,
+        fetched_at=ANY,
     )
 
     db.commit.assert_called_once()
@@ -449,6 +457,8 @@ def test_sync_news_handles_news_with_no_published_at():
         summary=article.summary,
         url=article.url,
         published_at=None,
+        source=DataSource.YAHOO,
+        fetched_at=ANY,
     )
 
     db.commit.assert_called_once()
@@ -494,6 +504,8 @@ def test_sync_news_normalizes_dictionary_articles():
         summary=article["summary"],
         url=article["url"],
         published_at=article["published_at"],
+        source=DataSource.YAHOO,
+        fetched_at=ANY,
     )
 
     db.commit.assert_called_once()

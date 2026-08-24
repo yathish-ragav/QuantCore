@@ -5,6 +5,7 @@ from quantcore.universe.models import UniverseCompany
 
 
 class SECUniverseProvider:
+    SOURCE = "SEC"
     """Load the SEC ticker / CIK / exchange company universe."""
 
     URL = (

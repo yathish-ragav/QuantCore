@@ -63,6 +63,7 @@ def make_service():
 
     service.db = db
     service.provider = Mock()
+    service.provider.SOURCE = "FMP"
     service.security_repo = Mock()
     service.statement_repo = Mock()
 

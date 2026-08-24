@@ -16,6 +16,7 @@ from .base import MarketDataProvider
 
 class YahooClient(MarketDataProvider):
     """Yahoo Finance market-data provider."""
+    SOURCE = "YAHOO"
 
     def get_company_info(self, symbol: str) -> CompanyData:
         if not symbol:
