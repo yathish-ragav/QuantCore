@@ -101,6 +101,18 @@ class BalanceSheetSyncResponse(BaseModel):
     statements_added: int
 
 
+class IngestionFreshnessResponse(BaseModel):
+    dataset: str
+    scope: str
+    last_attempt_at: datetime | None = None
+    last_success_at: datetime | None = None
+    last_success_source: str | None = None
+    last_success_records: int = 0
+    consecutive_failures: int = 0
+    last_error: str | None = None
+    is_fresh: bool
+
+
 class APIError(BaseModel):
     code: str = Field(
         ...,

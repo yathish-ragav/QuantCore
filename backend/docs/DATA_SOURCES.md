@@ -101,3 +101,53 @@ The current exchange filter is intentionally explicit. It represents
 QuantCore's present managed listed-equity scope; it must not be described as
 "all US securities" until additional instrument classifications and source
 coverage are implemented and measured.
+
+
+## Ingestion orchestration and freshness
+
+QuantCore separates **data ingestion mechanics** from **ingestion scheduling**.
+
+The existing dataset services remain responsible for:
+
+1. provider selection,
+2. external transport,
+3. normalization,
+4. cleaning and validation,
+5. reconciliation,
+6. persistence, and
+7. transaction boundaries.
+
+`IngestionOrchestrator` is responsible only for:
+
+- selecting active securities from the managed universe,
+- selecting datasets,
+- deduplicating company-scoped work across multiple listings,
+- deciding whether a dataset is stale,
+- recording successful/failed attempts, and
+- producing an auditable ingestion run summary.
+
+Freshness is an ingestion property, not a claim that the underlying provider is
+real-time. The current policies are:
+
+| Dataset | Scope | Freshness window |
+|---|---|---|
+| Company metadata | Company | 7 days |
+| Historical prices | Security | 1 day |
+| News | Company | 6 hours |
+| Income statement | Company | 1 day |
+| Cash flow statement | Company | 1 day |
+| Balance sheet | Company | 1 day |
+
+These are scheduling defaults, not assertions about provider latency or market
+status. Provider timestamps and market-session semantics remain a separate
+market-data concern.
+
+The current coordinator is intentionally synchronous and bounded. It is the
+execution contract that a future worker/scheduler can call; Redis, Celery,
+Kafka and WebSocket infrastructure are not introduced merely to make the
+architecture diagram look complete.
+
+The market-wide scope is the **managed QuantCore universe**, currently the SEC
+ticker/exchange feed filtered to the explicitly supported US listed-equity
+exchanges. It must not be described as every US security until the instrument
+taxonomy and source coverage are expanded.

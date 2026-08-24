@@ -15,6 +15,9 @@ from quantcore.api.endpoints.balance_sheet import (
 from quantcore.api.endpoints.cash_flow import (
     router as cash_flow_router,
 )
+from quantcore.api.endpoints.ingestion import (
+    router as ingestion_router,
+)
 
 router = APIRouter()
 
@@ -61,4 +64,8 @@ router.include_router(
 router.include_router(
     balance_sheet_router,
     tags=["Balance Sheets"],
+)
+
+router.include_router(
+    ingestion_router,
 )

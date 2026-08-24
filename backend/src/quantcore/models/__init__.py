@@ -7,6 +7,7 @@ from quantcore.models.income_statement import IncomeStatement
 from quantcore.models.cash_flow_statement import CashFlowStatement
 from quantcore.models.balance_sheet import BalanceSheet
 from quantcore.models.provenance import CompanyFieldProvenance
+from quantcore.models.ingestion import IngestionRun, IngestionState
 
 __all__ = [
     "Company",
@@ -18,4 +19,6 @@ __all__ = [
     "CashFlowStatement",
     "BalanceSheet",
     "CompanyFieldProvenance",
+    "IngestionRun",
+    "IngestionState",
 ]

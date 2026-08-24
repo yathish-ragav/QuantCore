@@ -11,6 +11,7 @@ from quantcore.services.cash_flow_statement_service import (
 )
 from quantcore.services.company_service import CompanyService
 from quantcore.services.income_statement_service import IncomeStatementService
+from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
 from quantcore.services.news_service import NewsService
 from quantcore.services.price_service import PriceService
 from quantcore.services.quote_service import QuoteService
@@ -61,3 +62,9 @@ def get_analytics_service(
 
 def get_quote_service() -> QuoteService:
     return QuoteService()
+
+
+def get_ingestion_orchestrator(
+    db: DbSession,
+) -> IngestionOrchestrator:
+    return IngestionOrchestrator(db)
