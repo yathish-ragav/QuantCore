@@ -9,6 +9,9 @@ from quantcore.api.endpoints.quotes import router as quotes_router
 from quantcore.api.endpoints.income_statement import (
     router as income_statement_router,
 )
+from quantcore.api.endpoints.balance_sheet import (
+    router as balance_sheet_router,
+)
 from quantcore.api.endpoints.cash_flow import (
     router as cash_flow_router,
 )
@@ -53,4 +56,9 @@ router.include_router(
 router.include_router(
     cash_flow_router,
     tags=["Cash Flow Statements"],
+)
+
+router.include_router(
+    balance_sheet_router,
+    tags=["Balance Sheets"],
 )

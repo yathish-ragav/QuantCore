@@ -10,6 +10,9 @@ keeps provider-specific response formats out of the application.
 |---|---|---|---|
 | US security universe | SEC EDGAR | FMP | CIK, ticker, exchange, issuer identity |
 | Regulatory fundamentals | SEC EDGAR | FMP | 10-K/10-Q/XBRL facts |
+| Balance sheet statements | SEC EDGAR | FMP | assets, liabilities, equity and derived capital structure facts |
+| Income statements | SEC EDGAR | FMP | revenue, profitability and per-share fundamentals |
+| Cash flow statements | SEC EDGAR | FMP | operating, investing, financing cash flow and free cash flow |
 | Enriched fundamentals | FMP | SEC | standardized financial fields and ratios |
 | Current quote | FMP | Polygon | dashboard snapshot |
 | Real-time stream | Polygon | Nasdaq licensed feed | live charting / event-driven updates |

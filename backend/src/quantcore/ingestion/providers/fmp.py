@@ -9,6 +9,7 @@ from quantcore.core.exceptions import (
     ExternalDataError,
     InvalidInputError,
 )
+from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.schemas.quote import QuoteData
@@ -288,6 +289,149 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
             except (KeyError, TypeError, ValueError) as exc:
                 raise DataValidationError(
                     "Invalid FMP cash flow statement item."
+                ) from exc
+
+        return statements
+
+    def get_balance_sheets(
+        self,
+        symbol: str,
+        limit: int = 10,
+    ) -> list[BalanceSheetData]:
+        """Retrieve annual balance sheet data from FMP."""
+
+        if not symbol:
+            raise InvalidInputError(
+                "Symbol must not be empty."
+            )
+
+        if limit <= 0:
+            raise InvalidInputError(
+                "Limit must be greater than zero."
+            )
+
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/balance-sheet-statement",
+                params={
+                    "symbol": symbol,
+                    "limit": limit,
+                    "apikey": self.api_key,
+                },
+                timeout=30,
+            )
+
+            response.raise_for_status()
+            data = response.json()
+
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve balance sheet data "
+                "from Financial Modeling Prep."
+            ) from exc
+
+        if not isinstance(data, list):
+            raise DataValidationError(
+                "FMP balance sheet response must be a list."
+            )
+
+        statements: list[BalanceSheetData] = []
+
+        for item in data:
+            if not isinstance(item, dict):
+                raise DataValidationError(
+                    "FMP balance sheet item must be an object."
+                )
+
+            try:
+                cash = item.get("cashAndCashEquivalents")
+                short_term_investments = item.get(
+                    "shortTermInvestments"
+                )
+                short_term_debt = item.get("shortTermDebt")
+                long_term_debt = item.get("longTermDebt")
+
+                total_debt = item.get("totalDebt")
+                if total_debt is None and (
+                    short_term_debt is not None
+                    or long_term_debt is not None
+                ):
+                    total_debt = (
+                        (short_term_debt or 0)
+                        + (long_term_debt or 0)
+                    )
+
+                net_debt = item.get("netDebt")
+                if net_debt is None and total_debt is not None:
+                    net_debt = total_debt - (cash or 0)
+
+                current_assets = item.get("totalCurrentAssets")
+                current_liabilities = item.get(
+                    "totalCurrentLiabilities"
+                )
+                working_capital = item.get("workingCapital")
+                if (
+                    working_capital is None
+                    and current_assets is not None
+                    and current_liabilities is not None
+                ):
+                    working_capital = (
+                        current_assets - current_liabilities
+                    )
+
+                statements.append(
+                    BalanceSheetData(
+                        fiscal_date=item["date"],
+                        cash_and_cash_equivalents=cash,
+                        short_term_investments=short_term_investments,
+                        accounts_receivable=(
+                            item.get("accountReceivables")
+                            if item.get("accountReceivables") is not None
+                            else (
+                                item.get("accountsReceivables")
+                                if item.get("accountsReceivables") is not None
+                                else item.get("accountsReceivable")
+                            )
+                        ),
+                        inventory=item.get("inventory"),
+                        total_current_assets=current_assets,
+                        property_plant_equipment_net=item.get(
+                            "propertyPlantEquipmentNet"
+                        ),
+                        goodwill=item.get("goodwill"),
+                        intangible_assets=item.get(
+                            "intangibleAssets"
+                        ),
+                        total_assets=item.get("totalAssets"),
+                        accounts_payable=(
+                            item.get("accountPayables")
+                            if item.get("accountPayables") is not None
+                            else item.get("accountsPayable")
+                        ),
+                        short_term_debt=short_term_debt,
+                        total_current_liabilities=current_liabilities,
+                        long_term_debt=long_term_debt,
+                        total_liabilities=item.get(
+                            "totalLiabilities"
+                        ),
+                        total_equity=(
+                            item.get("totalStockholdersEquity")
+                            if item.get("totalStockholdersEquity")
+                            is not None
+                            else item.get("totalEquity")
+                        ),
+                        retained_earnings=item.get(
+                            "retainedEarnings"
+                        ),
+                        total_debt=total_debt,
+                        net_debt=net_debt,
+                        working_capital=working_capital,
+                    )
+                )
+
+            except (KeyError, TypeError, ValueError) as exc:
+                raise DataValidationError(
+                    "Invalid FMP balance sheet item."
                 ) from exc
 
         return statements

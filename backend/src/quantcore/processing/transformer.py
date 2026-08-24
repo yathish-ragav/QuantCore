@@ -1,3 +1,4 @@
+from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.income_statement import IncomeStatementData
@@ -121,6 +122,36 @@ class DataTransformer:
 
         return [
             DataTransformer.income_statement(item)
+            for item in data
+        ]
+
+
+    @staticmethod
+    def balance_sheet(
+        data,
+    ) -> BalanceSheetData:
+        if isinstance(data, BalanceSheetData):
+            return data
+
+        if isinstance(data, dict):
+            return BalanceSheetData.model_validate(data)
+
+        raise TypeError(
+            "Balance sheet data must be a "
+            "BalanceSheetData instance or dictionary."
+        )
+
+    @staticmethod
+    def balance_sheets(
+        data,
+    ) -> list[BalanceSheetData]:
+        if not isinstance(data, list):
+            raise TypeError(
+                "Balance sheet data must be a list."
+            )
+
+        return [
+            DataTransformer.balance_sheet(item)
             for item in data
         ]
 

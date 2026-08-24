@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 
+from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.income_statement import IncomeStatementData
 
@@ -18,4 +19,11 @@ class FinancialDataProvider(ABC):
         self,
         symbol: str,
     ) -> list[CashFlowStatementData]:
+        pass
+
+    @abstractmethod
+    def get_balance_sheets(
+        self,
+        symbol: str,
+    ) -> list[BalanceSheetData]:
         pass

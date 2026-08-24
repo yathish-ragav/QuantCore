@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 
+from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.income_statement import IncomeStatementData
@@ -122,6 +123,58 @@ class DataCleaner:
                 int(data.shares_outstanding)
                 if data.shares_outstanding is not None
                 else None
+            ),
+        )
+
+
+    @staticmethod
+    def clean_balance_sheet(
+        data: BalanceSheetData,
+    ) -> BalanceSheetData:
+
+        def _to_float(value):
+            return float(value) if value is not None else None
+
+        return BalanceSheetData(
+            fiscal_date=data.fiscal_date,
+            cash_and_cash_equivalents=_to_float(
+                data.cash_and_cash_equivalents
+            ),
+            short_term_investments=_to_float(
+                data.short_term_investments
+            ),
+            accounts_receivable=_to_float(
+                data.accounts_receivable
+            ),
+            inventory=_to_float(data.inventory),
+            total_current_assets=_to_float(
+                data.total_current_assets
+            ),
+            property_plant_equipment_net=_to_float(
+                data.property_plant_equipment_net
+            ),
+            goodwill=_to_float(data.goodwill),
+            intangible_assets=_to_float(
+                data.intangible_assets
+            ),
+            total_assets=_to_float(data.total_assets),
+            accounts_payable=_to_float(data.accounts_payable),
+            short_term_debt=_to_float(data.short_term_debt),
+            total_current_liabilities=_to_float(
+                data.total_current_liabilities
+            ),
+            long_term_debt=_to_float(data.long_term_debt),
+            total_liabilities=_to_float(
+                data.total_liabilities
+            ),
+            total_equity=_to_float(data.total_equity),
+            retained_earnings=_to_float(
+                data.retained_earnings
+            ),
+            total_debt=_to_float(data.total_debt),
+            net_debt=_to_float(data.net_debt),
+            working_capital=_to_float(
+                data.working_capital
             ),
         )
 

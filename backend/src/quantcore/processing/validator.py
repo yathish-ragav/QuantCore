@@ -242,6 +242,62 @@ class DataValidator:
             for article in data
         )
 
+
+    @staticmethod
+    def validate_balance_sheet(data) -> bool:
+        if not data:
+            return False
+
+        fiscal_date = getattr(data, "fiscal_date", None)
+        if not isinstance(fiscal_date, date):
+            return False
+
+        numeric_fields = [
+            "cash_and_cash_equivalents",
+            "short_term_investments",
+            "accounts_receivable",
+            "inventory",
+            "total_current_assets",
+            "property_plant_equipment_net",
+            "goodwill",
+            "intangible_assets",
+            "total_assets",
+            "accounts_payable",
+            "short_term_debt",
+            "total_current_liabilities",
+            "long_term_debt",
+            "total_liabilities",
+            "total_equity",
+            "retained_earnings",
+            "total_debt",
+            "net_debt",
+            "working_capital",
+        ]
+
+        for field in numeric_fields:
+            value = getattr(data, field, None)
+            if value is None:
+                continue
+            if not isinstance(value, (int, float)):
+                return False
+            if not isfinite(value):
+                return False
+
+        return True
+
+    @staticmethod
+    def validate_balance_sheets(data) -> bool:
+        if data is None:
+            return False
+
+        if not isinstance(data, list):
+            return False
+
+        return all(
+            DataValidator.validate_balance_sheet(statement)
+            for statement in data
+        )
+
     @staticmethod
     def validate_cash_flow_statement(data) -> bool:
         if not data:

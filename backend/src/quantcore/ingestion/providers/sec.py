@@ -8,6 +8,7 @@ from quantcore.core.exceptions import (
     ExternalDataError,
     InvalidInputError,
 )
+from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.income_statement import IncomeStatementData
 
@@ -471,6 +472,243 @@ class SECProvider(FinancialDataProvider):
                         net_change_in_cash,
                         fiscal_date,
                     ),
+                )
+            )
+
+        return statements
+
+    def get_balance_sheets(
+        self,
+        symbol: str,
+    ) -> list[BalanceSheetData]:
+        """Retrieve annual balance sheets from SEC XBRL CompanyFacts."""
+
+        symbol = symbol.strip()
+
+        if not symbol:
+            raise InvalidInputError(
+                "Symbol must not be empty."
+            )
+
+        cik = self._get_cik(symbol)
+
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
+                headers=self.HEADERS,
+                timeout=30,
+            )
+
+            response.raise_for_status()
+            data = response.json()
+
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve balance sheet data from SEC."
+            ) from exc
+
+        if not isinstance(data, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts response must be an object."
+            )
+
+        facts = data.get("facts", {})
+        if not isinstance(facts, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts 'facts' field must be an object."
+            )
+
+        us_gaap = facts.get("us-gaap", {})
+        if not isinstance(us_gaap, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts us-gaap data must be an object."
+            )
+
+        cash = self._get_fact(
+            us_gaap,
+            ["CashAndCashEquivalentsAtCarryingValue"],
+            preferred_unit="USD",
+        )
+        short_term_investments = self._get_fact(
+            us_gaap,
+            [
+                "ShortTermInvestments",
+                "MarketableSecuritiesCurrent",
+            ],
+            preferred_unit="USD",
+        )
+        accounts_receivable = self._get_fact(
+            us_gaap,
+            [
+                "AccountsReceivableNetCurrent",
+                "AccountsReceivableNet",
+            ],
+            preferred_unit="USD",
+        )
+        inventory = self._get_fact(
+            us_gaap,
+            ["InventoryNet"],
+            preferred_unit="USD",
+        )
+        total_current_assets = self._get_fact(
+            us_gaap,
+            ["AssetsCurrent"],
+            preferred_unit="USD",
+        )
+        property_plant_equipment_net = self._get_fact(
+            us_gaap,
+            [
+                "PropertyPlantAndEquipmentNet",
+                "PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization",
+            ],
+            preferred_unit="USD",
+        )
+        goodwill = self._get_fact(
+            us_gaap,
+            ["Goodwill"],
+            preferred_unit="USD",
+        )
+        intangible_assets = self._get_fact(
+            us_gaap,
+            [
+                "FiniteLivedIntangibleAssetsNet",
+                "IntangibleAssetsNetExcludingGoodwill",
+            ],
+            preferred_unit="USD",
+        )
+        total_assets = self._get_fact(
+            us_gaap,
+            ["Assets"],
+            preferred_unit="USD",
+        )
+
+        accounts_payable = self._get_fact(
+            us_gaap,
+            ["AccountsPayableCurrent"],
+            preferred_unit="USD",
+        )
+        short_term_debt = self._get_fact(
+            us_gaap,
+            [
+                "ShortTermBorrowings",
+                "ShortTermDebtCurrent",
+                "LongTermDebtCurrent",
+            ],
+            preferred_unit="USD",
+        )
+        total_current_liabilities = self._get_fact(
+            us_gaap,
+            ["LiabilitiesCurrent"],
+            preferred_unit="USD",
+        )
+        long_term_debt = self._get_fact(
+            us_gaap,
+            [
+                "LongTermDebtNoncurrent",
+                "LongTermDebtAndFinanceLeaseObligationsNoncurrent",
+            ],
+            preferred_unit="USD",
+        )
+        total_liabilities = self._get_fact(
+            us_gaap,
+            ["Liabilities"],
+            preferred_unit="USD",
+        )
+        total_equity = self._get_fact(
+            us_gaap,
+            [
+                "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+                "StockholdersEquity",
+            ],
+            preferred_unit="USD",
+        )
+        retained_earnings = self._get_fact(
+            us_gaap,
+            ["RetainedEarningsAccumulatedDeficit"],
+            preferred_unit="USD",
+        )
+
+        anchor = total_assets or total_current_assets or total_liabilities
+        fiscal_dates = self._get_fiscal_dates(anchor)
+
+        statements: list[BalanceSheetData] = []
+
+        for fiscal_date in fiscal_dates:
+            cash_value = self._value_on_date(cash, fiscal_date)
+            sti_value = self._value_on_date(
+                short_term_investments, fiscal_date
+            )
+            std_value = self._value_on_date(
+                short_term_debt, fiscal_date
+            )
+            ltd_value = self._value_on_date(
+                long_term_debt, fiscal_date
+            )
+            total_debt = None
+            if std_value is not None or ltd_value is not None:
+                total_debt = (std_value or 0) + (ltd_value or 0)
+
+            net_debt = (
+                total_debt - (cash_value or 0)
+                if total_debt is not None
+                else None
+            )
+
+            current_assets_value = self._value_on_date(
+                total_current_assets, fiscal_date
+            )
+            current_liabilities_value = self._value_on_date(
+                total_current_liabilities, fiscal_date
+            )
+            working_capital = (
+                current_assets_value - current_liabilities_value
+                if current_assets_value is not None
+                and current_liabilities_value is not None
+                else None
+            )
+
+            statements.append(
+                BalanceSheetData(
+                    fiscal_date=fiscal_date,
+                    cash_and_cash_equivalents=cash_value,
+                    short_term_investments=sti_value,
+                    accounts_receivable=self._value_on_date(
+                        accounts_receivable, fiscal_date
+                    ),
+                    inventory=self._value_on_date(
+                        inventory, fiscal_date
+                    ),
+                    total_current_assets=current_assets_value,
+                    property_plant_equipment_net=self._value_on_date(
+                        property_plant_equipment_net, fiscal_date
+                    ),
+                    goodwill=self._value_on_date(
+                        goodwill, fiscal_date
+                    ),
+                    intangible_assets=self._value_on_date(
+                        intangible_assets, fiscal_date
+                    ),
+                    total_assets=self._value_on_date(
+                        total_assets, fiscal_date
+                    ),
+                    accounts_payable=self._value_on_date(
+                        accounts_payable, fiscal_date
+                    ),
+                    short_term_debt=std_value,
+                    total_current_liabilities=current_liabilities_value,
+                    long_term_debt=ltd_value,
+                    total_liabilities=self._value_on_date(
+                        total_liabilities, fiscal_date
+                    ),
+                    total_equity=self._value_on_date(
+                        total_equity, fiscal_date
+                    ),
+                    retained_earnings=self._value_on_date(
+                        retained_earnings, fiscal_date
+                    ),
+                    total_debt=total_debt,
+                    net_debt=net_debt,
+                    working_capital=working_capital,
                 )
             )
 

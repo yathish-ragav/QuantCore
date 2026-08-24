@@ -54,3 +54,9 @@ class Company(Base):
         back_populates="company",
         cascade="all, delete-orphan",
     )
+
+    balance_sheets = relationship(
+        "BalanceSheet",
+        back_populates="company",
+        cascade="all, delete-orphan",
+    )
