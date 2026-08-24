@@ -11,6 +11,7 @@ from quantcore.db.database import Base
 # the complete application schema.
 from quantcore.models.company import Company
 from quantcore.models.security import Security
+from quantcore.models.security_identifier_history import SecurityIdentifierHistory
 from quantcore.models.price import Price
 from quantcore.models.news import News
 from quantcore.models.income_statement import IncomeStatement

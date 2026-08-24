@@ -4,12 +4,16 @@ from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import DataValidationError
 from quantcore.models.provenance import CompanyField, DataSource
+from quantcore.models.security import SecurityStatus
 from quantcore.repositories.company_field_provenance_repository import (
     CompanyFieldProvenanceRepository,
 )
 from quantcore.repositories.company_repository import CompanyRepository
+from quantcore.repositories.security_identifier_history_repository import (
+    SecurityIdentifierHistoryRepository,
+)
 from quantcore.repositories.security_repository import SecurityRepository
-from quantcore.universe.filters import filter_us_equities
+from quantcore.universe.filters import DEFAULT_US_EXCHANGES, filter_us_equities
 from quantcore.universe.normalizer import normalize_companies
 from quantcore.universe.providers.sec import SECUniverseProvider
 
@@ -22,21 +26,21 @@ class UniverseService:
         self.company_repo = CompanyRepository(db)
         self.security_repo = SecurityRepository(db)
         self.provenance_repo = CompanyFieldProvenanceRepository(db)
+        self.identifier_history_repo = SecurityIdentifierHistoryRepository(db)
 
     def sync(self) -> int:
-
         companies = self.provider.fetch()
-
         companies = normalize_companies(companies)
         companies = filter_us_equities(companies)
 
         if not companies:
             return 0
 
-        symbol_to_cik: dict[str, str] = {}
+        symbol_to_cik: dict[tuple[str, str], str] = {}
 
         for company in companies:
-            existing_cik = symbol_to_cik.get(company.symbol)
+            identity = (company.symbol, company.exchange)
+            existing_cik = symbol_to_cik.get(identity)
 
             if existing_cik is not None and existing_cik != company.cik:
                 raise DataValidationError(
@@ -45,38 +49,23 @@ class UniverseService:
                     f"{existing_cik} and {company.cik}."
                 )
 
-            symbol_to_cik[company.symbol] = company.cik
+            symbol_to_cik[identity] = company.cik
 
         synced = 0
         fetched_at = datetime.now(timezone.utc)
 
         try:
-            # -------------------------------------------------
-            # 1. Group SEC records by CIK.
-            # -------------------------------------------------
             companies_by_cik: dict[str, list] = {}
-
             for company in companies:
-                companies_by_cik.setdefault(
-                    company.cik,
-                    [],
-                ).append(company)
+                companies_by_cik.setdefault(company.cik, []).append(company)
 
             ciks = list(companies_by_cik.keys())
-
-            # -------------------------------------------------
-            # 2. Load existing companies by issuer identity.
-            # -------------------------------------------------
             existing_by_cik = {
                 company.cik: company
                 for company in self.company_repo.get_by_ciks(ciks)
             }
-
             synced_companies_by_cik = {}
 
-            # -------------------------------------------------
-            # 3. Reconcile Companies.
-            # -------------------------------------------------
             for cik, universe_companies in companies_by_cik.items():
                 representative = universe_companies[0]
                 company = existing_by_cik.get(cik)
@@ -98,12 +87,8 @@ class UniverseService:
                 synced_companies_by_cik[cik] = company
                 synced += len(universe_companies)
 
-            # -------------------------------------------------
-            # 4. Assign IDs to newly-created Companies.
-            # -------------------------------------------------
             self.db.flush()
 
-            # SEC establishes issuer identity after IDs exist.
             for company in synced_companies_by_cik.values():
                 self.provenance_repo.upsert(
                     company_id=company.id,
@@ -118,23 +103,24 @@ class UniverseService:
                     fetched_at=fetched_at,
                 )
 
-            # -------------------------------------------------
-            # 5. Load existing Securities in bulk.
-            # -------------------------------------------------
-            symbols = [company.symbol for company in companies]
-
-            existing_securities = {
-                security.symbol: security
-                for security in self.security_repo.get_by_symbols(symbols)
+            company_ids = [company.id for company in synced_companies_by_cik.values()]
+            existing_securities = self.security_repo.get_by_company_ids(company_ids)
+            existing_by_identity = {
+                (security.company_id, security.symbol, security.exchange): security
+                for security in existing_securities
             }
+            current_identities = set()
 
-            # -------------------------------------------------
-            # 6. Reconcile Securities.
-            # -------------------------------------------------
             for universe_company in companies:
                 company = synced_companies_by_cik[universe_company.cik]
+                identity = (
+                    company.id,
+                    universe_company.symbol,
+                    universe_company.exchange,
+                )
+                current_identities.add(identity)
 
-                security = existing_securities.get(universe_company.symbol)
+                security = existing_by_identity.get(identity)
 
                 if security is None:
                     security = self.security_repo.create(
@@ -142,24 +128,45 @@ class UniverseService:
                         symbol=universe_company.symbol,
                         exchange=universe_company.exchange,
                     )
-                    security.source = DataSource.SEC
-                    security.fetched_at = fetched_at
+                    security.status = SecurityStatus.ACTIVE
+                    security.first_seen_at = fetched_at
+                    if security.id is None:
+                        self.db.flush()
                 else:
-                    if security.company_id != company.id:
-                        raise DataValidationError(
-                            f"Security '{universe_company.symbol}' "
-                            "is already assigned to another company."
-                        )
+                    security.status = SecurityStatus.ACTIVE
 
-                    security.exchange = universe_company.exchange
-                    security.source = DataSource.SEC
-                    security.fetched_at = fetched_at
+                security.last_seen_at = fetched_at
+                security.source = DataSource.SEC
+                security.fetched_at = fetched_at
 
-            # -------------------------------------------------
-            # 7. Commit the complete universe transaction.
-            # -------------------------------------------------
+                self.identifier_history_repo.upsert(
+                    security_id=security.id,
+                    symbol=universe_company.symbol,
+                    exchange=universe_company.exchange,
+                    observed_at=fetched_at,
+                )
+                self.identifier_history_repo.mark_not_current(
+                    security_id=security.id,
+                    except_symbol=universe_company.symbol,
+                    except_exchange=universe_company.exchange,
+                )
+
+            # The SEC source is a current ticker/exchange association feed.
+            # Mark previously-known listings in QuantCore's managed exchange
+            # scope that disappeared from this snapshot inactive rather than
+            # deleting their historical identity.
+            managed_securities = self.security_repo.get_active_by_exchanges(
+                list(DEFAULT_US_EXCHANGES)
+            )
+            for security in managed_securities:
+                identity = (security.company_id, security.symbol, security.exchange)
+                if identity not in current_identities:
+                    security.status = SecurityStatus.INACTIVE
+                    self.identifier_history_repo.mark_all_not_current(
+                        security.id
+                    )
+
             self.db.commit()
-
             return synced
 
         except Exception:

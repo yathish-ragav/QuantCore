@@ -81,3 +81,23 @@ FMP remains useful for quote snapshots, fundamentals and broad financial
 datasets. SEC remains the authoritative regulatory source for filings/XBRL.
 Yahoo is retained as a useful secondary research source, not the authoritative
 real-time market feed.
+
+## Security master and universe rules
+
+SEC's `company_tickers_exchange.json` is the current issuer/ticker/exchange
+association source for the QuantCore universe. SEC documents that CIK is a
+unique filer identifier and that the ticker/exchange association file is
+periodically updated but does not guarantee complete accuracy or scope.
+QuantCore therefore treats CIK as issuer identity, while ticker + exchange is
+a current security listing identity. Tickers are not used as permanent
+security primary keys.
+
+The security master preserves lifecycle state (`ACTIVE` / `INACTIVE`) and
+records observed ticker/exchange identities in a separate history table. A
+listing that disappears from the managed universe is retired rather than
+deleted, preserving historical references for later research and backtesting.
+
+The current exchange filter is intentionally explicit. It represents
+QuantCore's present managed listed-equity scope; it must not be described as
+"all US securities" until additional instrument classifications and source
+coverage are implemented and measured.

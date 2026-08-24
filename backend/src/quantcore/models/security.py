@@ -1,8 +1,16 @@
-from sqlalchemy import ForeignKey, String, UniqueConstraint
+from datetime import datetime, timezone
+from enum import Enum
+
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
 from quantcore.models.provenance import ProvenanceMixin
+
+
+class SecurityStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
 
 
 class Security(ProvenanceMixin, Base):
@@ -10,8 +18,10 @@ class Security(ProvenanceMixin, Base):
 
     __table_args__ = (
         UniqueConstraint(
+            "company_id",
             "symbol",
-            name="uq_security_symbol",
+            "exchange",
+            name="uq_security_company_symbol_exchange",
         ),
     )
 
@@ -24,7 +34,7 @@ class Security(ProvenanceMixin, Base):
     )
 
     symbol: Mapped[str] = mapped_column(
-        String(10),
+        String(20),
         nullable=False,
         index=True,
     )
@@ -32,6 +42,27 @@ class Security(ProvenanceMixin, Base):
     exchange: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
+        index=True,
+    )
+
+    status: Mapped[SecurityStatus] = mapped_column(
+        String(20),
+        nullable=False,
+        default=SecurityStatus.ACTIVE,
+        server_default=SecurityStatus.ACTIVE.value,
+        index=True,
+    )
+
+    first_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    last_seen_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
     )
 
     company = relationship(
@@ -41,6 +72,12 @@ class Security(ProvenanceMixin, Base):
 
     prices = relationship(
         "Price",
+        back_populates="security",
+        cascade="all, delete-orphan",
+    )
+
+    identifier_history = relationship(
+        "SecurityIdentifierHistory",
         back_populates="security",
         cascade="all, delete-orphan",
     )

@@ -3,7 +3,7 @@ from unittest.mock import Mock, call
 import pytest
 
 from quantcore.models.company import Company
-from quantcore.models.security import Security
+from quantcore.models.security import Security, SecurityStatus
 from quantcore.models.provenance import CompanyField, DataSource
 from quantcore.universe.models import UniverseCompany
 from quantcore.universe.service import UniverseService
@@ -23,10 +23,14 @@ def make_company(
     )
 
 
-def make_existing_company():
+def make_existing_company(
+    cik="0000320193",
+    symbol="AAPL",
+    name="Old Company",
+):
     company = Company(
-        cik="0000320193",
-        name="Old Company",
+        cik=cik,
+        name=name,
         sector="Technology",
         industry="Old Industry",
         country="United States",
@@ -63,6 +67,9 @@ def make_service():
     service.company_repo = Mock()
     service.security_repo = Mock()
     service.provenance_repo = Mock()
+    service.identifier_history_repo = Mock()
+    service.security_repo.get_by_company_ids.return_value = []
+    service.security_repo.get_active_by_exchanges.return_value = []
 
     return service, db
 
@@ -81,7 +88,7 @@ def test_sync_creates_new_company_and_security():
 
     service.company_repo.create.return_value = company
 
-    service.security_repo.get_by_symbols.return_value = []
+    service.security_repo.get_by_company_ids.return_value = []
 
     result = service.sync()
 
@@ -107,6 +114,7 @@ def test_sync_creates_new_company_and_security():
 
     db.commit.assert_called_once()
     db.rollback.assert_not_called()
+    service.identifier_history_repo.upsert.assert_called_once()
 
 
 def test_sync_updates_existing_company_by_cik():
@@ -123,7 +131,7 @@ def test_sync_updates_existing_company_by_cik():
         existing
     ]
 
-    service.security_repo.get_by_symbols.return_value = []
+    service.security_repo.get_by_company_ids.return_value = []
 
     result = service.sync()
 
@@ -148,7 +156,7 @@ def test_sync_updates_existing_company_by_cik():
     db.rollback.assert_not_called()
 
 
-def test_sync_updates_existing_security():
+def test_sync_retires_old_listing_when_exchange_changes():
 
     service, db = make_service()
 
@@ -164,7 +172,10 @@ def test_sync_updates_existing_security():
         existing_company
     ]
 
-    service.security_repo.get_by_symbols.return_value = [
+    service.security_repo.get_by_company_ids.return_value = [
+        existing_security
+    ]
+    service.security_repo.get_active_by_exchanges.return_value = [
         existing_security
     ]
 
@@ -172,11 +183,13 @@ def test_sync_updates_existing_security():
 
     assert result == 1
 
-    assert existing_security.company_id == 1
-    assert existing_security.symbol == "AAPL"
-    assert existing_security.exchange == "NASDAQ"
+    assert existing_security.status == SecurityStatus.INACTIVE
 
-    service.security_repo.create.assert_not_called()
+    service.security_repo.create.assert_called_once_with(
+        company_id=1,
+        symbol="AAPL",
+        exchange="NASDAQ",
+    )
 
     db.commit.assert_called_once()
     db.rollback.assert_not_called()
@@ -198,7 +211,7 @@ def test_sync_does_not_use_symbol_as_company_identity():
 
     service.company_repo.create.return_value = existing
 
-    service.security_repo.get_by_symbols.return_value = []
+    service.security_repo.get_by_company_ids.return_value = []
 
     result = service.sync()
 
@@ -237,7 +250,7 @@ def test_sync_creates_multiple_securities_for_same_cik():
 
     service.company_repo.create.return_value = company
 
-    service.security_repo.get_by_symbols.return_value = []
+    service.security_repo.get_by_company_ids.return_value = []
 
     result = service.sync()
 
@@ -299,7 +312,7 @@ def test_sync_deduplicates_duplicate_cik_and_symbol_records():
 
     service.company_repo.create.return_value = company
 
-    service.security_repo.get_by_symbols.return_value = []
+    service.security_repo.get_by_company_ids.return_value = []
 
     result = service.sync()
 
@@ -327,38 +340,82 @@ def test_sync_deduplicates_duplicate_cik_and_symbol_records():
     db.rollback.assert_not_called()
 
 
-def test_sync_rejects_symbol_owned_by_another_company():
+def test_sync_allows_same_symbol_on_different_exchanges_for_different_companies():
 
     service, db = make_service()
 
     service.provider.fetch.return_value = [
-        make_company()
+        make_company(
+            cik="0000320193",
+            symbol="ABC",
+            name="Company A",
+            exchange="NASDAQ",
+        ),
+        make_company(
+            cik="0000999999",
+            symbol="ABC",
+            name="Company B",
+            exchange="NYSE",
+        ),
     ]
 
-    service.company_repo.get_by_ciks.return_value = []
+    company_a = make_existing_company(cik="0000320193", symbol="ABC", name="Company A")
+    company_b = make_existing_company(cik="0000999999", symbol="ABC", name="Company B")
+    company_b.id = 2
+    service.company_repo.get_by_ciks.return_value = [company_a, company_b]
+    service.security_repo.get_by_company_ids.return_value = []
 
-    company = make_existing_company()
+    assert service.sync() == 2
+    assert service.security_repo.create.call_count == 2
+    db.commit.assert_called_once()
 
-    service.company_repo.create.return_value = company
 
-    conflicting_security = make_existing_security()
+def test_sync_rejects_same_symbol_and_exchange_for_multiple_companies():
 
-    conflicting_security.company_id = 99
+    service, db = make_service()
 
-    service.security_repo.get_by_symbols.return_value = [
-        conflicting_security
+    service.provider.fetch.return_value = [
+        make_company(
+            cik="0000320193",
+            symbol="ABC",
+            name="Company A",
+            exchange="NASDAQ",
+        ),
+        make_company(
+            cik="0000999999",
+            symbol="ABC",
+            name="Company B",
+            exchange="NASDAQ",
+        ),
     ]
 
     with pytest.raises(
         ValueError,
-        match="already assigned to another company",
+        match="associated with multiple companies",
     ):
         service.sync()
 
-    db.rollback.assert_called_once()
-    db.commit.assert_not_called()
-
+    service.company_repo.get_by_ciks.assert_not_called()
     service.security_repo.create.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
+
+def test_sync_marks_missing_managed_security_inactive():
+
+    service, db = make_service()
+    service.provider.fetch.return_value = [make_company()]
+    service.company_repo.get_by_ciks.return_value = [make_existing_company()]
+
+    stale = make_existing_security()
+    stale.symbol = "OLD"
+    stale.exchange = "NASDAQ"
+    service.security_repo.get_by_company_ids.return_value = [stale]
+    service.security_repo.get_active_by_exchanges.return_value = [stale]
+
+    assert service.sync() == 1
+    assert stale.status == "INACTIVE"
+    db.commit.assert_called_once()
 
 
 def test_sync_rolls_back_on_error():
@@ -414,7 +471,7 @@ def test_sync_rejects_symbol_for_multiple_companies():
 
     service.company_repo.create.assert_not_called()
 
-    service.security_repo.get_by_symbols.assert_not_called()
+    service.security_repo.get_by_company_ids.assert_not_called()
 
     service.security_repo.create.assert_not_called()
 
@@ -431,7 +488,7 @@ def test_sync_records_sec_provenance_for_company_identity_and_security():
 
     company = make_existing_company()
     service.company_repo.create.return_value = company
-    service.security_repo.get_by_symbols.return_value = []
+    service.security_repo.get_by_company_ids.return_value = []
 
     result = service.sync()
 

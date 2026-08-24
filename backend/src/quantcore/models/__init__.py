@@ -1,27 +1,21 @@
 from quantcore.models.company import Company
 from quantcore.models.security import Security
+from quantcore.models.security_identifier_history import SecurityIdentifierHistory
 from quantcore.models.price import Price
 from quantcore.models.news import News
 from quantcore.models.income_statement import IncomeStatement
 from quantcore.models.cash_flow_statement import CashFlowStatement
 from quantcore.models.balance_sheet import BalanceSheet
-from quantcore.models.provenance import (
-    CompanyFieldProvenance,
-    CompanyField,
-    DataSource,
-    ProvenanceMixin,
-)
+from quantcore.models.provenance import CompanyFieldProvenance
 
 __all__ = [
     "Company",
     "Security",
+    "SecurityIdentifierHistory",
     "Price",
     "News",
     "IncomeStatement",
     "CashFlowStatement",
     "BalanceSheet",
     "CompanyFieldProvenance",
-    "CompanyField",
-    "DataSource",
-    "ProvenanceMixin",
 ]
