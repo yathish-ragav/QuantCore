@@ -10,6 +10,7 @@ from quantcore.models.provenance import CompanyFieldProvenance
 from quantcore.models.financial_statement import FinancialStatementMetadataMixin
 from quantcore.models.ingestion import IngestionRun, IngestionState
 from quantcore.models.sec_filing import FilingEvent, SECFiling
+from quantcore.models.corporate_action import CorporateAction
 
 __all__ = [
     "Company",
@@ -26,4 +27,5 @@ __all__ = [
     "IngestionState",
     "SECFiling",
     "FilingEvent",
+    "CorporateAction",
 ]

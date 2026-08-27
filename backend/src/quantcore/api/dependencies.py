@@ -16,6 +16,7 @@ from quantcore.services.news_service import NewsService
 from quantcore.services.price_service import PriceService
 from quantcore.services.quote_service import QuoteService
 from quantcore.services.sec_filing_service import SECFilingService
+from quantcore.services.corporate_action_service import CorporateActionService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -75,3 +76,9 @@ def get_sec_filing_service(
     db: DbSession,
 ) -> SECFilingService:
     return SECFilingService(db)
+
+
+def get_corporate_action_service(
+    db: DbSession,
+) -> CorporateActionService:
+    return CorporateActionService(db)

@@ -20,6 +20,7 @@ from quantcore.models.balance_sheet import BalanceSheet
 from quantcore.models.provenance import CompanyFieldProvenance
 from quantcore.models.ingestion import IngestionRun, IngestionState
 from quantcore.models.sec_filing import FilingEvent, SECFiling
+from quantcore.models.corporate_action import CorporateAction
 
 
 config = context.config

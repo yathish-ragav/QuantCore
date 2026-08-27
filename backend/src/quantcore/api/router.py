@@ -21,6 +21,9 @@ from quantcore.api.endpoints.ingestion import (
 from quantcore.api.endpoints.sec_filings import (
     router as sec_filings_router,
 )
+from quantcore.api.endpoints.corporate_actions import (
+    router as corporate_actions_router,
+)
 
 router = APIRouter()
 
@@ -76,4 +79,9 @@ router.include_router(
 router.include_router(
     sec_filings_router,
     tags=["SEC Filings"],
+)
+
+router.include_router(
+    corporate_actions_router,
+    tags=["Corporate Actions"],
 )

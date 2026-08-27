@@ -25,6 +25,7 @@ from quantcore.services.company_service import CompanyService
 from quantcore.services.income_statement_service import IncomeStatementService
 from quantcore.services.news_service import NewsService
 from quantcore.services.price_service import PriceService
+from quantcore.services.corporate_action_service import CorporateActionService
 from quantcore.services.sec_filing_service import (
     SECFilingService,
     SECFilingSyncResult,
@@ -79,6 +80,7 @@ class IngestionOrchestrator:
             IngestionDataset.CASH_FLOW_STATEMENT: CashFlowStatementService,
             IngestionDataset.BALANCE_SHEET: BalanceSheetService,
             IngestionDataset.SEC_FILINGS: SECFilingService,
+            IngestionDataset.CORPORATE_ACTIONS: CorporateActionService,
         }
         return services[dataset](db)
 
@@ -112,6 +114,10 @@ class IngestionOrchestrator:
             if isinstance(result, SECFilingSyncResult):
                 return result.records_processed
             return len(result)
+
+        if dataset is IngestionDataset.CORPORATE_ACTIONS:
+            result = service.sync_corporate_actions(symbol)
+            return result.records_processed
 
         raise InvalidInputError(
             f"Unsupported ingestion dataset: {dataset.value}"

@@ -13,6 +13,7 @@ class IngestionDataset(str, Enum):
     CASH_FLOW_STATEMENT = "cash_flow_statement"
     BALANCE_SHEET = "balance_sheet"
     SEC_FILINGS = "sec_filings"
+    CORPORATE_ACTIONS = "corporate_actions"
 
 
 class IngestionScope(str, Enum):
@@ -59,6 +60,10 @@ DATASET_POLICIES: dict[IngestionDataset, FreshnessPolicy] = {
         max_age=timedelta(days=1),
         description="SEC filing metadata is checked daily for newly disseminated filings.",
     ),
+    IngestionDataset.CORPORATE_ACTIONS: FreshnessPolicy(
+        max_age=timedelta(days=1),
+        description="Corporate actions are checked daily for newly observed actions.",
+    ),
 }
 
 
@@ -70,4 +75,5 @@ DATASET_SCOPES: dict[IngestionDataset, IngestionScope] = {
     IngestionDataset.CASH_FLOW_STATEMENT: IngestionScope.COMPANY,
     IngestionDataset.BALANCE_SHEET: IngestionScope.COMPANY,
     IngestionDataset.SEC_FILINGS: IngestionScope.COMPANY,
+    IngestionDataset.CORPORATE_ACTIONS: IngestionScope.SECURITY,
 }

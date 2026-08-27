@@ -15,3 +15,10 @@ class FilingEventType(str, Enum):
 
     FILED = "FILED"
     AMENDED = "AMENDED"
+
+
+class CorporateActionType(str, Enum):
+    """Normalized security-level corporate actions."""
+
+    DIVIDEND = "DIVIDEND"
+    STOCK_SPLIT = "STOCK_SPLIT"

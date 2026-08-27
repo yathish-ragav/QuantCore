@@ -17,6 +17,7 @@ keeps provider-specific response formats out of the application.
 | Current quote | FMP | Polygon | dashboard snapshot |
 | Real-time stream | Polygon | Nasdaq licensed feed | live charting / event-driven updates |
 | Historical EOD | FMP / Polygon | Yahoo | research and backtesting |
+| Corporate actions | Licensed market-data provider / FMP | Yahoo | dividends and stock splits; current adapter is secondary |
 | Intraday | FMP / Polygon | Alpha Vantage | intraday charts and short-horizon analytics |
 | News | Polygon / FMP | Yahoo | company and market news |
 | Macro economics | FRED / ALFRED | FMP | rates, CPI, unemployment, GDP, etc. |
@@ -205,3 +206,26 @@ event types are `FILED` and `AMENDED`; the event layer is intentionally
 separate from filing identity so future corrections, removals, supersession
 relationships and document-processing events can be added without changing
 the filing's accession-number identity.
+
+
+## Corporate actions foundation
+
+QuantCore normalizes security-level dividends and stock splits into a durable
+corporate-action dataset rather than relying on the presence of action columns
+inside individual price rows. The normalized identity is
+`(security_id, effective_date, action_type)`, with row-level provenance and
+fetch time.
+
+The current adapter derives these actions from Yahoo Finance historical price
+history because Yahoo is the only configured historical market-data adapter
+implemented in this repository. This is deliberately a **secondary research
+source**, not the authoritative corporate-action source. The domain model and
+provider contract are intentionally independent of Yahoo so a licensed or
+primary
+market-data provider can replace the adapter without changing the research
+layer.
+
+Only dividends and stock splits are modeled in this increment. Mergers,
+acquisitions, spinoffs, tender offers, symbol changes and delistings are not
+treated as dividends/splits and are deliberately deferred to a later
+security-lifecycle/corporate-action expansion.

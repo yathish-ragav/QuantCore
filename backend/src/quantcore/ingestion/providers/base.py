@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 
 from quantcore.schemas.company import CompanyData
+from quantcore.schemas.corporate_action import CorporateActionData
 from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
 
@@ -28,6 +29,17 @@ class MarketDataProvider(ABC):
     ) -> list[PriceData]:
         """
         Return historical price data.
+        """
+        pass
+
+    @abstractmethod
+    def get_corporate_actions(
+        self,
+        symbol: str,
+        period: str = "max",
+    ) -> list[CorporateActionData]:
+        """
+        Return normalized historical corporate actions.
         """
         pass
 

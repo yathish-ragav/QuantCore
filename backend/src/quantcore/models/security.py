@@ -81,3 +81,9 @@ class Security(ProvenanceMixin, Base):
         back_populates="security",
         cascade="all, delete-orphan",
     )
+
+    corporate_actions = relationship(
+        "CorporateAction",
+        back_populates="security",
+        cascade="all, delete-orphan",
+    )

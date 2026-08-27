@@ -8,6 +8,8 @@ from quantcore.core.exceptions import (
     InvalidInputError,
 )
 from quantcore.schemas.company import CompanyData
+from quantcore.schemas.corporate_action import CorporateActionData
+from quantcore.core.enums import CorporateActionType
 from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
 
@@ -111,6 +113,74 @@ class YahooClient(MarketDataProvider):
             ) from exc
 
         return prices
+
+    def get_corporate_actions(
+        self,
+        symbol: str,
+        period: str = "max",
+    ) -> list[CorporateActionData]:
+        """Extract dividends and splits from Yahoo historical actions."""
+
+        if not symbol:
+            raise InvalidInputError("Symbol must not be empty.")
+
+        if not period:
+            raise InvalidInputError("Period must not be empty.")
+
+        try:
+            ticker = yf.Ticker(symbol)
+            history = ticker.history(
+                period=period,
+                auto_adjust=False,
+                actions=True,
+            )
+        except Exception as exc:
+            raise ExternalDataError(
+                "Failed to retrieve corporate actions from Yahoo Finance."
+            ) from exc
+
+        if history.empty:
+            return []
+
+        required_columns = {"Dividends", "Stock Splits"}
+        missing_columns = required_columns - set(history.columns)
+        if missing_columns:
+            raise DataValidationError(
+                "Yahoo corporate action response is missing required columns: "
+                f"{sorted(missing_columns)}"
+            )
+
+        actions: list[CorporateActionData] = []
+
+        try:
+            for timestamp, row in history.iterrows():
+                effective_date = timestamp.to_pydatetime().date()
+                dividend = float(row["Dividends"] or 0.0)
+                split = float(row["Stock Splits"] or 0.0)
+
+                if dividend != 0.0:
+                    actions.append(
+                        CorporateActionData(
+                            effective_date=effective_date,
+                            action_type=CorporateActionType.DIVIDEND,
+                            amount=dividend,
+                        )
+                    )
+
+                if split != 0.0:
+                    actions.append(
+                        CorporateActionData(
+                            effective_date=effective_date,
+                            action_type=CorporateActionType.STOCK_SPLIT,
+                            split_ratio=split,
+                        )
+                    )
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise DataValidationError(
+                "Invalid Yahoo corporate action data."
+            ) from exc
+
+        return actions
 
     def get_news(self, symbol: str) -> list[NewsData]:
         if not symbol:

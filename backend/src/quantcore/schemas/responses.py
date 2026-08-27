@@ -1,3 +1,4 @@
+from quantcore.core.enums import CorporateActionType
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field
@@ -187,3 +188,10 @@ class SECFilingSyncResponse(BaseModel):
     filings_unchanged: int = 0
     filings_processed: int = 0
     events_added: int = 0
+
+
+class CorporateActionResponse(BaseModel):
+    effective_date: date
+    action_type: CorporateActionType
+    amount: float | None = None
+    split_ratio: float | None = None

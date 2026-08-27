@@ -256,3 +256,32 @@ def test_sync_market_supports_sec_filing_dataset():
     assert result[0].attempted == 1
     assert result[0].succeeded == 1
     fake_service.sync_filings.assert_called_once_with("AAPL")
+
+
+def test_sync_market_supports_corporate_actions_dataset():
+    service = make_service()
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+
+    run = Mock()
+    run.id = 1
+    service.state_repo.create_run.return_value = run
+    service.state_repo.get.return_value = None
+    service.state_repo.get_or_create.return_value = Mock()
+
+    fake_service = Mock()
+    fake_service.client.SOURCE = "YAHOO"
+    fake_service.sync_corporate_actions.return_value = Mock(
+        records_processed=3
+    )
+    service._service_for = Mock(return_value=fake_service)
+
+    result = service.sync_market(
+        datasets=[IngestionDataset.CORPORATE_ACTIONS],
+        only_stale=False,
+    )
+
+    assert result[0].dataset is IngestionDataset.CORPORATE_ACTIONS
+    assert result[0].attempted == 1
+    assert result[0].succeeded == 1
+    fake_service.sync_corporate_actions.assert_called_once_with("AAPL")
