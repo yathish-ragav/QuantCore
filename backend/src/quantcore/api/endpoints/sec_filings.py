@@ -56,8 +56,12 @@ def sync_sec_filings(
     service: SECFilingService = Depends(get_sec_filing_service),
 ):
     normalized_symbol = symbol.strip().upper()
-    created = service.sync_filings(normalized_symbol)
+    result = service.sync_filings(normalized_symbol)
     return SECFilingSyncResponse(
         symbol=normalized_symbol,
-        filings_added=len(created),
+        filings_added=result.created,
+        filings_updated=result.updated,
+        filings_unchanged=result.unchanged,
+        filings_processed=result.records_processed,
+        events_added=result.events_created,
     )

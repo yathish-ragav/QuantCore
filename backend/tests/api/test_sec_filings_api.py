@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 
 from quantcore.api.main import app
+from quantcore.services.sec_filing_service import SECFilingSyncResult
 
 
 client = TestClient(app)
@@ -76,7 +77,13 @@ def test_sync_sec_filings():
     ) as service_class:
         service = Mock()
         service_class.return_value = service
-        service.sync_filings.return_value = [Mock(), Mock()]
+        service.sync_filings.return_value = SECFilingSyncResult(
+            created=2,
+            updated=1,
+            unchanged=4,
+            events_created=2,
+            records_processed=7,
+        )
 
         response = client.post("/sec-filings/AAPL/sync")
 
@@ -84,4 +91,8 @@ def test_sync_sec_filings():
     assert response.json() == {
         "symbol": "AAPL",
         "filings_added": 2,
+        "filings_updated": 1,
+        "filings_unchanged": 4,
+        "filings_processed": 7,
+        "events_added": 2,
     }

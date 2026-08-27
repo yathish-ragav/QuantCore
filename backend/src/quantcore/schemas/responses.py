@@ -183,3 +183,7 @@ class FilingEventResponse(BaseModel):
 class SECFilingSyncResponse(BaseModel):
     symbol: str
     filings_added: int
+    filings_updated: int = 0
+    filings_unchanged: int = 0
+    filings_processed: int = 0
+    events_added: int = 0

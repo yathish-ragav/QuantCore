@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -16,6 +17,17 @@ from quantcore.processing.cleaner import DataCleaner
 from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.security_repository import SecurityRepository
 from quantcore.schemas.sec_filing import SECFilingData
+
+
+@dataclass(frozen=True)
+class SECFilingSyncResult:
+    """Reconciliation counts produced by one SEC filing sync."""
+
+    created: int
+    updated: int
+    unchanged: int
+    events_created: int
+    records_processed: int
 
 
 class SECFilingService:
@@ -64,7 +76,11 @@ class SECFilingService:
 
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)
-            created: list = []
+            created = 0
+            updated = 0
+            unchanged = 0
+            events_created = 0
+            records_processed = 0
 
             for data in raw_filings:
                 if not isinstance(data, SECFilingData):
@@ -75,6 +91,7 @@ class SECFilingService:
                 accession = data.accession_number.strip()
                 if not accession:
                     continue
+                records_processed += 1
 
                 existing = self.filing_repo.get_by_accession(accession)
                 if existing is None:
@@ -102,13 +119,15 @@ class SECFilingService:
                         source_reference=accession,
                     )
                     self.db.flush()
-                    created.append(filing)
+                    created += 1
                 else:
                     filing = existing
+                    changed = False
 
                     # SEC submissions are an authoritative metadata feed. Update
                     # mutable descriptive fields without changing filing identity.
                     for field in (
+                        "filing_date",
                         "report_date",
                         "acceptance_datetime",
                         "form",
@@ -125,10 +144,21 @@ class SECFilingService:
                         "is_amendment",
                         "filing_url",
                     ):
-                        setattr(filing, field, getattr(data, field))
-                    filing.source = source
+                        value = getattr(data, field)
+                        if getattr(filing, field) != value:
+                            setattr(filing, field, value)
+                            changed = True
+                    if filing.source != source:
+                        filing.source = source
+                        changed = True
+                    if filing.source_reference != accession:
+                        filing.source_reference = accession
+                        changed = True
+                    if changed:
+                        updated += 1
+                    else:
+                        unchanged += 1
                     filing.fetched_at = fetched_at
-                    filing.source_reference = accession
 
                 occurred_at = (
                     data.acceptance_datetime
@@ -158,9 +188,16 @@ class SECFilingService:
                         fetched_at=fetched_at,
                         source_reference=accession,
                     )
+                    events_created += 1
 
             self.db.commit()
-            return created
+            return SECFilingSyncResult(
+                created=created,
+                updated=updated,
+                unchanged=unchanged,
+                events_created=events_created,
+                records_processed=records_processed,
+            )
 
         except Exception:
             self.db.rollback()

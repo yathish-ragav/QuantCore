@@ -4,8 +4,12 @@ from unittest.mock import Mock
 import pytest
 
 from quantcore.core.enums import FilingEventType
+from quantcore.models.provenance import DataSource
 from quantcore.schemas.sec_filing import SECFilingData
-from quantcore.services.sec_filing_service import SECFilingService
+from quantcore.services.sec_filing_service import (
+    SECFilingService,
+    SECFilingSyncResult,
+)
 
 
 def make_company():
@@ -76,7 +80,13 @@ def test_sync_filings_creates_filing_and_event():
 
     result = service.sync_filings("AAPL")
 
-    assert result == [created]
+    assert result == SECFilingSyncResult(
+        created=1,
+        updated=0,
+        unchanged=0,
+        events_created=1,
+        records_processed=1,
+    )
     service.filing_repo.create.assert_called_once()
     service.filing_repo.create_event.assert_called_once()
     event_kwargs = service.filing_repo.create_event.call_args.kwargs
@@ -109,14 +119,64 @@ def test_sync_filings_is_idempotent_for_existing_filing_and_event():
     company = make_company()
     existing = Mock()
     existing.id = 100
+    incoming = make_filing()
+    for field in (
+        "filing_date",
+        "report_date", "acceptance_datetime", "form", "act",
+        "file_number", "film_number", "items", "primary_document",
+        "primary_doc_description", "is_xbrl", "is_inline_xbrl",
+        "fiscal_year", "fiscal_period", "is_amendment", "filing_url",
+    ):
+        setattr(existing, field, getattr(incoming, field))
+    existing.source = DataSource.SEC
+    existing.source_reference = incoming.accession_number
     service.security_repo.get_by_symbol.return_value = make_security(company)
-    service.provider.get_sec_filings.return_value = [make_filing()]
+    service.provider.get_sec_filings.return_value = [incoming]
     service.filing_repo.get_by_accession.return_value = existing
     service.filing_repo.get_event.return_value = Mock()
 
-    assert service.sync_filings("AAPL") == []
+    result = service.sync_filings("AAPL")
+
+    assert result == SECFilingSyncResult(
+        created=0,
+        updated=0,
+        unchanged=1,
+        events_created=0,
+        records_processed=1,
+    )
     service.filing_repo.create.assert_not_called()
     service.filing_repo.create_event.assert_not_called()
+    db.commit.assert_called_once()
+
+
+def test_sync_filings_counts_updated_metadata_and_new_event():
+    service, db = make_service()
+    company = make_company()
+    existing = Mock()
+    existing.id = 100
+    for field in (
+        "report_date", "acceptance_datetime", "form", "act",
+        "file_number", "film_number", "items", "primary_document",
+        "primary_doc_description", "is_xbrl", "is_inline_xbrl",
+        "fiscal_year", "fiscal_period", "is_amendment", "filing_url",
+    ):
+        setattr(existing, field, None)
+    existing.source = DataSource.SEC
+    existing.source_reference = "old"
+    service.security_repo.get_by_symbol.return_value = make_security(company)
+    service.provider.get_sec_filings.return_value = [make_filing()]
+    service.filing_repo.get_by_accession.return_value = existing
+    service.filing_repo.get_event.return_value = None
+
+    result = service.sync_filings("AAPL")
+
+    assert result == SECFilingSyncResult(
+        created=0,
+        updated=1,
+        unchanged=0,
+        events_created=1,
+        records_processed=1,
+    )
     db.commit.assert_called_once()
 
 

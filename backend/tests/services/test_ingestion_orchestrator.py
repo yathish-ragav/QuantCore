@@ -14,6 +14,7 @@ from quantcore.models.security import SecurityStatus
 from quantcore.services.ingestion_orchestrator import (
     IngestionOrchestrator,
 )
+from quantcore.services.sec_filing_service import SECFilingSyncResult
 
 
 def make_security(
@@ -237,7 +238,13 @@ def test_sync_market_supports_sec_filing_dataset():
 
     fake_service = Mock()
     fake_service.provider.SOURCE = "SEC"
-    fake_service.sync_filings.return_value = [Mock(), Mock(), Mock()]
+    fake_service.sync_filings.return_value = SECFilingSyncResult(
+        created=2,
+        updated=1,
+        unchanged=4,
+        events_created=1,
+        records_processed=7,
+    )
     service._service_for = Mock(return_value=fake_service)
 
     result = service.sync_market(
