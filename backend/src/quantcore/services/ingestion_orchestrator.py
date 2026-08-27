@@ -23,6 +23,7 @@ from quantcore.services.cash_flow_statement_service import (
 )
 from quantcore.services.company_service import CompanyService
 from quantcore.services.income_statement_service import IncomeStatementService
+from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
 from quantcore.services.news_service import NewsService
 from quantcore.services.price_service import PriceService, PriceSyncResult
 from quantcore.services.corporate_action_service import CorporateActionService
@@ -106,13 +107,22 @@ class IngestionOrchestrator:
             return service.sync_news(symbol)
 
         if dataset is IngestionDataset.INCOME_STATEMENT:
-            return len(service.sync_income_statements(symbol))
+            result = service.sync_income_statements(symbol)
+            if isinstance(result, FinancialStatementSyncResult):
+                return result.records_processed
+            return len(result)
 
         if dataset is IngestionDataset.CASH_FLOW_STATEMENT:
-            return len(service.sync_cash_flow_statements(symbol))
+            result = service.sync_cash_flow_statements(symbol)
+            if isinstance(result, FinancialStatementSyncResult):
+                return result.records_processed
+            return len(result)
 
         if dataset is IngestionDataset.BALANCE_SHEET:
-            return len(service.sync_balance_sheets(symbol))
+            result = service.sync_balance_sheets(symbol)
+            if isinstance(result, FinancialStatementSyncResult):
+                return result.records_processed
+            return len(result)
 
         if dataset is IngestionDataset.SEC_FILINGS:
             result = service.sync_filings(symbol)

@@ -1,8 +1,9 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from unittest.mock import Mock
 
 import pytest
 
+from quantcore.core.enums import FinancialStatementType
 from quantcore.schemas.cash_flow_statement import (
     CashFlowStatementData,
 )
@@ -66,6 +67,7 @@ def make_service():
     service.provider.SOURCE = "FMP"
     service.security_repo = Mock()
     service.statement_repo = Mock()
+    service.revision_repo = Mock()
 
     return service, db
 
@@ -149,7 +151,10 @@ def test_sync_cash_flow_statements_creates_new_statements():
         "AAPL"
     )
 
-    assert len(result) == 2
+    assert result.created == 2
+    assert result.updated == 0
+    assert result.unchanged == 0
+    assert result.records_processed == 2
 
     assert (
         service.statement_repo
@@ -182,14 +187,19 @@ def test_sync_cash_flow_statements_skips_existing():
     ]
 
     service.statement_repo.get_by_company_and_date.return_value = (
-        Mock()
+        make_statement(
+        date(2024, 9, 28)
+    )
     )
 
     result = service.sync_cash_flow_statements(
         "AAPL"
     )
 
-    assert result == []
+    assert result.created == 0
+    assert result.updated == 0
+    assert result.unchanged == 1
+    assert result.records_processed == 1
 
     service.statement_repo.create.assert_not_called()
 
@@ -335,3 +345,43 @@ def test_sync_cash_flow_statements_rejects_empty_symbol():
 
     db.commit.assert_not_called()
     db.rollback.assert_called_once()
+
+
+def test_get_cash_flow_statements_supports_as_of():
+    service, _ = make_service()
+    company = make_company()
+    service.security_repo.get_by_symbol.return_value = make_security(company)
+    revision = Mock()
+    service.revision_repo.get_latest_for_company_as_of.return_value = [revision]
+
+    result = service.get_cash_flow_statements(
+        "AAPL",
+        as_of=datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc),
+    )
+
+    assert result == [revision]
+    service.revision_repo.get_latest_for_company_as_of.assert_called_once()
+
+
+def test_sync_cash_flow_statements_updates_changed_observation_and_creates_revision():
+    from types import SimpleNamespace
+
+    service, db = make_service()
+    company = make_company()
+    service.security_repo.get_by_symbol.return_value = make_security(company)
+    incoming = make_statement(date(2024, 9, 28), operating_cash_flow=1000.0)
+    existing = SimpleNamespace(**incoming.model_dump(), id=42, company_id=company.id, source_reference=None)
+    existing.operating_cash_flow = 900.0
+    service.provider.get_cash_flow_statements.return_value = [incoming]
+    service.statement_repo.get_by_company_and_date.return_value = existing
+    service.revision_repo.get_next_revision_number.return_value = 2
+
+    result = service.sync_cash_flow_statements("AAPL")
+
+    assert result.created == 0
+    assert result.updated == 1
+    assert result.unchanged == 0
+    assert result.records_processed == 1
+    assert existing.operating_cash_flow == 1000.0
+    service.revision_repo.create.assert_called_once()
+    db.commit.assert_called_once()

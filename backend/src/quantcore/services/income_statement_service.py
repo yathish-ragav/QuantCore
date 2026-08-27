@@ -13,12 +13,23 @@ from quantcore.ingestion.providers.financial_factory import (
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.models.provenance import DataSource
+from quantcore.core.enums import FinancialStatementType
 from quantcore.processing.validator import DataValidator
 from quantcore.repositories.income_statement_repository import (
     IncomeStatementRepository,
 )
 from quantcore.repositories.security_repository import (
     SecurityRepository,
+)
+from quantcore.repositories.financial_statement_revision_repository import (
+    FinancialStatementRevisionRepository,
+)
+from quantcore.services.financial_statement_revision import (
+    FinancialStatementSyncResult,
+    apply_statement_data,
+    create_revision,
+    get_statements_as_of,
+    statement_changed,
 )
 
 
@@ -36,6 +47,7 @@ class IncomeStatementService:
         self.statement_repo = (
             IncomeStatementRepository(db)
         )
+        self.revision_repo = FinancialStatementRevisionRepository(db)
 
     def get_company_for_symbol(
         self,
@@ -68,19 +80,28 @@ class IncomeStatementService:
     def get_income_statements(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
         _, company = self.get_company_for_symbol(
             symbol
         )
 
-        return self.statement_repo.get_for_company(
-            company.id
+        if as_of is None:
+            return self.statement_repo.get_for_company(
+                company.id
+            )
+
+        return get_statements_as_of(
+            self.revision_repo,
+            company.id,
+            FinancialStatementType.INCOME,
+            as_of,
         )
 
     def sync_income_statements(
         self,
         symbol: str,
-    ):
+    ) -> FinancialStatementSyncResult:
 
         try:
             # -------------------------------------------------
@@ -141,29 +162,24 @@ class IncomeStatementService:
                     f"for '{symbol}'."
                 )
 
-            created_statements = []
+            created = 0
+            updated = 0
+            unchanged = 0
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)
 
             # -------------------------------------------------
-            # 7. Reconcile statements.
+            # 7. Reconcile statements and preserve revisions.
             # -------------------------------------------------
             for data in statements:
 
-                existing = (
-                    self.statement_repo
-                    .get_by_company_and_date(
-                        company.id,
-                        data.fiscal_date,
-                        data.period_type,
-                    )
+                existing = self.statement_repo.get_by_company_and_date(
+                    company.id,
+                    data.fiscal_date,
+                    data.period_type,
                 )
-
-                if existing is not None:
-                    continue
-
-                statement = (
-                    self.statement_repo.create(
+                if existing is None:
+                    statement = self.statement_repo.create(
                         company_id=company.id,
                         fiscal_date=data.fiscal_date,
                         period_start=data.period_start,
@@ -178,24 +194,48 @@ class IncomeStatementService:
                         operating_income=data.operating_income,
                         net_income=data.net_income,
                         eps=data.eps,
-                        shares_outstanding=(
-                            data.shares_outstanding
-                        ),
+                        shares_outstanding=data.shares_outstanding,
                         source=source,
                         fetched_at=fetched_at,
                     )
-                )
+                    self.db.flush()
+                    create_revision(
+                        self.revision_repo,
+                        statement,
+                        FinancialStatementType.INCOME,
+                        source,
+                        fetched_at,
+                    )
+                    created += 1
+                    continue
 
-                created_statements.append(
-                    statement
+                if not statement_changed(existing, data, FinancialStatementType.INCOME):
+                    unchanged += 1
+                    continue
+
+                apply_statement_data(existing, data, FinancialStatementType.INCOME)
+                existing.source = source
+                existing.fetched_at = fetched_at
+                create_revision(
+                    self.revision_repo,
+                    existing,
+                    FinancialStatementType.INCOME,
+                    source,
+                    fetched_at,
                 )
+                updated += 1
 
             # -------------------------------------------------
             # 8. Commit entire operation once.
             # -------------------------------------------------
             self.db.commit()
 
-            return created_statements
+            return FinancialStatementSyncResult(
+                created=created,
+                updated=updated,
+                unchanged=unchanged,
+                records_processed=len(statements),
+            )
 
         except Exception:
             # -------------------------------------------------

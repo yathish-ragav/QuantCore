@@ -4,6 +4,7 @@ from unittest.mock import Mock, patch
 from fastapi.testclient import TestClient
 
 from quantcore.api.main import app
+from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
 
 
 client = TestClient(app)
@@ -79,7 +80,8 @@ def test_get_income_statements_returns_statements():
     ]
 
     service.get_income_statements.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
     service.sync_income_statements.assert_not_called()
@@ -123,9 +125,28 @@ def test_get_income_statements_normalizes_lowercase_symbol():
     assert response.status_code == 200
 
     service.get_income_statements.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
+
+
+def test_get_income_statements_supports_as_of_query():
+    with patch(
+        "quantcore.api.dependencies.IncomeStatementService"
+    ) as mock_service_class:
+
+        service = Mock()
+        mock_service_class.return_value = service
+        service.get_income_statements.return_value = []
+
+        response = client.get(
+            "/income-statements/AAPL?as_of=2026-01-05T12:00:00Z"
+        )
+
+    assert response.status_code == 200
+    service.get_income_statements.assert_called_once()
+    assert service.get_income_statements.call_args.kwargs["as_of"].isoformat() == "2026-01-05T12:00:00+00:00"
 
 def test_sync_income_statements_returns_statements_added():
     with patch(
@@ -136,10 +157,9 @@ def test_sync_income_statements_returns_statements_added():
 
         mock_service_class.return_value = service
 
-        service.sync_income_statements.return_value = [
-            Mock(),
-            Mock(),
-        ]
+        service.sync_income_statements.return_value = FinancialStatementSyncResult(
+            created=2, updated=1, unchanged=3, records_processed=6
+        )
 
         response = client.post(
             "/income-statements/AAPL/sync"
@@ -150,6 +170,9 @@ def test_sync_income_statements_returns_statements_added():
     assert response.json() == {
         "symbol": "AAPL",
         "statements_added": 2,
+        "statements_updated": 1,
+        "statements_unchanged": 3,
+        "records_processed": 6,
     }
 
     service.sync_income_statements.assert_called_once_with(
@@ -166,7 +189,9 @@ def test_sync_income_statements_returns_zero_when_none_added():
 
         mock_service_class.return_value = service
 
-        service.sync_income_statements.return_value = []
+        service.sync_income_statements.return_value = FinancialStatementSyncResult(
+            created=0, updated=0, unchanged=0, records_processed=0
+        )
 
         response = client.post(
             "/income-statements/AAPL/sync"
@@ -177,4 +202,7 @@ def test_sync_income_statements_returns_zero_when_none_added():
     assert response.json() == {
         "symbol": "AAPL",
         "statements_added": 0,
+        "statements_updated": 0,
+        "statements_unchanged": 0,
+        "records_processed": 0,
     }

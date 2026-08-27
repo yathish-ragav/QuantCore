@@ -63,6 +63,9 @@ class IncomeStatementResponse(BaseModel):
 class IncomeStatementSyncResponse(BaseModel):
     symbol: str
     statements_added: int
+    statements_updated: int = 0
+    statements_unchanged: int = 0
+    records_processed: int = 0
 
 
 class CashFlowStatementResponse(BaseModel):
@@ -89,6 +92,9 @@ class CashFlowStatementResponse(BaseModel):
 class CashFlowStatementSyncResponse(BaseModel):
     symbol: str
     statements_added: int
+    statements_updated: int = 0
+    statements_unchanged: int = 0
+    records_processed: int = 0
 
 
 
@@ -125,6 +131,9 @@ class BalanceSheetResponse(BaseModel):
 class BalanceSheetSyncResponse(BaseModel):
     symbol: str
     statements_added: int
+    statements_updated: int = 0
+    statements_unchanged: int = 0
+    records_processed: int = 0
 
 
 class IngestionFreshnessResponse(BaseModel):

@@ -10,6 +10,14 @@ class FinancialPeriodType(str, Enum):
     INSTANT = "INSTANT"
 
 
+class FinancialStatementType(str, Enum):
+    """Canonical statement families represented in revision history."""
+
+    INCOME = "INCOME"
+    BALANCE_SHEET = "BALANCE_SHEET"
+    CASH_FLOW = "CASH_FLOW"
+
+
 class FilingEventType(str, Enum):
     """Normalized lifecycle events observed from SEC filing metadata."""
 

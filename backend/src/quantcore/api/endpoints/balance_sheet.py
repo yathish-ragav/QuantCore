@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
 
 from quantcore.api.dependencies import get_balance_sheet_service
 from quantcore.schemas.responses import (
@@ -20,12 +22,19 @@ router = APIRouter(
 )
 def get_balance_sheets(
     symbol: str,
+    as_of: datetime | None = Query(
+        default=None,
+        description="Return the latest statement revisions known at this timestamp.",
+    ),
     service: BalanceSheetService = Depends(
         get_balance_sheet_service
     ),
 ):
     normalized_symbol = symbol.strip().upper()
-    statements = service.get_balance_sheets(normalized_symbol)
+    statements = service.get_balance_sheets(
+        normalized_symbol,
+        as_of=as_of,
+    )
 
     return [
         BalanceSheetResponse(
@@ -80,9 +89,12 @@ def sync_balance_sheets(
     ),
 ):
     normalized_symbol = symbol.strip().upper()
-    created = service.sync_balance_sheets(normalized_symbol)
+    result = service.sync_balance_sheets(normalized_symbol)
 
     return BalanceSheetSyncResponse(
         symbol=normalized_symbol,
-        statements_added=len(created),
+        statements_added=result.created,
+        statements_updated=result.updated,
+        statements_unchanged=result.unchanged,
+        records_processed=result.records_processed,
     )

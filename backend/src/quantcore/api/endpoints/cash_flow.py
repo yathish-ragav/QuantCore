@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
 
 from quantcore.api.dependencies import get_cash_flow_statement_service
 from quantcore.schemas.responses import (
@@ -22,6 +24,10 @@ router = APIRouter(
 )
 def get_cash_flow_statements(
     symbol: str,
+    as_of: datetime | None = Query(
+        default=None,
+        description="Return the latest statement revisions known at this timestamp.",
+    ),
     service: CashFlowStatementService = Depends(
         get_cash_flow_statement_service
     ),
@@ -29,7 +35,8 @@ def get_cash_flow_statements(
     normalized_symbol = symbol.strip().upper()
 
     statements = service.get_cash_flow_statements(
-        normalized_symbol
+        normalized_symbol,
+        as_of=as_of,
     )
 
     return [
@@ -85,11 +92,14 @@ def sync_cash_flow_statements(
 ):
     normalized_symbol = symbol.strip().upper()
 
-    created = service.sync_cash_flow_statements(
+    result = service.sync_cash_flow_statements(
         normalized_symbol
     )
 
     return CashFlowStatementSyncResponse(
         symbol=normalized_symbol,
-        statements_added=len(created),
+        statements_added=result.created,
+        statements_updated=result.updated,
+        statements_unchanged=result.unchanged,
+        records_processed=result.records_processed,
     )

@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
 
 from quantcore.api.dependencies import get_income_statement_service
 from quantcore.schemas.responses import (
@@ -22,6 +24,10 @@ router = APIRouter(
 )
 def get_income_statements(
     symbol: str,
+    as_of: datetime | None = Query(
+        default=None,
+        description="Return the latest statement revisions known at this timestamp.",
+    ),
     service: IncomeStatementService = Depends(
         get_income_statement_service
     ),
@@ -29,7 +35,8 @@ def get_income_statements(
     normalized_symbol = symbol.strip().upper()
 
     statements = service.get_income_statements(
-        normalized_symbol
+        normalized_symbol,
+        as_of=as_of,
     )
 
     return [
@@ -67,11 +74,14 @@ def sync_income_statements(
 ):
     normalized_symbol = symbol.strip().upper()
 
-    created = service.sync_income_statements(
+    result = service.sync_income_statements(
         normalized_symbol
     )
 
     return IncomeStatementSyncResponse(
         symbol=normalized_symbol,
-        statements_added=len(created),
+        statements_added=result.created,
+        statements_updated=result.updated,
+        statements_unchanged=result.unchanged,
+        records_processed=result.records_processed,
     )

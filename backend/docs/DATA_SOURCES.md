@@ -355,3 +355,29 @@ corrected market price that was learned later from silently entering a
 historical indicator calculation. The indicator formulas themselves remain
 pure computations over the selected price series; this increment does not add
 new indicators or alter their mathematical definitions.
+
+
+## Financial statement reconciliation and point-in-time semantics
+
+Normalized income statements, balance sheets, and cash-flow statements are
+treated as observations that may be corrected by an upstream provider after
+initial ingestion. The canonical statement row remains the latest known value,
+while `financial_statement_revisions` preserves immutable snapshots for each
+revision. Repeated ingestion of an unchanged statement does not create a new
+revision. A changed observation creates the next revision and updates the
+canonical row atomically.
+
+Each revision records `known_at`, which represents when QuantCore learned that
+specific normalized statement version. The fiscal date and filing date retain
+the market/reporting-period semantics and are not substituted for the
+knowledge timestamp. PIT reads select the latest ingested revision for each
+statement period whose `known_at` is on or before the requested `as_of`
+time. Historical PIT reconstruction is therefore exact only for revisions that
+QuantCore has actually ingested. Existing rows backfilled by the migration
+provide a baseline revision at their recorded `fetched_at` when available;
+they do not manufacture historical knowledge timestamps.
+
+The statement APIs expose the optional `as_of` query parameter for income
+statements, balance sheets, and cash-flow statements. Sync responses also
+report created, updated, unchanged, and processed counts so reconciliation is
+observable rather than silently treating every existing row as immutable.
