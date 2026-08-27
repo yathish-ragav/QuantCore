@@ -35,6 +35,7 @@ def make_service():
 
     service.security_repo = Mock()
     service.price_repo = Mock()
+    service.revision_repo = Mock()
 
     return service, db
 
@@ -98,6 +99,25 @@ def test_get_prices_returns_security_prices():
     service.price_repo.get_for_security.assert_called_once_with(
         10
     )
+
+
+def test_get_prices_uses_point_in_time_revisions():
+
+    service, db = make_service()
+
+    security = Mock()
+    security.id = 10
+
+    revisions = [make_price(datetime(2026, 1, 2))]
+    service.security_repo.get_by_symbol.return_value = security
+    service.revision_repo.get_latest_for_security_as_of.return_value = revisions
+
+    as_of = datetime(2026, 1, 5)
+    result = service._get_prices("AAPL", as_of=as_of)
+
+    assert result == revisions
+    service.revision_repo.get_latest_for_security_as_of.assert_called_once()
+    service.price_repo.get_for_security.assert_not_called()
 
 
 def test_get_prices_security_not_found():

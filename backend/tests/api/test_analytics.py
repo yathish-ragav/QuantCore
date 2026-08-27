@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 from fastapi.testclient import TestClient
@@ -70,6 +71,27 @@ def test_sma_endpoint(mock_service):
     service.sma.assert_called_once_with(
         symbol="AAPL",
         period=20,
+        as_of=None,
+    )
+
+
+@patch(
+    "quantcore.api.dependencies.AnalyticsService"
+)
+def test_sma_endpoint_supports_as_of_query(mock_service):
+
+    service = make_service()
+    mock_service.return_value = service
+
+    response = client.get(
+        "/analytics/sma/AAPL?as_of=2026-01-05T12:00:00Z"
+    )
+
+    assert response.status_code == 200
+    service.sma.assert_called_once_with(
+        symbol="AAPL",
+        period=20,
+        as_of=datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc),
     )
 
 
@@ -91,6 +113,7 @@ def test_ema_endpoint(mock_service):
     service.ema.assert_called_once_with(
         symbol="AAPL",
         period=20,
+        as_of=None,
     )
 
 
@@ -110,7 +133,8 @@ def test_macd_endpoint(mock_service):
     assert response.json() == []
 
     service.macd.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -132,6 +156,7 @@ def test_rsi_endpoint(mock_service):
     service.rsi.assert_called_once_with(
         symbol="AAPL",
         period=14,
+        as_of=None,
     )
 
 
@@ -153,6 +178,7 @@ def test_bollinger_endpoint(mock_service):
     service.bollinger.assert_called_once_with(
         symbol="AAPL",
         period=20,
+        as_of=None,
     )
 
 
@@ -174,6 +200,7 @@ def test_atr_endpoint(mock_service):
     service.atr.assert_called_once_with(
         symbol="AAPL",
         period=14,
+        as_of=None,
     )
 
 
@@ -195,6 +222,7 @@ def test_adx_endpoint(mock_service):
     service.adx.assert_called_once_with(
         symbol="AAPL",
         period=14,
+        as_of=None,
     )
 
 
@@ -217,6 +245,7 @@ def test_supertrend_endpoint(mock_service):
         symbol="AAPL",
         period=10,
         multiplier=3.0,
+        as_of=None,
     )
 
 
@@ -239,6 +268,7 @@ def test_stochastic_endpoint(mock_service):
         symbol="AAPL",
         period=14,
         signal_period=3,
+        as_of=None,
     )
 
 
@@ -258,7 +288,8 @@ def test_psar_endpoint(mock_service):
     assert response.json() == []
 
     service.parabolic_sar.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -278,7 +309,8 @@ def test_vwap_endpoint(mock_service):
     assert response.json() == []
 
     service.vwap.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -298,7 +330,8 @@ def test_obv_endpoint(mock_service):
     assert response.json() == []
 
     service.obv.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -320,6 +353,7 @@ def test_mfi_endpoint(mock_service):
     service.mfi.assert_called_once_with(
         symbol="AAPL",
         period=14,
+        as_of=None,
     )
 
 
@@ -341,6 +375,7 @@ def test_cmf_endpoint(mock_service):
     service.cmf.assert_called_once_with(
         symbol="AAPL",
         period=20,
+        as_of=None,
     )
 
 
@@ -360,7 +395,8 @@ def test_ichimoku_endpoint(mock_service):
     assert response.json() == []
 
     service.ichimoku.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -382,6 +418,7 @@ def test_donchian_endpoint(mock_service):
     service.donchian.assert_called_once_with(
         symbol="AAPL",
         period=20,
+        as_of=None,
     )
 
 
@@ -404,6 +441,7 @@ def test_keltner_endpoint(mock_service):
         "AAPL",
         20,
         2.0,
+        as_of=None,
     )
 
 
@@ -425,6 +463,7 @@ def test_cci_endpoint(mock_service):
     service.cci.assert_called_once_with(
         "AAPL",
         20,
+        as_of=None,
     )
 
 
@@ -446,6 +485,7 @@ def test_williams_r_endpoint(mock_service):
     service.williams_r.assert_called_once_with(
         "AAPL",
         14,
+        as_of=None,
     )
 
 
@@ -467,6 +507,7 @@ def test_roc_endpoint(mock_service):
     service.roc.assert_called_once_with(
         "AAPL",
         12,
+        as_of=None,
     )
 
 
@@ -490,6 +531,7 @@ def test_ultimate_oscillator_endpoint(mock_service):
         7,
         14,
         28,
+        as_of=None,
     )
 
 
@@ -511,6 +553,7 @@ def test_trix_endpoint(mock_service):
     service.trix.assert_called_once_with(
         "AAPL",
         15,
+        as_of=None,
     )
 
 
@@ -532,6 +575,7 @@ def test_aroon_endpoint(mock_service):
     service.aroon.assert_called_once_with(
         "AAPL",
         25,
+        as_of=None,
     )
 
 
@@ -553,6 +597,7 @@ def test_aroon_oscillator_endpoint(mock_service):
     service.aroon_oscillator.assert_called_once_with(
         "AAPL",
         25,
+        as_of=None,
     )
 
 
@@ -574,6 +619,7 @@ def test_dpo_endpoint(mock_service):
     service.dpo.assert_called_once_with(
         "AAPL",
         20,
+        as_of=None,
     )
 
 
@@ -595,6 +641,7 @@ def test_vortex_endpoint(mock_service):
     service.vortex.assert_called_once_with(
         "AAPL",
         14,
+        as_of=None,
     )
 
 
@@ -616,6 +663,7 @@ def test_emv_endpoint(mock_service):
     service.emv.assert_called_once_with(
         "AAPL",
         14,
+        as_of=None,
     )
 
 
@@ -637,7 +685,8 @@ def test_accumulation_distribution_endpoint(
     assert response.json() == []
 
     service.accumulation_distribution.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -657,7 +706,8 @@ def test_force_index_endpoint(mock_service):
     assert response.json() == []
 
     service.force_index.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -677,7 +727,8 @@ def test_nvi_endpoint(mock_service):
     assert response.json() == []
 
     service.nvi.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -697,7 +748,8 @@ def test_pvi_endpoint(mock_service):
     assert response.json() == []
 
     service.pvi.assert_called_once_with(
-        "AAPL"
+        "AAPL",
+        as_of=None,
     )
 
 
@@ -721,6 +773,7 @@ def test_kvo_endpoint(mock_service):
         34,
         55,
         13,
+        as_of=None,
     )
 
 
@@ -743,6 +796,7 @@ def test_chaikin_oscillator_endpoint(mock_service):
         "AAPL",
         3,
         10,
+        as_of=None,
     )
 
 
@@ -764,6 +818,7 @@ def test_elder_ray_endpoint(mock_service):
     service.elder_ray.assert_called_once_with(
         "AAPL",
         13,
+        as_of=None,
     )
 
 
@@ -785,6 +840,7 @@ def test_rvi_endpoint(mock_service):
     service.rvi.assert_called_once_with(
         "AAPL",
         10,
+        as_of=None,
     )
 
 
@@ -808,6 +864,7 @@ def test_coppock_endpoint(mock_service):
         14,
         11,
         10,
+        as_of=None,
     )
 
 
@@ -836,4 +893,5 @@ def test_kst_endpoint(mock_service):
         10,
         10,
         15,
+        as_of=None,
     )

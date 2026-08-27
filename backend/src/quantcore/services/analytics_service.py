@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
@@ -42,6 +44,9 @@ from quantcore.analytics import (
     KnowSureThing
 )
 
+from quantcore.repositories.price_observation_revision_repository import (
+    PriceObservationRevisionRepository,
+)
 from quantcore.repositories.price_repository import PriceRepository
 from quantcore.repositories.security_repository import SecurityRepository
 
@@ -51,8 +56,13 @@ class AnalyticsService:
     def __init__(self, db: Session):
         self.security_repo = SecurityRepository(db)
         self.price_repo = PriceRepository(db)
+        self.revision_repo = PriceObservationRevisionRepository(db)
 
-    def _get_prices(self, symbol: str):
+    def _get_prices(
+        self,
+        symbol: str,
+        as_of: datetime | None = None,
+    ):
 
         symbol = symbol.strip().upper()
 
@@ -70,17 +80,27 @@ class AnalyticsService:
                 f"Security '{symbol}' not found."
             )
 
-        return self.price_repo.get_for_security(
-            security.id
+        if as_of is None:
+            return self.price_repo.get_for_security(
+                security.id
+            )
+
+        if as_of.tzinfo is None:
+            as_of = as_of.replace(tzinfo=timezone.utc)
+
+        return self.revision_repo.get_latest_for_security_as_of(
+            security.id,
+            as_of,
         )
 
     def sma(
         self,
         symbol: str,
         period: int = 20,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         close_prices = [p.close for p in prices]
 
@@ -102,9 +122,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 20,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         close_prices = [p.close for p in prices]
 
@@ -125,9 +146,10 @@ class AnalyticsService:
     def macd(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         close_prices = [p.close for p in prices]
 
@@ -150,9 +172,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 14,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         close_prices = [p.close for p in prices]
 
@@ -174,9 +197,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 20,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         close_prices = [p.close for p in prices]
 
@@ -200,9 +224,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 14,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -228,9 +253,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 14,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -257,9 +283,10 @@ class AnalyticsService:
         symbol: str,
         period: int = 10,
         multiplier: float = 3.0,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -287,9 +314,10 @@ class AnalyticsService:
         symbol: str,
         period: int = 14,
         signal_period: int = 3,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -316,9 +344,10 @@ class AnalyticsService:
     def parabolic_sar(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -340,9 +369,10 @@ class AnalyticsService:
     def vwap(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -369,9 +399,10 @@ class AnalyticsService:
     def obv(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         closes = [p.close for p in prices]
         volumes = [p.volume for p in prices]
@@ -395,9 +426,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 14,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -426,9 +458,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 20,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -456,9 +489,10 @@ class AnalyticsService:
     def ichimoku(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -487,9 +521,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 20,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -519,9 +554,10 @@ class AnalyticsService:
         symbol: str,
         period: int = 20,
         multiplier: float = 2.0,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -550,9 +586,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 20,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -578,9 +615,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 14,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -606,9 +644,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 12,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         closes = [p.close for p in prices]
 
@@ -632,9 +671,10 @@ class AnalyticsService:
         short_period: int = 7,
         medium_period: int = 14,
         long_period: int = 28,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -662,9 +702,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 15,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         closes = [p.close for p in prices]
 
@@ -686,9 +727,10 @@ class AnalyticsService:
             self,
             symbol: str,
             period: int = 25,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -716,9 +758,10 @@ class AnalyticsService:
             self,
             symbol: str,
             period: int = 25,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -742,9 +785,10 @@ class AnalyticsService:
             self,
             symbol: str,
             period: int = 20,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         closes = [p.close for p in prices]
 
@@ -769,9 +813,10 @@ class AnalyticsService:
             self,
             symbol: str,
             period: int = 14,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -801,8 +846,9 @@ class AnalyticsService:
             self,
             symbol: str,
             period: int = 14,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -832,8 +878,9 @@ class AnalyticsService:
     def accumulation_distribution(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -863,8 +910,9 @@ class AnalyticsService:
     def force_index(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         closes = [p.close for p in prices]
         volumes = [p.volume for p in prices]
@@ -890,8 +938,9 @@ class AnalyticsService:
     def nvi(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         closes = [p.close for p in prices]
         volumes = [p.volume for p in prices]
@@ -917,8 +966,9 @@ class AnalyticsService:
     def pvi(
         self,
         symbol: str,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         closes = [p.close for p in prices]
         volumes = [p.volume for p in prices]
@@ -948,8 +998,9 @@ class AnalyticsService:
         fast_period: int = 34,
         slow_period: int = 55,
         signal_period: int = 13,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -985,8 +1036,9 @@ class AnalyticsService:
         symbol: str,
         fast_period: int = 3,
         slow_period: int = 10,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -1019,9 +1071,10 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 13,
+        as_of: datetime | None = None,
     ):
 
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         highs = [p.high for p in prices]
         lows = [p.low for p in prices]
@@ -1048,8 +1101,9 @@ class AnalyticsService:
         self,
         symbol: str,
         period: int = 10,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         opens = [p.open for p in prices]
         highs = [p.high for p in prices]
@@ -1079,8 +1133,9 @@ class AnalyticsService:
         roc_fast_period: int = 14,
         roc_slow_period: int = 11,
         wma_period: int = 10,
+        as_of: datetime | None = None,
     ):
-        prices = self._get_prices(symbol)
+        prices = self._get_prices(symbol, as_of=as_of)
 
         closes = [p.close for p in prices]
 
@@ -1114,8 +1169,9 @@ class AnalyticsService:
           sma2_period: int = 10,
           sma3_period: int = 10,
           sma4_period: int = 15,
+        as_of: datetime | None = None,
     ):
-          prices = self._get_prices(symbol)
+          prices = self._get_prices(symbol, as_of=as_of)
 
           closes = [p.close for p in prices]
 
@@ -1142,5 +1198,3 @@ class AnalyticsService:
                     values,
                 )
             ]
-
-   

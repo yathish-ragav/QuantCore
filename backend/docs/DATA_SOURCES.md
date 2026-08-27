@@ -342,3 +342,16 @@ knowledge-set reconstruction through `GET /prices/{symbol}?as_of=...`. An
 `as_of` result is only exact for revisions that have actually been ingested by
 QuantCore; ingestion freshness does not imply complete historical revision
 coverage.
+
+
+## Point-in-time market analytics boundary
+
+Derived market analytics must use the same point-in-time price semantics as the
+underlying market observations. The analytics service therefore accepts an
+optional `as_of` timestamp. Without `as_of`, analytics use the current canonical
+price history; with `as_of`, the service selects the latest price revision
+known at that timestamp before calculating the indicator. This prevents a
+corrected market price that was learned later from silently entering a
+historical indicator calculation. The indicator formulas themselves remain
+pure computations over the selected price series; this increment does not add
+new indicators or alter their mathematical definitions.
