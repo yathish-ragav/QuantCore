@@ -1,7 +1,7 @@
 from datetime import date
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, aliased
 
 from quantcore.models.macro import MacroObservation, MacroSeries
 
@@ -65,13 +65,55 @@ class MacroRepository:
         series_id: int,
         as_of: date,
     ) -> list[MacroObservation]:
-        observations = self.get_observations(series_id, vintage_date=as_of)
-        latest: dict[date, MacroObservation] = {}
-        for observation in observations:
-            current = latest.get(observation.observation_date)
-            if current is None or observation.vintage_date > current.vintage_date:
-                latest[observation.observation_date] = observation
-        return list(sorted(latest.values(), key=lambda item: item.observation_date))
+        """Return the latest ingested vintage not later than the requested as-of date.
+
+        The query is performed in SQL so only the selected revision for each
+        observation date is materialized. A vintage later than ``as_of`` can
+        never enter the result set.
+        """
+        ranked = (
+            select(
+                MacroObservation,
+                func.row_number()
+                .over(
+                    partition_by=MacroObservation.observation_date,
+                    order_by=(
+                        MacroObservation.vintage_date.desc(),
+                        MacroObservation.id.desc(),
+                    ),
+                )
+                .label("vintage_rank"),
+            )
+            .where(
+                MacroObservation.series_id == series_id,
+                MacroObservation.vintage_date <= as_of,
+            )
+            .subquery()
+        )
+
+        observation = aliased(MacroObservation)
+        stmt = (
+            select(observation)
+            .join(ranked, observation.id == ranked.c.id)
+            .where(ranked.c.vintage_rank == 1)
+            .order_by(observation.observation_date.asc())
+        )
+        return list(self.db.scalars(stmt).all())
+
+    def has_vintage(
+        self,
+        series_id: int,
+        vintage_date: date,
+    ) -> bool:
+        """Return whether at least one observation from an exact vintage is stored."""
+        return self.db.scalar(
+            select(MacroObservation.id)
+            .where(
+                MacroObservation.series_id == series_id,
+                MacroObservation.vintage_date == vintage_date,
+            )
+            .limit(1)
+        ) is not None
 
     def create_observation(self, **kwargs) -> MacroObservation:
         observation = MacroObservation(**kwargs)

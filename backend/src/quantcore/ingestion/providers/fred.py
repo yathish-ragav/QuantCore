@@ -100,6 +100,8 @@ class FREDClient(MacroDataProvider):
             "sort_order": "asc",
         }
         requested_vintage = vintage_date or date.today()
+        if requested_vintage > date.today():
+            raise InvalidInputError("Vintage date must not be in the future.")
         params["realtime_start"] = requested_vintage.isoformat()
         params["realtime_end"] = requested_vintage.isoformat()
 
@@ -108,8 +110,6 @@ class FREDClient(MacroDataProvider):
         if not isinstance(rows, list):
             raise DataValidationError(f"FRED observations for '{series_id}' must be a list.")
 
-        realtime_start = self._parse_date(payload.get("realtime_start")) or requested_vintage
-        realtime_end = self._parse_date(payload.get("realtime_end")) or requested_vintage
         observations: list[MacroObservationData] = []
 
         for item in rows:
@@ -118,16 +118,29 @@ class FREDClient(MacroDataProvider):
             try:
                 raw_value = item.get("value")
                 value = None if raw_value in (None, ".", "") else Decimal(str(raw_value))
+                row_realtime_start = self._parse_date(item.get("realtime_start"))
+                row_realtime_end = self._parse_date(item.get("realtime_end"))
+                if row_realtime_start is None or row_realtime_end is None:
+                    raise DataValidationError(
+                        f"FRED observation for '{series_id}' is missing realtime-period metadata."
+                    )
+                if not row_realtime_start <= requested_vintage <= row_realtime_end:
+                    raise DataValidationError(
+                        f"FRED observation for '{series_id}' does not cover requested "
+                        f"vintage {requested_vintage.isoformat()}."
+                    )
                 observations.append(
                     MacroObservationData(
                         series_id=series_id,
                         observation_date=date.fromisoformat(item["date"]),
                         value=value,
-                        realtime_start=realtime_start,
-                        realtime_end=realtime_end,
+                        realtime_start=row_realtime_start,
+                        realtime_end=row_realtime_end,
                         vintage_date=requested_vintage,
                     )
                 )
+            except DataValidationError:
+                raise
             except (KeyError, TypeError, ValueError, InvalidOperation) as exc:
                 raise DataValidationError(f"Invalid FRED observation for '{series_id}'.") from exc
 

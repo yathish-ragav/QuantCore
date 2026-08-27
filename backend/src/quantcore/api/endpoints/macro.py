@@ -39,9 +39,17 @@ def get_macro_series(
 def get_macro_observations(
     series_id: str,
     as_of: date | None = Query(default=None),
+    require_exact_vintage: bool = Query(
+        default=False,
+        description="Require an ingested snapshot exactly on the requested as-of date.",
+    ),
     service: MacroService = Depends(get_macro_service),
 ):
-    observations = service.get_observations(series_id, as_of=as_of)
+    observations = service.get_observations(
+        series_id,
+        as_of=as_of,
+        require_exact_vintage=require_exact_vintage,
+    )
     return [
         MacroObservationResponse(
             observation_date=item.observation_date,

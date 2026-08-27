@@ -34,3 +34,23 @@ def test_macro_series_endpoint():
 
     assert response.status_code == 200
     assert response.json()["series_id"] == "GDP"
+
+
+def test_macro_observations_endpoint_passes_pit_options():
+    service = Mock()
+    service.get_observations.return_value = []
+    app.dependency_overrides[get_macro_service] = lambda: service
+    try:
+        response = client.get(
+            "/macro/series/GDP/observations",
+            params={"as_of": "2024-01-01", "require_exact_vintage": "true"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    service.get_observations.assert_called_once_with(
+        "GDP",
+        as_of=date(2024, 1, 1),
+        require_exact_vintage=True,
+    )

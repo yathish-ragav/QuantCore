@@ -33,11 +33,23 @@ class MacroService:
             raise ResourceNotFoundError(f"Macro series not found: {normalized}")
         return series
 
-    def get_observations(self, series_id: str, *, as_of: date | None = None):
+    def get_observations(
+        self,
+        series_id: str,
+        *,
+        as_of: date | None = None,
+        require_exact_vintage: bool = False,
+    ):
         series = self.get_series(series_id)
-        if as_of is None:
-            return self.repo.get_latest_as_of(series.id, date.today())
-        return self.repo.get_latest_as_of(series.id, as_of)
+        requested_as_of = as_of or date.today()
+        if requested_as_of > date.today():
+            raise InvalidInputError("As-of date must not be in the future.")
+        if require_exact_vintage and not self.repo.has_vintage(series.id, requested_as_of):
+            raise ResourceNotFoundError(
+                f"Macro vintage not ingested for {series.series_id}: "
+                f"{requested_as_of.isoformat()}"
+            )
+        return self.repo.get_latest_as_of(series.id, requested_as_of)
 
     def sync_series(
         self,
@@ -50,6 +62,8 @@ class MacroService:
             raise InvalidInputError("Series ID must not be empty.")
 
         vintage = vintage_date or date.today()
+        if vintage > date.today():
+            raise InvalidInputError("Vintage date must not be in the future.")
         try:
             series_data = self.provider.get_series(normalized)
             observations = self.provider.get_observations(
@@ -79,6 +93,16 @@ class MacroService:
 
             created = unchanged = 0
             for data in observations:
+                if data.vintage_date != vintage:
+                    raise DataValidationError(
+                        "Macro provider returned an observation with a mismatched vintage date."
+                    )
+                if not data.realtime_start <= data.vintage_date <= data.realtime_end:
+                    raise DataValidationError(
+                        "Macro provider returned an observation whose realtime period "
+                        "does not contain its vintage date."
+                    )
+
                 existing = self.repo.get_observation(
                     series_id=series.id,
                     observation_date=data.observation_date,

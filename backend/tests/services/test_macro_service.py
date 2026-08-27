@@ -1,7 +1,9 @@
 from datetime import date
 from decimal import Decimal
+import pytest
 from unittest.mock import Mock
 
+from quantcore.core.exceptions import DataValidationError, ResourceNotFoundError
 from quantcore.models.provenance import DataSource
 from quantcore.schemas.macro import MacroObservationData, MacroSeriesData
 from quantcore.services.macro_service import MacroService, MacroSyncResult
@@ -85,3 +87,46 @@ def test_get_observations_as_of_uses_point_in_time_repository_query():
 
     assert len(result) == 1
     service.repo.get_latest_as_of.assert_called_once_with(7, date(2024, 1, 1))
+
+
+def test_get_observations_can_require_exact_ingested_vintage():
+    service, _ = make_service()
+    series = Mock(id=7, series_id="GDP")
+    service.repo.get_series.return_value = series
+    service.repo.has_vintage.return_value = True
+    service.repo.get_latest_as_of.return_value = [Mock()]
+
+    service.get_observations(
+        "GDP",
+        as_of=date(2024, 1, 1),
+        require_exact_vintage=True,
+    )
+
+    service.repo.has_vintage.assert_called_once_with(7, date(2024, 1, 1))
+
+
+def test_get_observations_rejects_missing_exact_vintage():
+    service, _ = make_service()
+    series = Mock(id=7, series_id="GDP")
+    service.repo.get_series.return_value = series
+    service.repo.has_vintage.return_value = False
+
+    with pytest.raises(ResourceNotFoundError):
+        service.get_observations(
+            "GDP",
+            as_of=date(2024, 1, 1),
+            require_exact_vintage=True,
+        )
+
+
+def test_sync_series_rejects_provider_vintage_mismatch():
+    service, db = make_service()
+    service.provider.get_series.return_value = series_data()
+    service.provider.get_observations.return_value = [
+        observation_data(vintage=date(2026, 8, 26))
+    ]
+
+    with pytest.raises(DataValidationError):
+        service.sync_series("GDP", vintage_date=date(2026, 8, 27))
+
+    db.rollback.assert_called_once()

@@ -256,6 +256,31 @@ macro series as a security. A later macro scheduling increment can add
 macro-series freshness and market-wide macro refresh policies without changing
 the domain model.
 
+## Macro point-in-time and vintage semantics
+
+Macro observations are treated as **vintage snapshots**, not mutable current
+values. For a requested `as_of` date, QuantCore selects the latest **ingested**
+vintage whose `vintage_date` is on or before that date, independently for each
+observation date. A later revision can therefore never leak into an earlier
+research date.
+
+The FRED adapter requests an ALFRED real-time snapshot with
+`realtime_start == realtime_end == vintage_date`. Row-level
+`realtime_start`/`realtime_end` returned by FRED are preserved; the provider
+rejects an observation whose real-time interval does not contain the requested
+vintage. The requested vintage itself is also persisted, so multiple revisions
+of the same observation remain distinct rows.
+
+An `as_of` query is therefore **look-ahead safe**, but it is only an exact
+historical reconstruction when that vintage has actually been ingested.
+The API exposes `require_exact_vintage=true` when callers need to fail rather
+than silently use the most recent earlier ingested snapshot.
+
+This distinction is important: ingestion freshness tells us when QuantCore last
+checked the provider; vintage coverage tells us which historical information
+sets QuantCore can actually reconstruct. One must not be used as a substitute
+for the other.
+
 ## Macro ingestion scheduling and freshness
 
 Macro ingestion is intentionally separate from the security/company ingestion
