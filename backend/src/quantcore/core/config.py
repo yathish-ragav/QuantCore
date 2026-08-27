@@ -12,11 +12,13 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ENVIRONMENT: str
     FMP_API_KEY: str
+    FRED_API_KEY: str = ""
 
     market_data_provider: str = "yahoo"
     financial_data_provider: str = "fmp"
     regulatory_data_provider: str = "sec"
     realtime_market_data_provider: str = "fmp"
+    macro_data_provider: str = "fred"
     SQL_ECHO: bool = False
 
     model_config = SettingsConfigDict(

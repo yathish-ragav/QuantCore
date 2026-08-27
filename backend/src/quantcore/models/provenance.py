@@ -13,6 +13,7 @@ class DataSource(str, Enum):
     SEC = "SEC"
     FMP = "FMP"
     YAHOO = "YAHOO"
+    FRED = "FRED"
 
 
 class CompanyField(str, Enum):

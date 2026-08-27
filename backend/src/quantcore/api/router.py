@@ -24,6 +24,7 @@ from quantcore.api.endpoints.sec_filings import (
 from quantcore.api.endpoints.corporate_actions import (
     router as corporate_actions_router,
 )
+from quantcore.api.endpoints.macro import router as macro_router
 
 router = APIRouter()
 
@@ -84,4 +85,8 @@ router.include_router(
 router.include_router(
     corporate_actions_router,
     tags=["Corporate Actions"],
+)
+
+router.include_router(
+    macro_router,
 )

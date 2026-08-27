@@ -234,3 +234,24 @@ security-lifecycle/corporate-action expansion.
 ## SEC XBRL Fact Observations
 
 SEC EDGAR CompanyFacts is the authoritative source for the raw XBRL fact observation layer. QuantCore preserves observations by accession number rather than collapsing later filings or amendments into the earlier observation. The curated income statement, balance sheet, and cash-flow layers remain projections above this observation layer.
+
+
+## Macro / economic data foundation
+
+QuantCore uses FRED as the primary macroeconomic data provider. The FRED web
+services API also exposes ALFRED real-time-period/vintage semantics, allowing
+QuantCore to request a series as it was known on a historical date rather than
+only retrieving today's revised value. The API requires a FRED API key.
+
+The macro layer is intentionally independent of the security/company ingestion
+scope. A macro series is identified by `(source, series_id)`, while each
+observation is identified by `(series_id, observation_date, vintage_date)`.
+This preserves multiple revisions of the same economic observation.
+
+The first foundation stores FRED series metadata and vintage snapshots. It does
+not yet claim complete historical vintage coverage for every series; a vintage
+is present only after QuantCore has ingested that vintage. The existing
+company/security ingestion orchestrator is deliberately not forced to treat a
+macro series as a security. A later macro scheduling increment can add
+macro-series freshness and market-wide macro refresh policies without changing
+the domain model.

@@ -30,4 +30,9 @@ __all__ = [
     "FilingEvent",
     "CorporateAction",
     "SECXBRLFactObservation",
+    "MacroObservation",
+    "MacroSeries",
 ]
+
+
+from quantcore.models.macro import MacroObservation, MacroSeries

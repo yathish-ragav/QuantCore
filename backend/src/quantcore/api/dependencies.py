@@ -82,3 +82,10 @@ def get_corporate_action_service(
     db: DbSession,
 ) -> CorporateActionService:
     return CorporateActionService(db)
+
+
+def get_macro_service(
+    db: DbSession,
+):
+    from quantcore.services.macro_service import MacroService
+    return MacroService(db)

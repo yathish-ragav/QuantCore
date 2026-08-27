@@ -195,3 +195,33 @@ class CorporateActionResponse(BaseModel):
     action_type: CorporateActionType
     amount: float | None = None
     split_ratio: float | None = None
+
+
+class MacroSeriesResponse(BaseModel):
+    series_id: str
+    title: str
+    frequency: str
+    frequency_short: str | None = None
+    units: str
+    units_short: str | None = None
+    seasonal_adjustment: str | None = None
+    seasonal_adjustment_short: str | None = None
+    observation_start: date | None = None
+    observation_end: date | None = None
+    last_updated: datetime | None = None
+
+
+class MacroObservationResponse(BaseModel):
+    observation_date: date
+    value: float | None = None
+    realtime_start: date
+    realtime_end: date
+    vintage_date: date
+
+
+class MacroSyncResponse(BaseModel):
+    series_id: str
+    created: int
+    unchanged: int
+    records_processed: int
+    vintage_date: date
