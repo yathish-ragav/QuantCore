@@ -93,6 +93,13 @@ class DataCleaner:
     ) -> IncomeStatementData:
 
         return IncomeStatementData(
+            period_start=data.period_start,
+            fiscal_year=data.fiscal_year,
+            fiscal_period=data.fiscal_period,
+            period_type=data.period_type,
+            filing_date=data.filing_date,
+            filing_form=data.filing_form,
+            accession_number=data.accession_number,
             fiscal_date=data.fiscal_date,
             total_revenue=(
                 float(data.total_revenue)
@@ -136,6 +143,13 @@ class DataCleaner:
             return float(value) if value is not None else None
 
         return BalanceSheetData(
+            period_start=data.period_start,
+            fiscal_year=data.fiscal_year,
+            fiscal_period=data.fiscal_period,
+            period_type=data.period_type,
+            filing_date=data.filing_date,
+            filing_form=data.filing_form,
+            accession_number=data.accession_number,
             fiscal_date=data.fiscal_date,
             cash_and_cash_equivalents=_to_float(
                 data.cash_and_cash_equivalents
@@ -191,6 +205,13 @@ class DataCleaner:
             )
 
         return CashFlowStatementData(
+            period_start=data.period_start,
+            fiscal_year=data.fiscal_year,
+            fiscal_period=data.fiscal_period,
+            period_type=data.period_type,
+            filing_date=data.filing_date,
+            filing_form=data.filing_form,
+            accession_number=data.accession_number,
             fiscal_date=data.fiscal_date,
             operating_cash_flow=_to_float(
                 data.operating_cash_flow

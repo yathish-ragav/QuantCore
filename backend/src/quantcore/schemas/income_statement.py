@@ -1,9 +1,9 @@
 from datetime import date
 
-from pydantic import BaseModel
+from quantcore.schemas.financial_statement import FinancialStatementMetadata
 
 
-class IncomeStatementData(BaseModel):
+class IncomeStatementData(FinancialStatementMetadata):
     fiscal_date: date
 
     total_revenue: float | None = None

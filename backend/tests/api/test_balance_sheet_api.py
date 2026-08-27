@@ -11,6 +11,13 @@ client = TestClient(app)
 
 def make_statement():
     statement = Mock()
+    statement.period_start = None
+    statement.fiscal_year = 2024
+    statement.fiscal_period = "FY"
+    statement.period_type = "INSTANT"
+    statement.filing_date = None
+    statement.filing_form = None
+    statement.accession_number = None
     statement.fiscal_date = date(2024, 9, 28)
     statement.cash_and_cash_equivalents = 100.0
     statement.short_term_investments = 50.0

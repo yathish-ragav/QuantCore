@@ -19,6 +19,13 @@ def make_statement(
     shares_outstanding=15408095000,
 ):
     statement = Mock()
+    statement.period_start = None
+    statement.fiscal_year = 2024
+    statement.fiscal_period = "FY"
+    statement.period_type = "ANNUAL"
+    statement.filing_date = None
+    statement.filing_form = None
+    statement.accession_number = None
 
     statement.fiscal_date = fiscal_date
     statement.total_revenue = total_revenue
@@ -55,6 +62,13 @@ def test_get_income_statements_returns_statements():
     assert response.json() == [
         {
             "fiscal_date": "2024-09-28",
+            "period_start": None,
+            "fiscal_year": 2024,
+            "fiscal_period": "FY",
+            "period_type": "ANNUAL",
+            "filing_date": None,
+            "filing_form": None,
+            "accession_number": None,
             "total_revenue": 391035000000.0,
             "gross_profit": 180683000000.0,
             "operating_income": 123216000000.0,

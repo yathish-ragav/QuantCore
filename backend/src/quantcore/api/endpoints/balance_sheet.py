@@ -30,6 +30,13 @@ def get_balance_sheets(
     return [
         BalanceSheetResponse(
             fiscal_date=statement.fiscal_date,
+            period_start=statement.period_start,
+            fiscal_year=statement.fiscal_year,
+            fiscal_period=statement.fiscal_period,
+            period_type=statement.period_type,
+            filing_date=statement.filing_date,
+            filing_form=statement.filing_form,
+            accession_number=statement.accession_number,
             cash_and_cash_equivalents=(
                 statement.cash_and_cash_equivalents
             ),

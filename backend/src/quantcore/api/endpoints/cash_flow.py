@@ -35,6 +35,13 @@ def get_cash_flow_statements(
     return [
         CashFlowStatementResponse(
             fiscal_date=statement.fiscal_date,
+            period_start=statement.period_start,
+            fiscal_year=statement.fiscal_year,
+            fiscal_period=statement.fiscal_period,
+            period_type=statement.period_type,
+            filing_date=statement.filing_date,
+            filing_form=statement.filing_form,
+            accession_number=statement.accession_number,
             operating_cash_flow=(
                 statement.operating_cash_flow
             ),

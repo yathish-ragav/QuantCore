@@ -3,6 +3,7 @@ from typing import Any
 
 import requests
 
+from quantcore.core.enums import FinancialPeriodType
 from quantcore.core.exceptions import (
     DataValidationError,
     ExternalDataError,
@@ -242,6 +243,11 @@ class SECProvider(FinancialDataProvider):
             statements.append(
                 IncomeStatementData(
                     fiscal_date=fiscal_date,
+                    **self._metadata_on_date(
+                        revenue,
+                        fiscal_date,
+                        period_type=FinancialPeriodType.ANNUAL,
+                    ),
                     total_revenue=self._value_on_date(
                         revenue,
                         fiscal_date,
@@ -441,6 +447,11 @@ class SECProvider(FinancialDataProvider):
             statements.append(
                 CashFlowStatementData(
                     fiscal_date=fiscal_date,
+                    **self._metadata_on_date(
+                        operating_cash_flow,
+                        fiscal_date,
+                        period_type=FinancialPeriodType.ANNUAL,
+                    ),
                     operating_cash_flow=ocf_value,
                     capital_expenditure=capex_value,
                     free_cash_flow=free_cash_flow,
@@ -670,6 +681,11 @@ class SECProvider(FinancialDataProvider):
             statements.append(
                 BalanceSheetData(
                     fiscal_date=fiscal_date,
+                    **self._metadata_on_date(
+                        anchor,
+                        fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
+                    ),
                     cash_and_cash_equivalents=cash_value,
                     short_term_investments=sti_value,
                     accounts_receivable=self._value_on_date(
@@ -752,6 +768,55 @@ class SECProvider(FinancialDataProvider):
             fact.get("form") in {"10-K", "10-K/A"}
             and fact.get("fp") == "FY"
         )
+
+    @classmethod
+    def _metadata_on_date(
+        cls,
+        facts: list[dict[str, Any]],
+        fiscal_date: date,
+        *,
+        period_type: FinancialPeriodType,
+    ) -> dict[str, Any]:
+        """Return the latest filed annual XBRL identity for a period end."""
+
+        matching = [
+            fact
+            for fact in facts
+            if cls._is_annual_fact(fact)
+            and fact.get("end") == fiscal_date.isoformat()
+        ]
+
+        if not matching:
+            return {
+                "period_type": period_type,
+            }
+
+        latest = max(
+            matching,
+            key=lambda fact: fact.get("filed", ""),
+        )
+
+        def _parse_date(value):
+            if not value:
+                return None
+            try:
+                return date.fromisoformat(value)
+            except (TypeError, ValueError):
+                return None
+
+        return {
+            "period_start": (
+                _parse_date(latest.get("start"))
+                if period_type is not FinancialPeriodType.INSTANT
+                else None
+            ),
+            "fiscal_year": latest.get("fy"),
+            "fiscal_period": latest.get("fp"),
+            "period_type": period_type,
+            "filing_date": _parse_date(latest.get("filed")),
+            "filing_form": latest.get("form"),
+            "accession_number": latest.get("accn"),
+        }
 
     @classmethod
     def _get_fiscal_dates(

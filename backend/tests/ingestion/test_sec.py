@@ -154,11 +154,14 @@ def test_sec_get_income_statements_success():
                     "units": {
                         "USD": [
                             {
+                                "start": "2023-10-01",
                                 "end": "2024-09-28",
                                 "val": 391035000000,
                                 "form": "10-K",
                                 "fp": "FY",
+                                "fy": 2024,
                                 "filed": "2024-11-01",
+                                "accn": "0000320193-24-000123",
                             }
                         ]
                     }
@@ -256,6 +259,12 @@ def test_sec_get_income_statements_success():
 
     assert result[0].fiscal_date == date(2024, 9, 28)
     assert result[0].total_revenue == 391035000000
+    assert result[0].period_start == date(2023, 10, 1)
+    assert result[0].fiscal_year == 2024
+    assert result[0].fiscal_period == "FY"
+    assert result[0].filing_date == date(2024, 11, 1)
+    assert result[0].filing_form == "10-K"
+    assert result[0].accession_number == "0000320193-24-000123"
     assert result[0].gross_profit == 180683000000
     assert result[0].operating_income == 123216000000
     assert result[0].net_income == 93736000000
@@ -563,11 +572,14 @@ def test_sec_get_cash_flow_statements_success():
             "units": {
                 "USD": [
                     {
+                        "start": "2023-10-01",
                         "end": "2024-09-28",
                         "val": value,
                         "form": "10-K",
                         "fp": "FY",
+                        "fy": 2024,
                         "filed": "2024-11-01",
+                        "accn": "0000320193-24-000123",
                     }
                 ]
             }
@@ -628,6 +640,12 @@ def test_sec_get_cash_flow_statements_success():
     assert isinstance(result[0], CashFlowStatementData)
 
     assert result[0].fiscal_date == date(2024, 9, 28)
+    assert result[0].period_start == date(2023, 10, 1)
+    assert result[0].fiscal_year == 2024
+    assert result[0].fiscal_period == "FY"
+    assert result[0].filing_date == date(2024, 11, 1)
+    assert result[0].filing_form == "10-K"
+    assert result[0].accession_number == "0000320193-24-000123"
     assert result[0].operating_cash_flow == 118254000000
     assert result[0].capital_expenditure == 9500000000
 

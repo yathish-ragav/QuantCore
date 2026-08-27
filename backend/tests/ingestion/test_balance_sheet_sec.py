@@ -19,6 +19,8 @@ def annual_fact(value):
                     "form": "10-K",
                     "fp": "FY",
                     "filed": "2024-11-01",
+                    "fy": 2024,
+                    "accn": "0000320193-24-000123",
                 }
             ]
         }
@@ -71,6 +73,11 @@ def test_sec_balance_sheet_success():
     assert result[0].total_debt == 5700
     assert result[0].net_debt == 700
     assert result[0].working_capital == 6000
+    assert result[0].period_type.value == "INSTANT"
+    assert result[0].fiscal_year == 2024
+    assert result[0].filing_date.isoformat() == "2024-11-01"
+    assert result[0].filing_form == "10-K"
+    assert result[0].accession_number == "0000320193-24-000123"
 
 
 def test_sec_balance_sheet_missing_fields_are_none():

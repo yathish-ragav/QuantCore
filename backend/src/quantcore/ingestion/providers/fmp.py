@@ -4,6 +4,7 @@ import requests
 from pydantic import ValidationError
 
 from quantcore.core.config import settings
+from quantcore.core.enums import FinancialPeriodType
 from quantcore.core.exceptions import (
     DataValidationError,
     ExternalDataError,
@@ -35,6 +36,32 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
 
     def __init__(self) -> None:
         self.api_key = settings.FMP_API_KEY
+
+    @staticmethod
+    def _statement_metadata(
+        item: dict,
+        *,
+        period_type: FinancialPeriodType,
+    ) -> dict:
+        """Extract non-destructive temporal metadata from an FMP row."""
+
+        fiscal_date = item["date"]
+        calendar_year = item.get("calendarYear")
+        fiscal_year = int(calendar_year) if calendar_year is not None else int(
+            str(fiscal_date)[:4]
+        )
+
+        return {
+            "fiscal_year": fiscal_year,
+            "fiscal_period": item.get("period") or (
+                "FY" if period_type is FinancialPeriodType.ANNUAL else None
+            ),
+            "period_type": period_type,
+            "filing_date": item.get("filingDate") or item.get("fillingDate"),
+            "filing_form": item.get("form"),
+            "accession_number": item.get("acceptedAccessionNumber")
+            or item.get("accessionNumber"),
+        }
 
     def get_income_statements(
         self,
@@ -124,6 +151,10 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                 statements.append(
                     IncomeStatementData(
                         fiscal_date=item["date"],
+                        **self._statement_metadata(
+                            item,
+                            period_type=FinancialPeriodType.ANNUAL,
+                        ),
                         total_revenue=item.get("revenue"),
                         gross_profit=item.get(
                             "grossProfit"
@@ -259,6 +290,10 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                 statements.append(
                     CashFlowStatementData(
                         fiscal_date=item["date"],
+                        **self._statement_metadata(
+                            item,
+                            period_type=FinancialPeriodType.ANNUAL,
+                        ),
                         operating_cash_flow=operating_cash_flow,
                         capital_expenditure=capital_expenditure,
                         free_cash_flow=free_cash_flow,
@@ -382,6 +417,10 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                 statements.append(
                     BalanceSheetData(
                         fiscal_date=item["date"],
+                        **self._statement_metadata(
+                            item,
+                            period_type=FinancialPeriodType.INSTANT,
+                        ),
                         cash_and_cash_equivalents=cash,
                         short_term_investments=short_term_investments,
                         accounts_receivable=(

@@ -155,6 +155,7 @@ class IncomeStatementService:
                     .get_by_company_and_date(
                         company.id,
                         data.fiscal_date,
+                        data.period_type,
                     )
                 )
 
@@ -165,6 +166,13 @@ class IncomeStatementService:
                     self.statement_repo.create(
                         company_id=company.id,
                         fiscal_date=data.fiscal_date,
+                        period_start=data.period_start,
+                        fiscal_year=data.fiscal_year,
+                        fiscal_period=data.fiscal_period,
+                        period_type=data.period_type,
+                        filing_date=data.filing_date,
+                        filing_form=data.filing_form,
+                        accession_number=data.accession_number,
                         total_revenue=data.total_revenue,
                         gross_profit=data.gross_profit,
                         operating_income=data.operating_income,

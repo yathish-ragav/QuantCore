@@ -142,3 +142,27 @@ def test_fmp_balance_sheet_accepts_provider_field_aliases():
 
     assert result[0].accounts_receivable == 200
     assert result[0].accounts_payable == 150
+
+
+def test_fmp_balance_sheet_preserves_period_metadata():
+    response = Mock()
+    response.json.return_value = [
+        {
+            "date": "2025-09-27",
+            "calendarYear": "2025",
+            "period": "FY",
+            "filingDate": "2025-11-01",
+            "totalAssets": 1000,
+        }
+    ]
+
+    with patch(
+        "quantcore.ingestion.providers.fmp.requests.get",
+        return_value=response,
+    ):
+        result = FMPClient().get_balance_sheets("AAPL")
+
+    assert result[0].fiscal_year == 2025
+    assert result[0].fiscal_period == "FY"
+    assert result[0].period_type.value == "INSTANT"
+    assert result[0].filing_date.isoformat() == "2025-11-01"

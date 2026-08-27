@@ -3,6 +3,7 @@ from datetime import date
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from quantcore.core.enums import FinancialPeriodType
 from quantcore.models.cash_flow_statement import CashFlowStatement
 
 
@@ -15,6 +16,7 @@ class CashFlowStatementRepository:
         self,
         company_id: int,
         fiscal_date: date,
+        period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
     ) -> CashFlowStatement | None:
 
         stmt = (
@@ -22,6 +24,7 @@ class CashFlowStatementRepository:
             .where(
                 CashFlowStatement.company_id == company_id,
                 CashFlowStatement.fiscal_date == fiscal_date,
+                CashFlowStatement.period_type == period_type,
             )
         )
 

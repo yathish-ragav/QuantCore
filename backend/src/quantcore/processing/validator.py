@@ -1,8 +1,59 @@
 from datetime import date, datetime
+
+from quantcore.core.enums import FinancialPeriodType
 from math import isfinite
 
 
 class DataValidator:
+
+    @staticmethod
+    def _validate_financial_statement_metadata(data) -> bool:
+        fiscal_date = getattr(data, "fiscal_date", None)
+        if not isinstance(fiscal_date, date):
+            return False
+
+        fiscal_year = getattr(data, "fiscal_year", None)
+        if fiscal_year is not None and not isinstance(fiscal_year, int):
+            return False
+
+        period_start = getattr(data, "period_start", None)
+        if period_start is not None and not isinstance(period_start, date):
+            return False
+
+        filing_date = getattr(data, "filing_date", None)
+        if filing_date is not None and not isinstance(filing_date, date):
+            return False
+
+        fiscal_period = getattr(data, "fiscal_period", None)
+        if fiscal_period is not None:
+            if not isinstance(fiscal_period, str) or not fiscal_period.strip():
+                return False
+            if len(fiscal_period) > 10:
+                return False
+
+        filing_form = getattr(data, "filing_form", None)
+        if filing_form is not None:
+            if not isinstance(filing_form, str) or not filing_form.strip():
+                return False
+            if len(filing_form) > 20:
+                return False
+
+        accession_number = getattr(data, "accession_number", None)
+        if accession_number is not None:
+            if not isinstance(accession_number, str) or not accession_number.strip():
+                return False
+            if len(accession_number) > 40:
+                return False
+
+        period_type = getattr(data, "period_type", None)
+        if not isinstance(period_type, FinancialPeriodType):
+            return False
+
+        if period_start is not None and period_start > fiscal_date:
+            return False
+
+        return True
+
 
     @staticmethod
     def validate_company(data) -> bool:
@@ -162,6 +213,9 @@ class DataValidator:
         if not data:
             return False
 
+        if not DataValidator._validate_financial_statement_metadata(data):
+            return False
+
         fiscal_date = getattr(
             data,
             "fiscal_date",
@@ -248,6 +302,9 @@ class DataValidator:
         if not data:
             return False
 
+        if not DataValidator._validate_financial_statement_metadata(data):
+            return False
+
         fiscal_date = getattr(data, "fiscal_date", None)
         if not isinstance(fiscal_date, date):
             return False
@@ -301,6 +358,9 @@ class DataValidator:
     @staticmethod
     def validate_cash_flow_statement(data) -> bool:
         if not data:
+            return False
+
+        if not DataValidator._validate_financial_statement_metadata(data):
             return False
 
         fiscal_date = getattr(

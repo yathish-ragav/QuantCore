@@ -2,6 +2,8 @@ from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
+from quantcore.core.enums import FinancialPeriodType
+
 
 class CompanyResponse(BaseModel):
     id: int
@@ -39,6 +41,13 @@ class NewsSyncResponse(BaseModel):
 
 
 class IncomeStatementResponse(BaseModel):
+    period_start: date | None = None
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL
+    filing_date: date | None = None
+    filing_form: str | None = None
+    accession_number: str | None = None
     fiscal_date: date
     total_revenue: float | None = None
     gross_profit: float | None = None
@@ -54,6 +63,13 @@ class IncomeStatementSyncResponse(BaseModel):
 
 
 class CashFlowStatementResponse(BaseModel):
+    period_start: date | None = None
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL
+    filing_date: date | None = None
+    filing_form: str | None = None
+    accession_number: str | None = None
     fiscal_date: date
     operating_cash_flow: float | None = None
     capital_expenditure: float | None = None
@@ -74,6 +90,13 @@ class CashFlowStatementSyncResponse(BaseModel):
 
 
 class BalanceSheetResponse(BaseModel):
+    period_start: date | None = None
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL
+    filing_date: date | None = None
+    filing_form: str | None = None
+    accession_number: str | None = None
     fiscal_date: date
     cash_and_cash_equivalents: float | None = None
     short_term_investments: float | None = None

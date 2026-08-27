@@ -4,17 +4,19 @@ from sqlalchemy import Date, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
+from quantcore.models.financial_statement import FinancialStatementMetadataMixin
 from quantcore.models.provenance import ProvenanceMixin
 
 
-class CashFlowStatement(ProvenanceMixin, Base):
+class CashFlowStatement(FinancialStatementMetadataMixin, ProvenanceMixin, Base):
     __tablename__ = "cash_flow_statements"
 
     __table_args__ = (
         UniqueConstraint(
             "company_id",
             "fiscal_date",
-            name="uq_cash_flow_statement_company_fiscal_date",
+            "period_type",
+            name="uq_cash_flow_statement_company_period",
         ),
     )
 

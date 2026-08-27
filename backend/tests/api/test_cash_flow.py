@@ -23,6 +23,13 @@ def make_statement(
     net_change_in_cash=700000000.0,
 ):
     statement = Mock()
+    statement.period_start = None
+    statement.fiscal_year = 2024
+    statement.fiscal_period = "FY"
+    statement.period_type = "ANNUAL"
+    statement.filing_date = None
+    statement.filing_form = None
+    statement.accession_number = None
 
     statement.fiscal_date = fiscal_date
     statement.operating_cash_flow = operating_cash_flow
@@ -67,6 +74,13 @@ def test_get_cash_flow_statements_returns_statements():
     assert response.json() == [
         {
             "fiscal_date": "2024-09-28",
+            "period_start": None,
+            "fiscal_year": 2024,
+            "fiscal_period": "FY",
+            "period_type": "ANNUAL",
+            "filing_date": None,
+            "filing_form": None,
+            "accession_number": None,
             "operating_cash_flow": 118254000000.0,
             "capital_expenditure": -9500000000.0,
             "free_cash_flow": 108754000000.0,

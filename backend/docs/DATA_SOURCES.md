@@ -151,3 +151,27 @@ The market-wide scope is the **managed QuantCore universe**, currently the SEC
 ticker/exchange feed filtered to the explicitly supported US listed-equity
 exchanges. It must not be described as every US security until the instrument
 taxonomy and source coverage are expanded.
+
+
+## Financial statement temporal and filing identity
+
+Financial statements are stored with explicit temporal semantics so research
+queries do not have to infer whether an observation is annual, quarterly, TTM,
+or instantaneous. The current foundation records:
+
+- `fiscal_date`: the existing period-end date retained for API compatibility.
+- `period_start`: start date when the source provides a duration period.
+- `fiscal_year` and `fiscal_period`: provider-reported fiscal labels when available.
+- `period_type`: `ANNUAL`, `QUARTERLY`, `TTM`, or `INSTANT`.
+- `filing_date`, `filing_form`, and `accession_number`: filing identity when supplied by the source.
+
+SEC CompanyFacts supplies the filing metadata used for SEC observations, with
+`10-K`/`10-K/A` annual observations currently normalized as `ANNUAL` and
+balance-sheet observations as `INSTANT`. FMP observations retain the same
+canonical period model while only persisting filing fields when FMP supplies
+them.
+
+The uniqueness boundary is now `(company_id, fiscal_date, period_type)`,
+which allows an annual and quarterly observation to coexist for the same
+period-end date. Filing-revision history is intentionally not yet an event
+log; that will be introduced with the later SEC filing/document layer.
