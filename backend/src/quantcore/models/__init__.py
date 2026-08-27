@@ -11,6 +11,7 @@ from quantcore.models.financial_statement import FinancialStatementMetadataMixin
 from quantcore.models.ingestion import IngestionRun, IngestionState
 from quantcore.models.sec_filing import FilingEvent, SECFiling
 from quantcore.models.corporate_action import CorporateAction
+from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
 
 __all__ = [
     "Company",
@@ -28,4 +29,5 @@ __all__ = [
     "SECFiling",
     "FilingEvent",
     "CorporateAction",
+    "SECXBRLFactObservation",
 ]

@@ -229,3 +229,8 @@ Only dividends and stock splits are modeled in this increment. Mergers,
 acquisitions, spinoffs, tender offers, symbol changes and delistings are not
 treated as dividends/splits and are deliberately deferred to a later
 security-lifecycle/corporate-action expansion.
+
+
+## SEC XBRL Fact Observations
+
+SEC EDGAR CompanyFacts is the authoritative source for the raw XBRL fact observation layer. QuantCore preserves observations by accession number rather than collapsing later filings or amendments into the earlier observation. The curated income statement, balance sheet, and cash-flow layers remain projections above this observation layer.

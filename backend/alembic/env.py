@@ -21,6 +21,7 @@ from quantcore.models.provenance import CompanyFieldProvenance
 from quantcore.models.ingestion import IngestionRun, IngestionState
 from quantcore.models.sec_filing import FilingEvent, SECFiling
 from quantcore.models.corporate_action import CorporateAction
+from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
 
 
 config = context.config

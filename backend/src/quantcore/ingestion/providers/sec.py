@@ -13,6 +13,7 @@ from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.schemas.sec_filing import SECFilingData
+from quantcore.schemas.sec_xbrl_fact import SECXBRLFactObservationData
 
 from .financial_provider import FinancialDataProvider
 from .regulatory_provider import RegulatoryDataProvider
@@ -324,6 +325,100 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             is_amendment=form.endswith("/A"),
             filing_url=filing_url,
         )
+
+    def get_sec_xbrl_fact_observations(
+        self,
+        cik: str,
+    ) -> list[SECXBRLFactObservationData]:
+        """Retrieve raw SEC CompanyFacts observations without collapsing revisions."""
+        from decimal import Decimal, InvalidOperation
+
+        cik = cik.strip()
+        if not cik:
+            raise InvalidInputError("CIK must not be empty.")
+        if not cik.isdigit() or len(cik) > 10:
+            raise InvalidInputError("CIK must be a numeric SEC CIK.")
+        cik = f"{int(cik):010d}"
+
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
+                headers=self.HEADERS,
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve SEC XBRL fact observations."
+            ) from exc
+
+        if not isinstance(data, dict):
+            raise DataValidationError("SEC CompanyFacts response must be an object.")
+        facts = data.get("facts")
+        if not isinstance(facts, dict):
+            raise DataValidationError("SEC CompanyFacts 'facts' field must be an object.")
+
+        observations: list[SECXBRLFactObservationData] = []
+        for taxonomy, taxonomy_facts in facts.items():
+            if not isinstance(taxonomy, str) or not isinstance(taxonomy_facts, dict):
+                continue
+            for concept, fact_definition in taxonomy_facts.items():
+                if not isinstance(concept, str) or not isinstance(fact_definition, dict):
+                    continue
+                units = fact_definition.get("units", {})
+                if not isinstance(units, dict):
+                    continue
+                for unit, unit_facts in units.items():
+                    if not isinstance(unit, str) or not isinstance(unit_facts, list):
+                        continue
+                    for raw in unit_facts:
+                        if not isinstance(raw, dict):
+                            continue
+                        accession = str(raw.get("accn") or "").strip()
+                        filed = raw.get("filed")
+                        form = str(raw.get("form") or "").strip()
+                        end = raw.get("end")
+                        value = raw.get("val")
+                        if not accession or not filed or not form or not end or value is None:
+                            continue
+                        try:
+                            observation = SECXBRLFactObservationData(
+                                taxonomy=taxonomy,
+                                concept=concept,
+                                unit=unit,
+                                value=Decimal(str(value)),
+                                period_start=(
+                                    date.fromisoformat(str(raw["start"]))
+                                    if raw.get("start") else None
+                                ),
+                                period_end=date.fromisoformat(str(end)),
+                                filed_at=date.fromisoformat(str(filed)),
+                                accession_number=accession,
+                                form=form,
+                                fiscal_year=(
+                                    int(raw["fy"]) if raw.get("fy") is not None else None
+                                ),
+                                fiscal_period=(
+                                    str(raw["fp"]) if raw.get("fp") is not None else None
+                                ),
+                                frame=(
+                                    str(raw["frame"]) if raw.get("frame") is not None else ""
+                                ),
+                                qtrs=(
+                                    int(raw["qtrs"]) if raw.get("qtrs") is not None else 0
+                                ),
+                                decimals=(
+                                    str(raw["decimals"]) if raw.get("decimals") is not None else None
+                                ),
+                            )
+                        except (TypeError, ValueError, InvalidOperation) as exc:
+                            raise DataValidationError(
+                                "Invalid SEC XBRL fact observation."
+                            ) from exc
+                        observations.append(observation)
+
+        return observations
 
     def get_income_statements(
         self,

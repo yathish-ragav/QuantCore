@@ -15,6 +15,7 @@ from quantcore.services.ingestion_orchestrator import (
     IngestionOrchestrator,
 )
 from quantcore.services.sec_filing_service import SECFilingSyncResult
+from quantcore.services.sec_xbrl_fact_service import SECXBRLFactSyncResult
 
 
 def make_security(
@@ -285,3 +286,34 @@ def test_sync_market_supports_corporate_actions_dataset():
     assert result[0].attempted == 1
     assert result[0].succeeded == 1
     fake_service.sync_corporate_actions.assert_called_once_with("AAPL")
+
+
+def test_sync_market_supports_sec_xbrl_fact_dataset():
+    service = make_service()
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+
+    run = Mock()
+    run.id = 1
+    service.state_repo.create_run.return_value = run
+    service.state_repo.get.return_value = None
+    service.state_repo.get_or_create.return_value = Mock()
+
+    fake_service = Mock()
+    fake_service.provider.SOURCE = "SEC"
+    fake_service.sync_facts.return_value = SECXBRLFactSyncResult(
+        created=5,
+        unchanged=2,
+        records_processed=7,
+    )
+    service._service_for = Mock(return_value=fake_service)
+
+    result = service.sync_market(
+        datasets=[IngestionDataset.SEC_XBRL_FACTS],
+        only_stale=False,
+    )
+
+    assert result[0].dataset is IngestionDataset.SEC_XBRL_FACTS
+    assert result[0].attempted == 1
+    assert result[0].succeeded == 1
+    fake_service.sync_facts.assert_called_once_with("AAPL")
