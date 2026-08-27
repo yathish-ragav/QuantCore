@@ -130,6 +130,8 @@ class PriceService:
                     high=data.high,
                     low=data.low,
                     close=data.close,
+                    adjusted_close=data.adjusted_close,
+                    price_basis=data.price_basis,
                     volume=data.volume,
                     dividends=data.dividends,
                     stock_splits=data.stock_splits,

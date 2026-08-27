@@ -6,11 +6,22 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    Enum as SQLAlchemyEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
 from quantcore.models.provenance import ProvenanceMixin
+from quantcore.core.enums import PriceBasis
+
+
+PRICE_BASIS_ENUM = SQLAlchemyEnum(
+    PriceBasis,
+    name="price_basis",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
 
 
 class Price(ProvenanceMixin, Base):
@@ -41,6 +52,17 @@ class Price(ProvenanceMixin, Base):
     low: Mapped[float] = mapped_column(Float)
 
     close: Mapped[float] = mapped_column(Float)
+
+    adjusted_close: Mapped[float | None] = mapped_column(
+        Float,
+        nullable=True,
+    )
+
+    price_basis: Mapped[PriceBasis] = mapped_column(
+        PRICE_BASIS_ENUM,
+        nullable=False,
+        default=PriceBasis.UNADJUSTED,
+    )
 
     volume: Mapped[int] = mapped_column(BigInteger)
 

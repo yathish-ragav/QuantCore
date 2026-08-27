@@ -17,6 +17,13 @@ class FilingEventType(str, Enum):
     AMENDED = "AMENDED"
 
 
+class PriceBasis(str, Enum):
+    """Adjustment basis of the stored OHLC price fields."""
+
+    UNADJUSTED = "UNADJUSTED"
+    ADJUSTED = "ADJUSTED"
+
+
 class CorporateActionType(str, Enum):
     """Normalized security-level corporate actions."""
 

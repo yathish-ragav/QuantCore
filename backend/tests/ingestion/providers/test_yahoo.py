@@ -2,8 +2,10 @@ from datetime import datetime
 from unittest.mock import Mock, patch
 
 import pandas as pd
+import pytest
 
 from quantcore.ingestion.providers.yahoo import YahooClient
+from quantcore.core.exceptions import DataValidationError
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
@@ -84,6 +86,7 @@ def test_yahoo_get_price_history():
             "High": [110.0, 115.0],
             "Low": [95.0, 102.0],
             "Close": [108.0, 112.0],
+            "Adj Close": [107.5, 111.5],
             "Volume": [1000000, 1200000],
             "Dividends": [0.0, 0.25],
             "Stock Splits": [0.0, 0.0],
@@ -106,7 +109,9 @@ def test_yahoo_get_price_history():
     mock_ticker.assert_called_once_with("AAPL")
 
     fake_ticker.history.assert_called_once_with(
-        period="5y"
+        period="5y",
+        auto_adjust=False,
+        actions=True,
     )
 
     assert len(result) == 2
@@ -121,6 +126,7 @@ def test_yahoo_get_price_history():
     assert result[0].high == 110.0
     assert result[0].low == 95.0
     assert result[0].close == 108.0
+    assert result[0].adjusted_close == 107.5
     assert result[0].volume == 1000000
     assert result[0].dividends == 0.0
     assert result[0].stock_splits == 0.0
@@ -128,9 +134,34 @@ def test_yahoo_get_price_history():
     assert result[1].date == dates[1].to_pydatetime()
     assert result[1].open == 105.0
     assert result[1].close == 112.0
+    assert result[1].adjusted_close == 111.5
     assert result[1].volume == 1200000
     assert result[1].dividends == 0.25
     assert result[1].stock_splits == 0.0
+
+
+def test_yahoo_get_price_history_requires_adjusted_close():
+    fake_ticker = Mock()
+    fake_ticker.history.return_value = pd.DataFrame(
+        {
+            "Open": [100.0],
+            "High": [110.0],
+            "Low": [95.0],
+            "Close": [108.0],
+            "Volume": [1_000_000],
+        },
+        index=pd.to_datetime(["2025-01-02"]),
+    )
+
+    with patch(
+        "quantcore.ingestion.providers.yahoo.yf.Ticker",
+        return_value=fake_ticker,
+    ):
+        with pytest.raises(
+            DataValidationError,
+            match="Adj Close",
+        ):
+            YahooClient().get_price_history("AAPL")
 
 
 def test_yahoo_get_price_history_empty():

@@ -299,3 +299,21 @@ a statement that these are the only useful FRED series.
 The coordinator is synchronous and bounded. A future scheduler/worker can call
 it without introducing Redis, Celery, Kafka, or other infrastructure into the
 domain layer.
+
+
+## Market price observation semantics
+
+QuantCore stores historical market prices with explicit adjustment semantics.
+The canonical price row keeps the provider-reported OHLC fields on an explicit
+`price_basis` and may also retain a separate `adjusted_close`. The Yahoo
+adapter requests `auto_adjust=False` and `actions=True`, so `open`, `high`,
+`low`, and `close` are intentionally the provider's unadjusted OHLC fields,
+while `adjusted_close` is preserved separately for return-oriented research.
+Corporate actions remain a separate normalized dataset and are not inferred
+solely from adjusted prices.
+
+The current historical price implementation is EOD-oriented and sourced from
+Yahoo as a secondary research source. A future primary/licensed market-data
+adapter must preserve the same canonical semantics rather than silently
+changing the meaning of `close`. Intraday timestamps, additional bar
+frequencies, and real-time feeds remain separate future layers.

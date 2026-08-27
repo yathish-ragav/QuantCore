@@ -3,6 +3,7 @@ from unittest.mock import ANY, Mock
 
 import pytest
 
+from quantcore.core.enums import PriceBasis
 from quantcore.models.provenance import DataSource
 from quantcore.schemas.price import PriceData
 from quantcore.services.price_service import PriceService
@@ -61,6 +62,7 @@ def make_price_data(
         high=high,
         low=low,
         close=close,
+        adjusted_close=close,
         volume=volume,
         dividends=dividends,
         stock_splits=stock_splits,
@@ -113,6 +115,8 @@ def test_sync_price_history_inserts_new_prices():
         high=data.high,
         low=data.low,
         close=data.close,
+        adjusted_close=data.adjusted_close,
+        price_basis=data.price_basis,
         volume=data.volume,
         dividends=data.dividends,
         stock_splits=data.stock_splits,
@@ -276,6 +280,7 @@ def test_sync_price_history_transforms_raw_dictionary_data():
             "high": "255.0",
             "low": "248.0",
             "close": "253.0",
+            "adjusted_close": "253.0",
             "volume": "1000000",
             "dividends": "0.0",
             "stock_splits": "0.0",
@@ -303,6 +308,8 @@ def test_sync_price_history_transforms_raw_dictionary_data():
         high=255.0,
         low=248.0,
         close=253.0,
+        adjusted_close=253.0,
+        price_basis=PriceBasis.UNADJUSTED,
         volume=1_000_000,
         dividends=0.0,
         stock_splits=0.0,
@@ -335,6 +342,7 @@ def test_sync_price_history_cleans_price_values():
             "high": "255",
             "low": "248",
             "close": "253",
+            "adjusted_close": "253",
             "volume": "1000000",
             "dividends": "0",
             "stock_splits": "0",
@@ -356,6 +364,8 @@ def test_sync_price_history_cleans_price_values():
     assert created["high"] == 255.0
     assert created["low"] == 248.0
     assert created["close"] == 253.0
+    assert created["adjusted_close"] == 253.0
+    assert created["price_basis"] == PriceBasis.UNADJUSTED
     assert created["volume"] == 1_000_000
 
     db.commit.assert_called_once()

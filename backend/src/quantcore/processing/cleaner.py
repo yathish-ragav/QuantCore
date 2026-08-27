@@ -82,6 +82,12 @@ class DataCleaner:
             high=float(data.high),
             low=float(data.low),
             close=float(data.close),
+            adjusted_close=(
+                None
+                if data.adjusted_close is None
+                else float(data.adjusted_close)
+            ),
+            price_basis=data.price_basis,
             volume=int(data.volume),
             dividends=float(data.dividends),
             stock_splits=float(data.stock_splits),

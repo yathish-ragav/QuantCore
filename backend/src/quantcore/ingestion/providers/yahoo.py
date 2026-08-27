@@ -65,7 +65,11 @@ class YahooClient(MarketDataProvider):
 
         try:
             ticker = yf.Ticker(symbol)
-            history = ticker.history(period=period)
+            history = ticker.history(
+                period=period,
+                auto_adjust=False,
+                actions=True,
+            )
         except Exception as exc:
             raise ExternalDataError(
                 "Failed to retrieve price history from Yahoo Finance."
@@ -80,6 +84,7 @@ class YahooClient(MarketDataProvider):
             "Low",
             "Close",
             "Volume",
+            "Adj Close",
         }
         missing_columns = required_columns - set(history.columns)
 
@@ -100,6 +105,7 @@ class YahooClient(MarketDataProvider):
                         high=float(row["High"]),
                         low=float(row["Low"]),
                         close=float(row["Close"]),
+                        adjusted_close=float(row["Adj Close"]),
                         volume=int(row["Volume"]),
                         dividends=float(row.get("Dividends", 0.0)),
                         stock_splits=float(

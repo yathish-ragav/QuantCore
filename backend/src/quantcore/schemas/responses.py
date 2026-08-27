@@ -1,4 +1,4 @@
-from quantcore.core.enums import CorporateActionType
+from quantcore.core.enums import CorporateActionType, PriceBasis
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field
@@ -23,6 +23,8 @@ class PriceResponse(BaseModel):
     high: float
     low: float
     close: float
+    adjusted_close: float | None = None
+    price_basis: PriceBasis = PriceBasis.UNADJUSTED
     volume: int
     dividends: float
     stock_splits: float

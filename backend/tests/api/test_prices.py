@@ -32,6 +32,8 @@ def make_price(
     price.high = high
     price.low = low
     price.close = close
+    price.adjusted_close = close
+    price.price_basis = "UNADJUSTED"
     price.volume = volume
     price.dividends = dividends
     price.stock_splits = stock_splits
@@ -75,6 +77,8 @@ def test_get_prices_returns_price_history(
             "high": 255.0,
             "low": 248.0,
             "close": 253.0,
+            "adjusted_close": 253.0,
+            "price_basis": "UNADJUSTED",
             "volume": 1_000_000,
             "dividends": 0.0,
             "stock_splits": 0.0,
@@ -85,6 +89,8 @@ def test_get_prices_returns_price_history(
             "high": 258.0,
             "low": 251.0,
             "close": 257.0,
+            "adjusted_close": 257.0,
+            "price_basis": "UNADJUSTED",
             "volume": 1_200_000,
             "dividends": 0.0,
             "stock_splits": 0.0,
@@ -201,6 +207,8 @@ def test_get_prices_preserves_dividends_and_stock_splits(
             "high": 255.0,
             "low": 248.0,
             "close": 253.0,
+            "adjusted_close": 253.0,
+            "price_basis": "UNADJUSTED",
             "volume": 1_000_000,
             "dividends": 0.25,
             "stock_splits": 2.0,

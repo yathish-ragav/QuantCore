@@ -1,13 +1,13 @@
 from datetime import date, datetime
-
-from quantcore.core.enums import FinancialPeriodType
 from math import isfinite
+
+from quantcore.core.enums import FinancialPeriodType, PriceBasis
 
 
 class DataValidator:
 
     @staticmethod
-    def _validate_financial_statement_metadata(data) -> bool:
+    def validate_financial_statement_metadata(data) -> bool:
         fiscal_date = getattr(data, "fiscal_date", None)
         if not isinstance(fiscal_date, date):
             return False
@@ -28,6 +28,7 @@ class DataValidator:
         if fiscal_period is not None:
             if not isinstance(fiscal_period, str) or not fiscal_period.strip():
                 return False
+
             if len(fiscal_period) > 10:
                 return False
 
@@ -35,6 +36,7 @@ class DataValidator:
         if filing_form is not None:
             if not isinstance(filing_form, str) or not filing_form.strip():
                 return False
+
             if len(filing_form) > 20:
                 return False
 
@@ -42,6 +44,7 @@ class DataValidator:
         if accession_number is not None:
             if not isinstance(accession_number, str) or not accession_number.strip():
                 return False
+
             if len(accession_number) > 40:
                 return False
 
@@ -53,7 +56,6 @@ class DataValidator:
             return False
 
         return True
-
 
     @staticmethod
     def validate_company(data) -> bool:
@@ -94,9 +96,9 @@ class DataValidator:
         if not data:
             return False
 
-        date = getattr(data, "date", None)
+        price_date = getattr(data, "date", None)
 
-        if not isinstance(date, datetime):
+        if not isinstance(price_date, datetime):
             return False
 
         numeric_fields = [
@@ -117,6 +119,23 @@ class DataValidator:
 
             if value < 0:
                 return False
+
+        adjusted_close = getattr(data, "adjusted_close", None)
+
+        if adjusted_close is not None:
+            if not isinstance(adjusted_close, (int, float)):
+                return False
+
+            if not isfinite(adjusted_close):
+                return False
+
+            if adjusted_close < 0:
+                return False
+
+        price_basis = getattr(data, "price_basis", None)
+
+        if not isinstance(price_basis, PriceBasis):
+            return False
 
         volume = getattr(data, "volume", None)
 
@@ -140,10 +159,7 @@ class DataValidator:
             0.0,
         )
 
-        if not isinstance(
-            stock_splits,
-            (int, float),
-        ):
+        if not isinstance(stock_splits, (int, float)):
             return False
 
         if not isfinite(stock_splits):
@@ -213,7 +229,7 @@ class DataValidator:
         if not data:
             return False
 
-        if not DataValidator._validate_financial_statement_metadata(data):
+        if not DataValidator.validate_financial_statement_metadata(data):
             return False
 
         fiscal_date = getattr(
@@ -296,16 +312,16 @@ class DataValidator:
             for article in data
         )
 
-
     @staticmethod
     def validate_balance_sheet(data) -> bool:
         if not data:
             return False
 
-        if not DataValidator._validate_financial_statement_metadata(data):
+        if not DataValidator.validate_financial_statement_metadata(data):
             return False
 
         fiscal_date = getattr(data, "fiscal_date", None)
+
         if not isinstance(fiscal_date, date):
             return False
 
@@ -333,10 +349,13 @@ class DataValidator:
 
         for field in numeric_fields:
             value = getattr(data, field, None)
+
             if value is None:
                 continue
+
             if not isinstance(value, (int, float)):
                 return False
+
             if not isfinite(value):
                 return False
 
@@ -360,7 +379,7 @@ class DataValidator:
         if not data:
             return False
 
-        if not DataValidator._validate_financial_statement_metadata(data):
+        if not DataValidator.validate_financial_statement_metadata(data):
             return False
 
         fiscal_date = getattr(

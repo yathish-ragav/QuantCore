@@ -32,6 +32,8 @@ def get_prices(
             high=price.high,
             low=price.low,
             close=price.close,
+            adjusted_close=price.adjusted_close,
+            price_basis=price.price_basis,
             volume=price.volume,
             dividends=price.dividends,
             stock_splits=price.stock_splits,

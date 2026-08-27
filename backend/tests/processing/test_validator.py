@@ -1,6 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 
+from quantcore.core.enums import PriceBasis
 from quantcore.processing.validator import DataValidator
 
 
@@ -27,6 +28,8 @@ def make_price(**overrides):
         "high": 255.0,
         "low": 248.0,
         "close": 253.0,
+        "adjusted_close": 253.0,
+        "price_basis": PriceBasis.UNADJUSTED,
         "volume": 1_000_000,
         "dividends": 0.0,
         "stock_splits": 0.0,
