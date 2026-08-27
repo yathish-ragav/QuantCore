@@ -225,3 +225,26 @@ class MacroSyncResponse(BaseModel):
     unchanged: int
     records_processed: int
     vintage_date: date
+
+
+class MacroIngestionFreshnessResponse(BaseModel):
+    source: str
+    series_id: str
+    max_age_seconds: int
+    last_attempt_at: datetime | None = None
+    last_success_at: datetime | None = None
+    last_success_vintage: date | None = None
+    last_success_records: int
+    consecutive_failures: int
+    last_error: str | None = None
+    is_fresh: bool
+
+
+class MacroIngestionSyncResponse(BaseModel):
+    series_id: str
+    attempted: bool
+    succeeded: bool
+    skipped: bool
+    records_processed: int
+    vintage_date: date | None = None
+    error: str | None = None

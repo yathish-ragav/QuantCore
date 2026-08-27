@@ -255,3 +255,22 @@ company/security ingestion orchestrator is deliberately not forced to treat a
 macro series as a security. A later macro scheduling increment can add
 macro-series freshness and market-wide macro refresh policies without changing
 the domain model.
+
+## Macro ingestion scheduling and freshness
+
+Macro ingestion is intentionally separate from the security/company ingestion
+orchestrator. Macro series are scheduled by a series-oriented coordinator using
+an explicit managed-series registry and per-series freshness windows.
+
+The scheduler records last attempt, last successful ingestion, successful
+vintage, record count, consecutive failures, and the last error. Freshness is
+based on the successful ingestion timestamp; it does not claim that FRED data
+is real-time or that every historical vintage has been captured.
+
+The initial managed registry is deliberately small: `GDP`, `CPIAUCSL`,
+`UNRATE`, `FEDFUNDS`, and `DGS10`. The registry is a scheduling boundary, not
+a statement that these are the only useful FRED series.
+
+The coordinator is synchronous and bounded. A future scheduler/worker can call
+it without introducing Redis, Celery, Kafka, or other infrastructure into the
+domain layer.

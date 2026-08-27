@@ -17,6 +17,7 @@ from quantcore.services.price_service import PriceService
 from quantcore.services.quote_service import QuoteService
 from quantcore.services.sec_filing_service import SECFilingService
 from quantcore.services.corporate_action_service import CorporateActionService
+from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrchestrator
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -89,3 +90,9 @@ def get_macro_service(
 ):
     from quantcore.services.macro_service import MacroService
     return MacroService(db)
+
+
+def get_macro_ingestion_orchestrator(
+    db: DbSession,
+) -> MacroIngestionOrchestrator:
+    return MacroIngestionOrchestrator(db)

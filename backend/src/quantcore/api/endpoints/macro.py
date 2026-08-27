@@ -2,9 +2,16 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 
-from quantcore.api.dependencies import get_macro_service
-from quantcore.schemas.responses import MacroObservationResponse, MacroSeriesResponse, MacroSyncResponse
+from quantcore.api.dependencies import get_macro_service, get_macro_ingestion_orchestrator
+from quantcore.schemas.responses import (
+    MacroIngestionFreshnessResponse,
+    MacroIngestionSyncResponse,
+    MacroObservationResponse,
+    MacroSeriesResponse,
+    MacroSyncResponse,
+)
 from quantcore.services.macro_service import MacroService
+from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrchestrator
 
 
 router = APIRouter(
@@ -64,3 +71,33 @@ def sync_macro_series(
         records_processed=result.records_processed,
         vintage_date=result.vintage_date,
     )
+
+
+@router.get(
+    "/ingestion/freshness",
+    response_model=list[MacroIngestionFreshnessResponse],
+)
+def get_macro_ingestion_freshness(
+    series_id: list[str] | None = Query(default=None),
+    service: MacroIngestionOrchestrator = Depends(get_macro_ingestion_orchestrator),
+):
+    return [MacroIngestionFreshnessResponse(**view.__dict__) for view in service.get_freshness(series_id)]
+
+
+@router.post(
+    "/ingestion/sync",
+    response_model=list[MacroIngestionSyncResponse],
+)
+def sync_macro_ingestion(
+    series_id: list[str] | None = Query(default=None),
+    only_stale: bool = Query(default=True),
+    limit: int | None = Query(default=None, gt=0),
+    vintage_date: date | None = Query(default=None),
+    service: MacroIngestionOrchestrator = Depends(get_macro_ingestion_orchestrator),
+):
+    return [MacroIngestionSyncResponse(**result.__dict__) for result in service.sync_managed(
+        series_ids=series_id,
+        only_stale=only_stale,
+        limit=limit,
+        vintage_date=vintage_date,
+    )]
