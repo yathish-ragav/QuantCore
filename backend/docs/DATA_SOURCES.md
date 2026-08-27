@@ -381,3 +381,11 @@ The statement APIs expose the optional `as_of` query parameter for income
 statements, balance sheets, and cash-flow statements. Sync responses also
 report created, updated, unchanged, and processed counts so reconciliation is
 observable rather than silently treating every existing row as immutable.
+
+## Corporate action reconciliation and point-in-time semantics
+
+Corporate actions are treated as security-level observations that can be corrected by the upstream provider after initial ingestion. The canonical corporate-action row represents the latest known value, while `corporate_action_revisions` preserves immutable snapshots at each revision point.
+
+Repeated ingestion of an unchanged action does not create a new revision. A changed amount or split ratio updates the canonical action and creates the next revision with a `known_at` timestamp. Existing actions backfilled by the migration receive a baseline revision at their recorded `fetched_at` when available.
+
+The corporate-action API supports an optional `as_of` timestamp. PIT reads select the latest ingested revision for each action known at or before that timestamp. As with other QuantCore PIT datasets, this reconstructs the knowledge set represented by ingested revisions; it does not manufacture provider history that QuantCore never captured.

@@ -22,6 +22,7 @@ from quantcore.models.provenance import CompanyFieldProvenance
 from quantcore.models.ingestion import IngestionRun, IngestionState
 from quantcore.models.sec_filing import FilingEvent, SECFiling
 from quantcore.models.corporate_action import CorporateAction
+from quantcore.models.corporate_action_revision import CorporateActionRevision
 from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
 from quantcore.models.macro import MacroObservation, MacroSeries
 from quantcore.models.macro_ingestion import MacroIngestionState

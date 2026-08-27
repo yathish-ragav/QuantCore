@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
 
 from quantcore.api.dependencies import get_corporate_action_service
 from quantcore.schemas.responses import CorporateActionResponse
@@ -19,11 +21,15 @@ router = APIRouter(
 )
 def get_corporate_actions(
     symbol: str,
+    as_of: datetime | None = Query(
+        default=None,
+        description="Return corporate actions known at this timestamp.",
+    ),
     service: CorporateActionService = Depends(
         get_corporate_action_service
     ),
 ):
-    return service.get_actions(symbol.strip().upper())
+    return service.get_actions(symbol.strip().upper(), as_of=as_of)
 
 
 @router.post(
@@ -39,6 +45,7 @@ def sync_corporate_actions(
     return {
         "symbol": symbol.strip().upper(),
         "actions_added": result.created,
+        "actions_updated": result.updated,
         "actions_unchanged": result.unchanged,
         "actions_processed": result.records_processed,
     }
