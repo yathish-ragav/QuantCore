@@ -60,3 +60,9 @@ class Company(Base):
         back_populates="company",
         cascade="all, delete-orphan",
     )
+
+    sec_filings = relationship(
+        "SECFiling",
+        back_populates="company",
+        cascade="all, delete-orphan",
+    )

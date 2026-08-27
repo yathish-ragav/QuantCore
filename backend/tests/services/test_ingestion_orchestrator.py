@@ -222,3 +222,30 @@ def test_sync_market_records_failure_without_stopping_other_symbols():
     assert len(result[0].errors) == 1
     service.state_repo.mark_failure.assert_called_once()
     service.state_repo.finish_run.assert_called_once()
+
+
+def test_sync_market_supports_sec_filing_dataset():
+    service = make_service()
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+
+    run = Mock()
+    run.id = 1
+    service.state_repo.create_run.return_value = run
+    service.state_repo.get.return_value = None
+    service.state_repo.get_or_create.return_value = Mock()
+
+    fake_service = Mock()
+    fake_service.provider.SOURCE = "SEC"
+    fake_service.sync_filings.return_value = [Mock(), Mock(), Mock()]
+    service._service_for = Mock(return_value=fake_service)
+
+    result = service.sync_market(
+        datasets=[IngestionDataset.SEC_FILINGS],
+        only_stale=False,
+    )
+
+    assert result[0].dataset is IngestionDataset.SEC_FILINGS
+    assert result[0].attempted == 1
+    assert result[0].succeeded == 1
+    fake_service.sync_filings.assert_called_once_with("AAPL")

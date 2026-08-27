@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 import requests
@@ -12,11 +12,13 @@ from quantcore.core.exceptions import (
 from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
 from quantcore.schemas.income_statement import IncomeStatementData
+from quantcore.schemas.sec_filing import SECFilingData
 
 from .financial_provider import FinancialDataProvider
+from .regulatory_provider import RegulatoryDataProvider
 
 
-class SECProvider(FinancialDataProvider):
+class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     SOURCE = "SEC"
     """
     SEC EDGAR XBRL financial data provider.
@@ -112,6 +114,216 @@ class SECProvider(FinancialDataProvider):
             raise InvalidInputError(
                 f"SEC CIK not found for ticker: {symbol}"
             ) from exc
+
+    def get_sec_filings(
+        self,
+        cik: str,
+    ) -> list[SECFilingData]:
+        """Retrieve SEC EDGAR filing metadata for the issuer.
+
+        The submissions API provides the current filing history and references
+        additional JSON files when the issuer has older filings. QuantCore
+        follows those references so the normalized dataset can represent the
+        issuer's complete available EDGAR filing history rather than only the
+        most recent year/1,000 filings. Filing documents themselves are not
+        downloaded by this method.
+        """
+
+        cik = cik.strip()
+        if not cik:
+            raise InvalidInputError("CIK must not be empty.")
+
+        if not cik.isdigit() or len(cik) > 10:
+            raise InvalidInputError("CIK must be a numeric SEC CIK.")
+
+        cik = f"{int(cik):010d}"
+        url = f"{self.BASE_URL}/submissions/CIK{cik}.json"
+
+        try:
+            response = requests.get(
+                url,
+                headers=self.HEADERS,
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as exc:
+            raise ExternalDataError(
+                "Failed to retrieve SEC filing metadata."
+            ) from exc
+
+        if not isinstance(data, dict):
+            raise DataValidationError(
+                "SEC submissions response must be an object."
+            )
+
+        filing_rows = []
+        filings = data.get("filings", {})
+        if not isinstance(filings, dict):
+            raise DataValidationError(
+                "SEC submissions 'filings' field must be an object."
+            )
+
+        recent = filings.get("recent")
+        if isinstance(recent, dict):
+            filing_rows.extend(self._submission_rows(recent))
+
+        files = filings.get("files", [])
+        if not isinstance(files, list):
+            raise DataValidationError(
+                "SEC submissions 'files' field must be a list."
+            )
+
+        for file_info in files:
+            if not isinstance(file_info, dict):
+                continue
+
+            name = file_info.get("name")
+            if not isinstance(name, str) or not name.strip():
+                continue
+
+            historical_url = f"{self.BASE_URL}/submissions/{name}"
+            try:
+                historical_response = requests.get(
+                    historical_url,
+                    headers=self.HEADERS,
+                    timeout=30,
+                )
+                historical_response.raise_for_status()
+                historical_data = historical_response.json()
+            except requests.RequestException as exc:
+                raise ExternalDataError(
+                    "Failed to retrieve historical SEC filing metadata."
+                ) from exc
+
+            if not isinstance(historical_data, dict):
+                raise DataValidationError(
+                    "SEC historical submissions response must be an object."
+                )
+
+            historical_filings = historical_data.get("filings", {})
+            if not isinstance(historical_filings, dict):
+                raise DataValidationError(
+                    "SEC historical submissions 'filings' field must be an object."
+                )
+
+            historical_recent = historical_filings.get("recent")
+            if isinstance(historical_recent, dict):
+                filing_rows.extend(
+                    self._submission_rows(historical_recent)
+                )
+
+        normalized: list[SECFilingData] = []
+        for row in filing_rows:
+            try:
+                normalized.append(
+                    self._normalize_submission_row(
+                        row,
+                        cik=cik,
+                    )
+                )
+            except (TypeError, ValueError, KeyError) as exc:
+                raise DataValidationError(
+                    "Invalid SEC filing metadata row."
+                ) from exc
+
+        return normalized
+
+    @staticmethod
+    def _submission_rows(recent: dict[str, Any]) -> list[dict[str, Any]]:
+        """Convert SEC's columnar submissions structure into row dictionaries."""
+
+        columns = list(recent.keys())
+        lengths = [
+            len(value)
+            for value in recent.values()
+            if isinstance(value, list)
+        ]
+        if not lengths:
+            return []
+
+        row_count = max(lengths)
+        rows: list[dict[str, Any]] = []
+        for index in range(row_count):
+            row = {}
+            for column in columns:
+                values = recent.get(column)
+                row[column] = (
+                    values[index]
+                    if isinstance(values, list) and index < len(values)
+                    else None
+                )
+            rows.append(row)
+        return rows
+
+    @staticmethod
+    def _parse_submission_date(value: Any):
+        if value in (None, ""):
+            return None
+        return date.fromisoformat(str(value))
+
+    @staticmethod
+    def _parse_acceptance_datetime(value: Any):
+        if value in (None, ""):
+            return None
+        text = str(value).strip()
+        if text.endswith("Z"):
+            text = text[:-1] + "+00:00"
+        return datetime.fromisoformat(text)
+
+    @classmethod
+    def _normalize_submission_row(
+        cls,
+        row: dict[str, Any],
+        *,
+        cik: str,
+    ) -> SECFilingData:
+        accession = str(row.get("accessionNumber") or "").strip()
+        filing_date = cls._parse_submission_date(row.get("filingDate"))
+        form = str(row.get("form") or "").strip()
+
+        if not accession or filing_date is None or not form:
+            raise ValueError("Missing required SEC filing identity fields.")
+
+        primary_document = row.get("primaryDocument")
+        accession_no_dash = accession.replace("-", "")
+        archive_base = (
+            f"https://www.sec.gov/Archives/edgar/data/"
+            f"{int(cik)}/{accession_no_dash}"
+        )
+        filing_url = (
+            f"{archive_base}/{primary_document}"
+            if primary_document
+            else f"{archive_base}/{accession}-index.html"
+        )
+
+        return SECFilingData(
+            accession_number=accession,
+            filing_date=filing_date,
+            report_date=cls._parse_submission_date(
+                row.get("reportDate")
+            ),
+            acceptance_datetime=cls._parse_acceptance_datetime(
+                row.get("acceptanceDateTime")
+            ),
+            form=form,
+            act=row.get("act"),
+            file_number=row.get("fileNumber"),
+            film_number=row.get("filmNumber"),
+            items=row.get("items"),
+            primary_document=primary_document,
+            primary_doc_description=row.get("primaryDocDescription"),
+            is_xbrl=bool(row.get("isXBRL", False)),
+            is_inline_xbrl=bool(row.get("isInlineXBRL", False)),
+            fiscal_year=(
+                int(row["fiscalYear"])
+                if row.get("fiscalYear") is not None
+                else None
+            ),
+            fiscal_period=row.get("fiscalPeriod"),
+            is_amendment=form.endswith("/A"),
+            filing_url=filing_url,
+        )
 
     def get_income_statements(
         self,

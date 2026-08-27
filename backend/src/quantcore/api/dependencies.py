@@ -15,6 +15,7 @@ from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
 from quantcore.services.news_service import NewsService
 from quantcore.services.price_service import PriceService
 from quantcore.services.quote_service import QuoteService
+from quantcore.services.sec_filing_service import SECFilingService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -68,3 +69,9 @@ def get_ingestion_orchestrator(
     db: DbSession,
 ) -> IngestionOrchestrator:
     return IngestionOrchestrator(db)
+
+
+def get_sec_filing_service(
+    db: DbSession,
+) -> SECFilingService:
+    return SECFilingService(db)

@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     market_data_provider: str = "yahoo"
     financial_data_provider: str = "fmp"
+    regulatory_data_provider: str = "sec"
     realtime_market_data_provider: str = "fmp"
     SQL_ECHO: bool = False
 

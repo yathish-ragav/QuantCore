@@ -18,6 +18,9 @@ from quantcore.api.endpoints.cash_flow import (
 from quantcore.api.endpoints.ingestion import (
     router as ingestion_router,
 )
+from quantcore.api.endpoints.sec_filings import (
+    router as sec_filings_router,
+)
 
 router = APIRouter()
 
@@ -68,4 +71,9 @@ router.include_router(
 
 router.include_router(
     ingestion_router,
+)
+
+router.include_router(
+    sec_filings_router,
+    tags=["SEC Filings"],
 )

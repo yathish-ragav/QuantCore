@@ -175,3 +175,33 @@ The uniqueness boundary is now `(company_id, fiscal_date, period_type)`,
 which allows an annual and quarterly observation to coexist for the same
 period-end date. Filing-revision history is intentionally not yet an event
 log; that will be introduced with the later SEC filing/document layer.
+
+## SEC filing metadata and filing events
+
+SEC EDGAR submissions are the authoritative source for regulatory filing
+identity and filing-event metadata. QuantCore uses the issuer CIK as the
+lookup identity rather than resolving a filing through a potentially
+ambiguous ticker.
+
+The filing metadata layer stores, when supplied by SEC:
+
+- accession number (the durable filing identity)
+- filing date and report date
+- EDGAR acceptance timestamp
+- form, act, file number and film number
+- filing items and primary document metadata
+- XBRL / Inline XBRL flags
+- fiscal year and fiscal period labels
+- amendment classification
+- canonical EDGAR filing URL
+
+The submissions API exposes the current filing history and references
+additional historical JSON files when older filings exist. QuantCore follows
+those references so the filing metadata layer can backfill the available EDGAR
+history without downloading the filing documents themselves.
+
+Each persisted filing also receives a normalized lifecycle event. The current
+event types are `FILED` and `AMENDED`; the event layer is intentionally
+separate from filing identity so future corrections, removals, supersession
+relationships and document-processing events can be added without changing
+the filing's accession-number identity.

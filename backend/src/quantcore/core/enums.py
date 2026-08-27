@@ -8,3 +8,10 @@ class FinancialPeriodType(str, Enum):
     QUARTERLY = "QUARTERLY"
     TTM = "TTM"
     INSTANT = "INSTANT"
+
+
+class FilingEventType(str, Enum):
+    """Normalized lifecycle events observed from SEC filing metadata."""
+
+    FILED = "FILED"
+    AMENDED = "AMENDED"

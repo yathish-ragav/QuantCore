@@ -153,3 +153,33 @@ class APIError(BaseModel):
 
 class APIErrorResponse(BaseModel):
     error: APIError
+
+class SECFilingResponse(BaseModel):
+    accession_number: str
+    filing_date: date
+    report_date: date | None = None
+    acceptance_datetime: datetime | None = None
+    form: str
+    act: str | None = None
+    file_number: str | None = None
+    film_number: str | None = None
+    items: str | None = None
+    primary_document: str | None = None
+    primary_doc_description: str | None = None
+    is_xbrl: bool
+    is_inline_xbrl: bool
+    fiscal_year: int | None = None
+    fiscal_period: str | None = None
+    is_amendment: bool
+    filing_url: str | None = None
+
+
+class FilingEventResponse(BaseModel):
+    accession_number: str
+    event_type: str
+    occurred_at: datetime
+
+
+class SECFilingSyncResponse(BaseModel):
+    symbol: str
+    filings_added: int
