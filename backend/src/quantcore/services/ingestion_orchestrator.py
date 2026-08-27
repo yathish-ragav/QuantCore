@@ -24,7 +24,7 @@ from quantcore.services.cash_flow_statement_service import (
 from quantcore.services.company_service import CompanyService
 from quantcore.services.income_statement_service import IncomeStatementService
 from quantcore.services.news_service import NewsService
-from quantcore.services.price_service import PriceService
+from quantcore.services.price_service import PriceService, PriceSyncResult
 from quantcore.services.corporate_action_service import CorporateActionService
 from quantcore.services.sec_xbrl_fact_service import SECXBRLFactService, SECXBRLFactSyncResult
 from quantcore.services.sec_filing_service import (
@@ -97,7 +97,10 @@ class IngestionOrchestrator:
             return 1
 
         if dataset is IngestionDataset.PRICE_HISTORY:
-            return service.sync_price_history(symbol)
+            result = service.sync_price_history(symbol)
+            if isinstance(result, PriceSyncResult):
+                return result.records_processed
+            return result
 
         if dataset is IngestionDataset.NEWS:
             return service.sync_news(symbol)

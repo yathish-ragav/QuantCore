@@ -317,3 +317,28 @@ Yahoo as a secondary research source. A future primary/licensed market-data
 adapter must preserve the same canonical semantics rather than silently
 changing the meaning of `close`. Intraday timestamps, additional bar
 frequencies, and real-time feeds remain separate future layers.
+
+## Market price reconciliation and point-in-time semantics
+
+Market prices are treated as observations that can be corrected by the upstream
+provider after initial ingestion. The canonical `prices` row represents the
+latest known value, while `price_observation_revisions` preserves immutable
+snapshots of values that QuantCore observed at each revision point.
+
+A revision is created only when the market observation itself changes. Repeated
+fetches of an unchanged observation do not create artificial revisions and do
+not move its knowledge timestamp. This keeps revision history meaningful while
+still allowing provider corrections to be audited.
+
+The market observation date (`prices.date`) and the knowledge timestamp
+(`price_observation_revisions.known_at`) have different meanings. The former is
+when the market observation occurred; the latter is when QuantCore knew that
+specific version of the observation. PIT queries select, independently for each
+market date, the latest revision whose `known_at` is on or before the requested
+`as_of` timestamp.
+
+The API therefore supports both the current corrected history and a historical
+knowledge-set reconstruction through `GET /prices/{symbol}?as_of=...`. An
+`as_of` result is only exact for revisions that have actually been ingested by
+QuantCore; ingestion freshness does not imply complete historical revision
+coverage.

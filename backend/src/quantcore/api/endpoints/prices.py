@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends
+from datetime import datetime
+
+from fastapi import APIRouter, Depends, Query
 
 from quantcore.api.dependencies import get_price_service
 from quantcore.schemas.responses import PriceResponse
@@ -17,13 +19,23 @@ router = APIRouter(
 )
 def get_prices(
     symbol: str,
+    as_of: datetime | None = Query(
+        default=None,
+        description="Return the latest price revision known at this timestamp.",
+    ),
     service: PriceService = Depends(get_price_service),
 ):
     normalized_symbol = symbol.strip().upper()
 
-    prices = service.get_price_history(
-        normalized_symbol
-    )
+    if as_of is None:
+        prices = service.get_price_history(
+            normalized_symbol
+        )
+    else:
+        prices = service.get_price_history_as_of(
+            normalized_symbol,
+            as_of,
+        )
 
     return [
         PriceResponse(

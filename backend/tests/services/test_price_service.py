@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import ANY, Mock
 
 import pytest
@@ -22,6 +22,7 @@ def make_service():
     service.client.SOURCE = "YAHOO"
     service.security_repo = Mock()
     service.price_repo = Mock()
+    service.revision_repo = Mock()
 
     return service, db
 
@@ -84,15 +85,31 @@ def test_sync_price_history_inserts_new_prices():
         data
     ]
 
-    service.price_repo.get_by_security_and_date.return_value = (
-        None
-    )
+    service.price_repo.get_by_security_and_date.return_value = None
+    created_price = Mock()
+    created_price.id = 100
+    created_price.date = data.date
+    created_price.open = data.open
+    created_price.high = data.high
+    created_price.low = data.low
+    created_price.close = data.close
+    created_price.adjusted_close = data.adjusted_close
+    created_price.price_basis = data.price_basis
+    created_price.volume = data.volume
+    created_price.dividends = data.dividends
+    created_price.stock_splits = data.stock_splits
+    created_price.source_reference = None
+    service.price_repo.create.return_value = created_price
+    service.revision_repo.get_next_revision_number.return_value = 1
 
     result = service.sync_price_history(
         "AAPL"
     )
 
-    assert result == 1
+    assert result.created == 1
+    assert result.updated == 0
+    assert result.unchanged == 0
+    assert result.records_processed == 1
 
     service.security_repo.get_by_symbol.assert_called_once_with(
         "AAPL"
@@ -124,6 +141,8 @@ def test_sync_price_history_inserts_new_prices():
         fetched_at=ANY,
     )
 
+    service.revision_repo.create.assert_called_once()
+    db.flush.assert_called_once()
     db.commit.assert_called_once()
     db.rollback.assert_not_called()
 
@@ -136,6 +155,16 @@ def test_sync_price_history_skips_existing_prices():
     data = make_price_data()
 
     existing_price = Mock()
+    existing_price.date = data.date
+    existing_price.open = data.open
+    existing_price.high = data.high
+    existing_price.low = data.low
+    existing_price.close = data.close
+    existing_price.adjusted_close = data.adjusted_close
+    existing_price.price_basis = data.price_basis
+    existing_price.volume = data.volume
+    existing_price.dividends = data.dividends
+    existing_price.stock_splits = data.stock_splits
 
     service.security_repo.get_by_symbol.return_value = (
         security
@@ -153,7 +182,10 @@ def test_sync_price_history_skips_existing_prices():
         "AAPL"
     )
 
-    assert result == 0
+    assert result.created == 0
+    assert result.updated == 0
+    assert result.unchanged == 1
+    assert result.records_processed == 1
 
     service.security_repo.get_by_symbol.assert_called_once_with(
         "AAPL"
@@ -165,6 +197,7 @@ def test_sync_price_history_skips_existing_prices():
     )
 
     service.price_repo.create.assert_not_called()
+    service.revision_repo.create.assert_not_called()
 
     db.commit.assert_called_once()
     db.rollback.assert_not_called()
@@ -213,7 +246,8 @@ def test_sync_price_history_passes_period_to_provider():
         period="1y",
     )
 
-    assert result == 0
+    assert result.records_processed == 0
+    assert result.created == 0
 
     service.security_repo.get_by_symbol.assert_called_once_with(
         "AAPL"
@@ -244,7 +278,8 @@ def test_sync_price_history_normalizes_symbol():
         "  aapl  "
     )
 
-    assert result == 0
+    assert result.records_processed == 0
+    assert result.created == 0
 
     service.security_repo.get_by_symbol.assert_called_once_with(
         "AAPL"
@@ -287,15 +322,16 @@ def test_sync_price_history_transforms_raw_dictionary_data():
         }
     ]
 
-    service.price_repo.get_by_security_and_date.return_value = (
-        None
-    )
+    service.price_repo.get_by_security_and_date.return_value = None
 
     result = service.sync_price_history(
         "AAPL"
     )
 
-    assert result == 1
+    assert result.created == 1
+    assert result.updated == 0
+    assert result.unchanged == 0
+    assert result.records_processed == 1
 
     service.price_repo.create.assert_called_once_with(
         security_id=10,
@@ -349,9 +385,7 @@ def test_sync_price_history_cleans_price_values():
         }
     ]
 
-    service.price_repo.get_by_security_and_date.return_value = (
-        None
-    )
+    service.price_repo.get_by_security_and_date.return_value = None
 
     service.sync_price_history("AAPL")
 
@@ -470,9 +504,22 @@ def test_sync_price_history_rolls_back_on_repository_error():
         data
     ]
 
-    service.price_repo.get_by_security_and_date.return_value = (
-        None
-    )
+    service.price_repo.get_by_security_and_date.return_value = None
+    created_price = Mock()
+    created_price.id = 100
+    created_price.date = data.date
+    created_price.open = data.open
+    created_price.high = data.high
+    created_price.low = data.low
+    created_price.close = data.close
+    created_price.adjusted_close = data.adjusted_close
+    created_price.price_basis = data.price_basis
+    created_price.volume = data.volume
+    created_price.dividends = data.dividends
+    created_price.stock_splits = data.stock_splits
+    created_price.source_reference = None
+    service.price_repo.create.return_value = created_price
+    service.revision_repo.get_next_revision_number.return_value = 1
 
     service.price_repo.create.side_effect = (
         RuntimeError("database error")
@@ -509,6 +556,60 @@ def test_sync_price_history_rejects_empty_symbol():
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
 
+
+
+def test_sync_price_history_updates_changed_observation_and_creates_revision():
+    service, db = make_service()
+    security = make_security()
+    data = make_price_data(close=254.0)
+
+    existing = Mock()
+    existing.id = 42
+    existing.date = data.date
+    existing.open = data.open
+    existing.high = data.high
+    existing.low = data.low
+    existing.close = 253.0
+    existing.adjusted_close = 253.0
+    existing.price_basis = data.price_basis
+    existing.volume = data.volume
+    existing.dividends = data.dividends
+    existing.stock_splits = data.stock_splits
+    existing.source_reference = None
+
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_price_history.return_value = [data]
+    service.price_repo.get_by_security_and_date.return_value = existing
+    service.revision_repo.get_next_revision_number.return_value = 2
+
+    result = service.sync_price_history("AAPL")
+
+    assert result.created == 0
+    assert result.updated == 1
+    assert result.unchanged == 0
+    assert result.records_processed == 1
+    assert existing.close == 254.0
+    service.revision_repo.create.assert_called_once()
+    assert service.revision_repo.create.call_args.kwargs["revision_number"] == 2
+    db.commit.assert_called_once()
+
+
+def test_get_price_history_as_of_uses_revision_repository():
+    service, db = make_service()
+    security = make_security()
+    revisions = [Mock(), Mock()]
+    as_of = datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc)
+
+    service.security_repo.get_by_symbol.return_value = security
+    service.revision_repo.get_latest_for_security_as_of.return_value = revisions
+
+    result = service.get_price_history_as_of("AAPL", as_of)
+
+    assert result == revisions
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
+    service.revision_repo.get_latest_for_security_as_of.assert_called_once_with(10, as_of)
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
 
 def test_get_price_history_returns_prices():
 

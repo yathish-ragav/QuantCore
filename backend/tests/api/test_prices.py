@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pytest
@@ -102,9 +102,23 @@ def test_get_prices_returns_price_history(
     )
 
 
-@patch(
-    "quantcore.api.dependencies.PriceService"
-)
+@patch("quantcore.api.dependencies.PriceService")
+def test_get_prices_supports_as_of_query(mock_service):
+    service = Mock()
+    service.get_price_history_as_of.return_value = [make_price()]
+    mock_service.return_value = service
+
+    response = client.get("/prices/AAPL?as_of=2026-01-05T12:00:00Z")
+
+    assert response.status_code == 200
+    service.get_price_history_as_of.assert_called_once_with(
+        "AAPL",
+        datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc),
+    )
+    service.get_price_history.assert_not_called()
+
+
+@patch("quantcore.api.dependencies.PriceService")
 def test_get_prices_normalizes_lowercase_symbol(
     mock_service,
 ):

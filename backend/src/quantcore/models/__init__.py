@@ -2,6 +2,7 @@ from quantcore.models.company import Company
 from quantcore.models.security import Security
 from quantcore.models.security_identifier_history import SecurityIdentifierHistory
 from quantcore.models.price import Price
+from quantcore.models.price_observation_revision import PriceObservationRevision
 from quantcore.models.news import News
 from quantcore.models.income_statement import IncomeStatement
 from quantcore.models.cash_flow_statement import CashFlowStatement
@@ -19,6 +20,7 @@ __all__ = [
     "Security",
     "SecurityIdentifierHistory",
     "Price",
+    "PriceObservationRevision",
     "News",
     "IncomeStatement",
     "CashFlowStatement",

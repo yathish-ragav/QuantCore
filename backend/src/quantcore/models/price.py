@@ -76,6 +76,13 @@ class Price(ProvenanceMixin, Base):
         default=0.0,
     )
 
+    revisions = relationship(
+        "PriceObservationRevision",
+        back_populates="price",
+        cascade="all, delete-orphan",
+        order_by="PriceObservationRevision.revision_number",
+    )
+
 
 Index(
     "ix_prices_security_date",
