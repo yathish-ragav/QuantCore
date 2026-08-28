@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -54,6 +54,18 @@ def test_get_latest_for_company_as_of_uses_revision_window_query():
     repo = SECXBRLFactRepository(db)
 
     result = repo.get_latest_for_company_as_of(1, date(2025, 1, 1))
+
+    assert len(result) == 1
+    db.scalars.assert_called_once()
+
+
+def test_get_latest_for_company_as_of_timestamp_uses_exact_timestamp_boundary():
+    db = Mock()
+    db.scalars.return_value.all.return_value = [Mock()]
+    repo = SECXBRLFactRepository(db)
+
+    as_of = datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc)
+    result = repo.get_latest_for_company_as_of_timestamp(1, as_of)
 
     assert len(result) == 1
     db.scalars.assert_called_once()

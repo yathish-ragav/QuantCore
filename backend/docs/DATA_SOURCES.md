@@ -389,3 +389,36 @@ Corporate actions are treated as security-level observations that can be correct
 Repeated ingestion of an unchanged action does not create a new revision. A changed amount or split ratio updates the canonical action and creates the next revision with a `known_at` timestamp. Existing actions backfilled by the migration receive a baseline revision at their recorded `fetched_at` when available.
 
 The corporate-action API supports an optional `as_of` timestamp. PIT reads select the latest ingested revision for each action known at or before that timestamp. As with other QuantCore PIT datasets, this reconstructs the knowledge set represented by ingested revisions; it does not manufacture provider history that QuantCore never captured.
+
+
+## Cross-dataset point-in-time alignment
+
+QuantCore now provides a shared PIT alignment boundary across the existing
+market-price, financial-statement, corporate-action, SEC XBRL, and macro
+stores. `PITAlignmentService` does not duplicate or rewrite dataset-specific
+selection logic; it resolves the canonical security/company identity and
+invokes each dataset's existing PIT repository under the same requested
+`as_of` timestamp.
+
+The resulting `PITAlignedSnapshot` is an in-memory research boundary rather
+than a new persisted dataset. This keeps the first cross-dataset increment
+focused on temporal correctness and composition before introducing feature
+tables, research observations, or backtest-specific schemas.
+
+Market prices, financial statements, and corporate actions use their immutable
+revision `known_at` timestamps. SEC XBRL timestamp selection uses
+`accepted_at` when available and falls back to the filing date for legacy
+observations that do not have an accepted timestamp. This avoids treating a
+later same-day SEC acceptance as known before its actual acceptance time.
+
+Macro observations currently have calendar-date vintage semantics rather than
+an intraday release timestamp. Cross-dataset alignment therefore maps the
+shared `as_of` timestamp to its calendar date when selecting macro vintages.
+This is intentionally explicit: macro PIT is date-granular until release-time
+metadata is introduced, and the alignment layer must not imply finer temporal
+precision than the underlying source supports.
+
+The snapshot is exact only with respect to historical observations and
+revisions actually ingested by QuantCore. Missing historical ingestion is not
+filled by the alignment layer and must remain distinguishable from a value
+that was known at the requested timestamp.

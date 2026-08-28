@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import and_, func, select
@@ -96,6 +96,65 @@ class SECXBRLFactRepository:
             SECXBRLFactObservation.id == ranked.c.id,
         ).where(ranked.c.revision_rank == 1)
 
+        return list(self.db.scalars(stmt).all())
+
+    def get_latest_for_company_as_of_timestamp(
+        self,
+        company_id: int,
+        as_of: datetime,
+    ) -> list[SECXBRLFactObservation]:
+        """Return the latest SEC fact known by an exact PIT timestamp.
+
+        Accepted filing timestamps are authoritative when present. For legacy
+        observations without an accepted timestamp, the filed date is used as
+        the available temporal boundary.
+        """
+        ranked = (
+            select(
+                SECXBRLFactObservation,
+                func.row_number()
+                .over(
+                    partition_by=(
+                        SECXBRLFactObservation.taxonomy,
+                        SECXBRLFactObservation.concept,
+                        SECXBRLFactObservation.unit,
+                        SECXBRLFactObservation.period_start,
+                        SECXBRLFactObservation.period_end,
+                        SECXBRLFactObservation.frame,
+                        SECXBRLFactObservation.qtrs,
+                    ),
+                    order_by=(
+                        SECXBRLFactObservation.accepted_at.desc().nullslast(),
+                        SECXBRLFactObservation.filed_at.desc(),
+                        SECXBRLFactObservation.accession_number.desc(),
+                        SECXBRLFactObservation.id.desc(),
+                    ),
+                )
+                .label("revision_rank"),
+            )
+            .where(
+                SECXBRLFactObservation.company_id == company_id,
+                (
+                    SECXBRLFactObservation.accepted_at <= as_of
+                )
+                | (
+                    SECXBRLFactObservation.accepted_at.is_(None)
+                    & (
+                        SECXBRLFactObservation.filed_at <= as_of.date()
+                    )
+                ),
+            )
+            .subquery()
+        )
+
+        stmt = (
+            select(SECXBRLFactObservation)
+            .join(
+                ranked,
+                SECXBRLFactObservation.id == ranked.c.id,
+            )
+            .where(ranked.c.revision_rank == 1)
+        )
         return list(self.db.scalars(stmt).all())
 
     def create(self, **kwargs) -> SECXBRLFactObservation:

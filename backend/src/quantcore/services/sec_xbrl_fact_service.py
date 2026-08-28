@@ -50,6 +50,15 @@ class SECXBRLFactService:
         _, company = self.get_company_for_symbol(symbol)
         return self.fact_repo.get_latest_for_company_as_of(company.id, as_of)
 
+    def get_facts_as_of_timestamp(self, symbol: str, as_of: datetime):
+        _, company = self.get_company_for_symbol(symbol)
+        if as_of.tzinfo is None:
+            as_of = as_of.replace(tzinfo=timezone.utc)
+        return self.fact_repo.get_latest_for_company_as_of_timestamp(
+            company.id,
+            as_of,
+        )
+
     def sync_facts(self, symbol: str) -> SECXBRLFactSyncResult:
         try:
             symbol = symbol.strip().upper()

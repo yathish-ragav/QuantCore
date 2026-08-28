@@ -97,3 +97,19 @@ def test_sync_facts_rolls_back_on_provider_error():
 
     db.commit.assert_not_called()
     db.rollback.assert_called_once()
+
+
+def test_get_facts_as_of_timestamp_uses_timestamp_pit_repository():
+    service, _ = make_service()
+    security, company = make_security_and_company()
+    service.security_repo.get_by_symbol.return_value = security
+    service.fact_repo.get_latest_for_company_as_of_timestamp.return_value = ["fact"]
+
+    as_of = datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc)
+    result = service.get_facts_as_of_timestamp("AAPL", as_of)
+
+    assert result == ["fact"]
+    service.fact_repo.get_latest_for_company_as_of_timestamp.assert_called_once_with(
+        company.id,
+        as_of,
+    )
