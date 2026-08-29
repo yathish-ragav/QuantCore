@@ -464,3 +464,20 @@ manifest. The canonical registry is loaded by default by
 `ResearchObservationDefinitionService`; callers can still provide an explicit
 set of definitions when isolated or alternative research definitions are
 required.
+
+## Research metric computation and observation materialization
+
+Research metric materialization computes a selected set of versioned definitions
+from one shared `PITAlignedSnapshot` and persists the resulting observations
+through the existing immutable observation service. When no identities are
+supplied, the registered canonical definitions are materialized in registry
+order; callers can instead provide explicit `(observation_key,
+definition_version)` identities.
+
+The materializer resolves and validates all requested definitions before reading
+the PIT snapshot, computes every result before persisting any result, and does
+not commit the database transaction. This keeps the PIT boundary shared across
+the batch, prevents definition failures from causing partial persistence within
+the materialization operation, and leaves transaction ownership with the
+calling workflow. Input manifests continue to carry the definition identity,
+shared PIT snapshot metadata, and definition-specific source/formula provenance.
