@@ -82,11 +82,17 @@ class ResearchObservationDefinitionService:
     def __init__(
         self,
         db: Session,
-        definitions: Iterable[ResearchObservationDefinition] = (),
+        definitions: Iterable[ResearchObservationDefinition] | None = None,
     ):
         self.db = db
         self.pit_alignment_service = PITAlignmentService(db)
         self.observation_service = ResearchObservationService(db)
+        if definitions is None:
+            from quantcore.services.canonical_research_metrics import (
+                get_canonical_research_metric_definitions,
+            )
+
+            definitions = get_canonical_research_metric_definitions()
         self.definition_registry = ResearchObservationDefinitionRegistry(definitions)
 
     @staticmethod

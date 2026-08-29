@@ -436,3 +436,31 @@ or manufacture missing historical observations. It only selects from
 observations that QuantCore actually persisted. Definition versions remain
 separate identities, so introducing a new definition version does not silently
 replace an older research definition.
+
+## Canonical research metric definitions
+
+Canonical research metrics are registered as versioned, deterministic definitions
+that operate on a `PITAlignedSnapshot`. The metric definition is part of the
+observation identity through `(observation_key, definition_version)` and is
+recorded in the persisted input manifest so a later definition version cannot
+silently reinterpret an older observation.
+
+The initial canonical set is intentionally small and uses only fields already
+present in the PIT financial-statement revisions:
+
+- `net_margin` v1 = TTM net income / TTM total revenue.
+- `operating_margin` v1 = TTM operating income / TTM total revenue.
+- `fcf_margin` v1 = TTM free cash flow / TTM total revenue. The income and
+  cash-flow TTM rows must share the same fiscal date.
+- `debt_to_equity` v1 = latest PIT-known total debt / total equity from an
+  `INSTANT` balance-sheet observation.
+
+Definitions do not fall back from a required period type to another period
+semantics. Missing required inputs are therefore explicit computation failures,
+and zero denominators are rejected rather than producing an undefined ratio.
+Each computed observation records the selected statement/revision identifiers,
+fiscal date, period type, knowledge timestamp, and formula fields in its input
+manifest. The canonical registry is loaded by default by
+`ResearchObservationDefinitionService`; callers can still provide an explicit
+set of definitions when isolated or alternative research definitions are
+required.
