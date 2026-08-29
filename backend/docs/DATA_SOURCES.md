@@ -481,3 +481,36 @@ the batch, prevents definition failures from causing partial persistence within
 the materialization operation, and leaves transaction ownership with the
 calling workflow. Input manifests continue to carry the definition identity,
 shared PIT snapshot metadata, and definition-specific source/formula provenance.
+
+
+## Research dataset and feature-vector contract
+
+The research dataset layer is a read-only projection over materialized research
+observations. `ResearchDatasetService` builds a `ResearchFeatureVector` for one
+security and one requested `as_of` boundary; it does not compute new metrics or
+persist dataset rows.
+
+A feature vector contains:
+
+- normalized security symbol and stable `security_id`
+- the requested `as_of` knowledge boundary
+- an ordered tuple of `ResearchFeature` values
+- each feature's `(observation_key, definition_version)` identity
+- the selected observation's own `as_of` timestamp
+- numeric/text value and unit
+- the observation input fingerprint and input manifest for provenance
+
+By default, the service selects the latest stored observation for each versioned
+definition known at or before the requested boundary, using the existing PIT
+research-observation read contract. Explicit definition identities can instead
+be requested when a downstream research workflow needs a fixed feature schema.
+Explicit identities are returned in caller order; the default vector is sorted
+by observation key and definition version for deterministic output.
+
+The feature-vector layer fails when a requested feature has not been materialized,
+when the materialized read is empty, or when an observation would violate the
+requested `as_of` boundary. It does not backfill missing observations, mix
+securities, or silently substitute another definition version. This contract is
+intentionally in-memory and non-persistent; historical research panels,
+factor definitions, cross-sectional ranking, and portfolio construction are
+later layers built above it.
