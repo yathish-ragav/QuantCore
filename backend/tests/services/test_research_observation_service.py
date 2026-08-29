@@ -164,3 +164,31 @@ def test_create_observation_requires_nonempty_identity():
             value_numeric=0.18,
             input_manifest={},
         )
+
+
+def test_get_latest_for_security_as_of_normalizes_naive_timestamp():
+    service = make_service()
+    service.observation_repo.get_latest_for_security_as_of.return_value = ["observation"]
+
+    as_of = datetime(2026, 8, 20, 15, 30)
+    assert service.get_latest_for_security_as_of(
+        security_id=10,
+        as_of=as_of,
+    ) == ["observation"]
+
+    service.observation_repo.get_latest_for_security_as_of.assert_called_once_with(
+        10,
+        datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc),
+    )
+
+
+def test_get_latest_for_security_as_of_rejects_future_timestamp():
+    service = make_service()
+
+    with pytest.raises(InvalidInputError):
+        service.get_latest_for_security_as_of(
+            security_id=10,
+            as_of=datetime(2999, 1, 1, tzinfo=timezone.utc),
+        )
+
+    service.observation_repo.get_latest_for_security_as_of.assert_not_called()

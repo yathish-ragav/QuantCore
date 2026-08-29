@@ -132,3 +132,15 @@ class ResearchObservationService:
             security_id,
             self._normalize_as_of(as_of),
         )
+
+    def get_latest_for_security_as_of(
+        self,
+        *,
+        security_id: int,
+        as_of: datetime,
+    ):
+        """Return the latest stored observation for each definition by a PIT boundary."""
+        return self.observation_repo.get_latest_for_security_as_of(
+            security_id,
+            self._normalize_as_of(as_of),
+        )

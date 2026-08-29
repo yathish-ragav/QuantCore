@@ -422,3 +422,17 @@ The snapshot is exact only with respect to historical observations and
 revisions actually ingested by QuantCore. Missing historical ingestion is not
 filled by the alignment layer and must remain distinguishable from a value
 that was known at the requested timestamp.
+
+## Research observation read and point-in-time semantics
+
+Research observations are immutable, derived values bound to an explicit
+`as_of` knowledge boundary. Exact reads by security and `as_of` return only
+observations recorded at that boundary. PIT reads may instead request the
+latest stored observation for each `(observation_key, definition_version)`
+known at or before a requested boundary.
+
+The PIT read does not recalculate an observation, rewrite its input manifest,
+or manufacture missing historical observations. It only selects from
+observations that QuantCore actually persisted. Definition versions remain
+separate identities, so introducing a new definition version does not silently
+replace an older research definition.
