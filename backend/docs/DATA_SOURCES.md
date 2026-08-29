@@ -535,3 +535,21 @@ This boundary is intentionally read-only and in-memory. It establishes the
 historical research panel consumed by later factor definitions, cross-sectional
 ranking, signal generation, and portfolio construction without introducing
 look-ahead selection, feature recomputation, or a second persistence model.
+
+## Research factor definition and identity contract
+
+Research factors are versioned research definitions built above the historical
+research dataset. A factor is identified by `(factor_key, definition_version)`;
+changing the meaning or required inputs of a factor therefore requires a new
+factor definition version rather than silently changing an existing identity.
+
+`ResearchFactorDefinition` declares the ordered versioned observation identities
+required from the research feature vector and the expected factor output kind
+(`numeric` or `text`). It may also declare an output unit and a human-readable
+description. Required feature identities must be unique and fully versioned.
+
+`ResearchFactorDefinitionRegistry` resolves these definitions in memory and
+rejects duplicate identities or unknown versions. This layer contains no factor
+calculation, ranking, normalization, or persistence. The later factor-computation
+layer is responsible for consuming the declared features and producing the
+factor value while preserving the historical/PIT boundary established below it.
