@@ -553,3 +553,21 @@ rejects duplicate identities or unknown versions. This layer contains no factor
 calculation, ranking, normalization, or persistence. The later factor-computation
 layer is responsible for consuming the declared features and producing the
 factor value while preserving the historical/PIT boundary established below it.
+
+## Cross-sectional research factor panels
+
+The cross-sectional factor-panel layer consumes the immutable historical research
+panel and the versioned factor-computation contract. `ResearchFactorPanelService`
+computes one requested `(factor_key, definition_version)` for every historical
+security/as-of row and returns an in-memory `ResearchFactorPanel` ordered by
+`as_of`, normalized symbol, and stable `security_id`.
+
+The panel requires a non-empty historical dataset and rejects duplicate
+security/as-of points, future boundaries, row/feature-vector identity mismatches,
+and inconsistent factor units. Factor values retain the factor-computation
+provenance manifest, so panel construction does not discard the PIT inputs that
+produced each value.
+
+This layer is deliberately descriptive rather than analytical: it does not rank,
+standardize, winsorize, neutralize, construct signals, persist factor values, or
+build portfolios. Those operations belong to later research-analysis layers.
