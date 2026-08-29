@@ -514,3 +514,24 @@ securities, or silently substitute another definition version. This contract is
 intentionally in-memory and non-persistent; historical research panels,
 factor definitions, cross-sectional ranking, and portfolio construction are
 later layers built above it.
+
+## Historical research analysis and dataset consumption
+
+The historical research analysis layer consumes `ResearchFeatureVector` values
+without recomputing or persisting research data. `ResearchHistoricalAnalysisService`
+builds an immutable historical dataset for an explicit set of symbols and
+point-in-time timestamps. Each requested symbol/timestamp pair becomes one
+`ResearchHistoricalDatasetRow`; missing materialized data is an error rather
+than a reason to silently drop a row.
+
+The service normalizes symbols and timestamps, rejects duplicate symbols or
+timestamps, rejects future boundaries, and validates an optional fixed set of
+versioned definition identities before performing any dataset reads. Output is
+deterministically ordered by `as_of` and normalized symbol. Explicit definition
+identities are passed unchanged to the feature-vector layer after normalization,
+so every historical row uses the same feature schema.
+
+This boundary is intentionally read-only and in-memory. It establishes the
+historical research panel consumed by later factor definitions, cross-sectional
+ranking, signal generation, and portfolio construction without introducing
+look-ahead selection, feature recomputation, or a second persistence model.
