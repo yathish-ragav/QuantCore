@@ -6,6 +6,7 @@ from .research_observation_definition_service import ResearchObservationDefiniti
 from .research_dataset_service import ResearchDatasetService, ResearchFeature, ResearchFeatureVector
 from .research_historical_analysis_service import ResearchHistoricalAnalysisService, ResearchHistoricalDataset, ResearchHistoricalDatasetRow
 from .research_factor_definition_service import ResearchFactorDefinition, ResearchFactorDefinitionRegistry
+from .research_factor_computation_service import ResearchFactorComputationService, ResearchFactorCalculator, ResearchFactorCalculatorRegistry, ResearchFactorValue
 
 __all__ = [
     "CompanyService",
@@ -21,4 +22,8 @@ __all__ = [
     "ResearchHistoricalDatasetRow",
     "ResearchFactorDefinition",
     "ResearchFactorDefinitionRegistry",
+    "ResearchFactorComputationService",
+    "ResearchFactorCalculator",
+    "ResearchFactorCalculatorRegistry",
+    "ResearchFactorValue",
 ]
