@@ -16,6 +16,7 @@ from quantcore.models.corporate_action import CorporateAction
 from quantcore.models.corporate_action_revision import CorporateActionRevision
 from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
 from quantcore.models.macro_ingestion import MacroIngestionState
+from quantcore.models.research_observation import ResearchObservation
 
 __all__ = [
     "Company",
@@ -40,6 +41,7 @@ __all__ = [
     "MacroObservation",
     "MacroSeries",
     "MacroIngestionState",
+    "ResearchObservation",
 ]
 
 
