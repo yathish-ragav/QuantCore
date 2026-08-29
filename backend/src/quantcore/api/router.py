@@ -25,6 +25,7 @@ from quantcore.api.endpoints.corporate_actions import (
     router as corporate_actions_router,
 )
 from quantcore.api.endpoints.macro import router as macro_router
+from quantcore.api.endpoints.research_observations import router as research_observations_router
 
 router = APIRouter()
 
@@ -89,4 +90,9 @@ router.include_router(
 
 router.include_router(
     macro_router,
+)
+
+router.include_router(
+    research_observations_router,
+    tags=["Research Observations"],
 )

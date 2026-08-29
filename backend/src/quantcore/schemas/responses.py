@@ -259,3 +259,16 @@ class MacroIngestionSyncResponse(BaseModel):
     records_processed: int
     vintage_date: date | None = None
     error: str | None = None
+
+
+class ResearchObservationResponse(BaseModel):
+    symbol: str
+    observation_key: str
+    definition_version: str
+    as_of: datetime
+    value_numeric: float | None = None
+    value_text: str | None = None
+    unit: str | None = None
+    input_manifest: dict
+    input_fingerprint: str
+    created_at: datetime

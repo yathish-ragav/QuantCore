@@ -18,6 +18,7 @@ from quantcore.services.quote_service import QuoteService
 from quantcore.services.sec_filing_service import SECFilingService
 from quantcore.services.corporate_action_service import CorporateActionService
 from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrchestrator
+from quantcore.services.research_observation_service import ResearchObservationService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -96,3 +97,9 @@ def get_macro_ingestion_orchestrator(
     db: DbSession,
 ) -> MacroIngestionOrchestrator:
     return MacroIngestionOrchestrator(db)
+
+
+def get_research_observation_service(
+    db: DbSession,
+) -> ResearchObservationService:
+    return ResearchObservationService(db)

@@ -5,10 +5,11 @@ from typing import Mapping
 
 from sqlalchemy.orm import Session
 
-from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.repositories.research_observation_repository import (
     ResearchObservationRepository,
 )
+from quantcore.repositories.security_repository import SecurityRepository
 
 
 class ResearchObservationService:
@@ -17,6 +18,7 @@ class ResearchObservationService:
     def __init__(self, db: Session):
         self.db = db
         self.observation_repo = ResearchObservationRepository(db)
+        self.security_repo = SecurityRepository(db)
 
     @staticmethod
     def _normalize_as_of(as_of: datetime) -> datetime:
@@ -122,6 +124,30 @@ class ResearchObservationService:
             created_at=datetime.now(timezone.utc),
         )
 
+    def _get_security(self, symbol: str):
+        normalized = symbol.strip().upper()
+        if not normalized:
+            raise InvalidInputError("Symbol must not be empty.")
+
+        security = self.security_repo.get_by_symbol(normalized)
+        if security is None:
+            raise ResourceNotFoundError(
+                f"Security '{normalized}' not found."
+            )
+        return security
+
+    def get_for_symbol_as_of(
+        self,
+        symbol: str,
+        *,
+        as_of: datetime,
+    ):
+        security = self._get_security(symbol)
+        return self.get_for_security_as_of(
+            security_id=security.id,
+            as_of=as_of,
+        )
+
     def get_for_security_as_of(
         self,
         *,
@@ -131,6 +157,18 @@ class ResearchObservationService:
         return self.observation_repo.get_for_security_as_of(
             security_id,
             self._normalize_as_of(as_of),
+        )
+
+    def get_latest_for_symbol_as_of(
+        self,
+        symbol: str,
+        *,
+        as_of: datetime,
+    ):
+        security = self._get_security(symbol)
+        return self.get_latest_for_security_as_of(
+            security_id=security.id,
+            as_of=as_of,
         )
 
     def get_latest_for_security_as_of(

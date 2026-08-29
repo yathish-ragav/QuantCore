@@ -11,6 +11,7 @@ def make_service():
     service = ResearchObservationService.__new__(ResearchObservationService)
     service.db = Mock()
     service.observation_repo = Mock()
+    service.security_repo = Mock()
     return service
 
 
@@ -192,3 +193,50 @@ def test_get_latest_for_security_as_of_rejects_future_timestamp():
         )
 
     service.observation_repo.get_latest_for_security_as_of.assert_not_called()
+
+
+def test_get_for_symbol_as_of_normalizes_symbol():
+    service = make_service()
+    security = Mock(id=10)
+    service.security_repo.get_by_symbol.return_value = security
+    service.observation_repo.get_for_security_as_of.return_value = ["observation"]
+
+    as_of = datetime(2026, 8, 20, 15, 30)
+    assert service.get_for_symbol_as_of(" aapl ", as_of=as_of) == ["observation"]
+
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
+    service.observation_repo.get_for_security_as_of.assert_called_once_with(
+        10,
+        datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc),
+    )
+
+
+def test_get_latest_for_symbol_as_of_resolves_security():
+    service = make_service()
+    security = Mock(id=10)
+    service.security_repo.get_by_symbol.return_value = security
+    service.observation_repo.get_latest_for_security_as_of.return_value = ["observation"]
+
+    as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)
+    assert service.get_latest_for_symbol_as_of("aapl", as_of=as_of) == ["observation"]
+
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
+    service.observation_repo.get_latest_for_security_as_of.assert_called_once_with(
+        10,
+        as_of,
+    )
+
+
+def test_get_for_symbol_as_of_requires_existing_security():
+    service = make_service()
+    service.security_repo.get_by_symbol.return_value = None
+
+    from quantcore.core.exceptions import ResourceNotFoundError
+
+    with pytest.raises(ResourceNotFoundError):
+        service.get_for_symbol_as_of(
+            "AAPL",
+            as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
+        )
+
+    service.observation_repo.get_for_security_as_of.assert_not_called()
