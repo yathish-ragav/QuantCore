@@ -595,3 +595,20 @@ ranks, construct signals, evaluate predictive performance, or build portfolios.
 `ResearchFactorEvaluationService` consumes the rank-normalized factor panel and produces deterministic cross-sectional diagnostics independently for each `as_of`. It reports observation counts, mean, median, population standard deviation, minimum, maximum, and range per cross-section, plus aggregate summaries across cross-sections.
 
 This layer is descriptive quality evaluation only. It does not estimate forward returns, information coefficients, factor returns, signals, or portfolios; those require explicit future-return and strategy contracts in later research layers.
+
+## Factor returns and forward-return alignment
+
+`ResearchFactorReturnService` aligns each rank-normalized factor observation with a
+realized forward return outcome. The factor observation's `as_of` timestamp is an
+information boundary: the entry price is the first available price observation
+strictly after that timestamp. The exit price is `horizon` trading observations
+later, so the future price is an outcome label and is never used to construct the
+factor observation itself.
+
+The initial contract supports `PriceBasis.UNADJUSTED` using `close` and
+`PriceBasis.ADJUSTED` using `adjusted_close`. Adjusted returns require an adjusted
+close on every selected observation; the service never silently mixes price bases.
+A missing future horizon is retained as an explicit `HORIZON_UNAVAILABLE` row
+rather than silently dropping the factor observation. The service is in-memory and
+non-persistent; factor return aggregation, predictive statistics, and signal
+construction remain later contracts.
