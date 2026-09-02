@@ -612,3 +612,22 @@ A missing future horizon is retained as an explicit `HORIZON_UNAVAILABLE` row
 rather than silently dropping the factor observation. The service is in-memory and
 non-persistent; factor return aggregation, predictive statistics, and signal
 construction remain later contracts.
+
+## Factor return methodology
+
+`ResearchFactorReturnMethodologyService` converts aligned forward-return outcomes into a
+cross-sectional factor-return series using an explicit rank-ordered, equal-weighted
+long/short methodology. Bucket membership is determined from the factor ranks before
+future-return availability is considered; unavailable outcomes therefore cannot change
+factor-based membership. The default configuration is five buckets (quintiles), with the
+best-ranked bucket as the long leg and the worst-ranked bucket as the short leg. Bucket
+sizes are deterministic and as even as possible, with earlier buckets receiving any
+remainder.
+
+The reported factor return is `mean(long forward returns) - mean(short forward returns)`.
+Only rows with an `AVAILABLE` forward-return outcome contribute to a bucket return, while
+all original observations remain represented for coverage diagnostics. Minimum eligible
+observations per leg is explicit and insufficient coverage yields a non-returning status
+rather than a fabricated spread. This layer is research analytics only: it does not apply
+transaction costs, portfolio constraints, sector/beta neutralization, execution assumptions,
+or persistence. Those concerns belong to later strategy/portfolio layers.
