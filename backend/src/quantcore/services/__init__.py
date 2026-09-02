@@ -9,6 +9,7 @@ from .research_factor_definition_service import ResearchFactorDefinition, Resear
 from .research_factor_computation_service import ResearchFactorComputationService, ResearchFactorCalculator, ResearchFactorCalculatorRegistry, ResearchFactorValue
 from .research_factor_panel_service import ResearchFactorPanelService, ResearchFactorPanel, ResearchFactorPanelRow
 from .research_factor_cross_sectional_service import ResearchFactorCrossSectionalService, ResearchFactorRankedPanel, ResearchFactorRankRow
+from .research_factor_evaluation_service import ResearchFactorEvaluationService, ResearchFactorEvaluation, ResearchFactorEvaluationSlice
 
 __all__ = [
     "CompanyService",
@@ -31,4 +32,9 @@ __all__ = [
     "ResearchFactorPanelService",
     "ResearchFactorPanel",
     "ResearchFactorPanelRow",
+    "ResearchFactorRankedPanel",
+    "ResearchFactorRankRow",
+    "ResearchFactorEvaluationService",
+    "ResearchFactorEvaluation",
+    "ResearchFactorEvaluationSlice",
 ]

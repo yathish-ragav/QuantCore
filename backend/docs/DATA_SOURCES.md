@@ -589,3 +589,9 @@ cannot be inferred from one observation.
 Text factors, non-finite numeric values, duplicate security/as-of points, and empty panels
 are rejected. The transformation remains in-memory and deterministic; it does not persist
 ranks, construct signals, evaluate predictive performance, or build portfolios.
+
+## Factor evaluation
+
+`ResearchFactorEvaluationService` consumes the rank-normalized factor panel and produces deterministic cross-sectional diagnostics independently for each `as_of`. It reports observation counts, mean, median, population standard deviation, minimum, maximum, and range per cross-section, plus aggregate summaries across cross-sections.
+
+This layer is descriptive quality evaluation only. It does not estimate forward returns, information coefficients, factor returns, signals, or portfolios; those require explicit future-return and strategy contracts in later research layers.
