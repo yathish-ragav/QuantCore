@@ -571,3 +571,21 @@ produced each value.
 This layer is deliberately descriptive rather than analytical: it does not rank,
 standardize, winsorize, neutralize, construct signals, persist factor values, or
 build portfolios. Those operations belong to later research-analysis layers.
+
+## Cross-sectional factor ranking and normalization
+
+The next research-analysis layer consumes the descriptive factor panel without
+reading from persistence or recomputing factor inputs. `ResearchFactorCrossSectionalService`
+ranks numeric factor values independently within each `as_of` cross-section. This is
+important: securities from different research dates are never ranked against one another.
+
+The initial ranking contract uses an explicit average-tie convention. With
+`higher_is_better=True`, the largest factor receives rank 1; with `False`, the smallest
+factor receives rank 1. Ties receive the arithmetic mean of their occupied 1-based ranks.
+The service also emits a unitless `normalized_rank` in [0, 1], where the best observation
+is 1 and the worst is 0. A singleton cross-section receives 0.5 because relative ordering
+cannot be inferred from one observation.
+
+Text factors, non-finite numeric values, duplicate security/as-of points, and empty panels
+are rejected. The transformation remains in-memory and deterministic; it does not persist
+ranks, construct signals, evaluate predictive performance, or build portfolios.

@@ -8,6 +8,7 @@ from .research_historical_analysis_service import ResearchHistoricalAnalysisServ
 from .research_factor_definition_service import ResearchFactorDefinition, ResearchFactorDefinitionRegistry
 from .research_factor_computation_service import ResearchFactorComputationService, ResearchFactorCalculator, ResearchFactorCalculatorRegistry, ResearchFactorValue
 from .research_factor_panel_service import ResearchFactorPanelService, ResearchFactorPanel, ResearchFactorPanelRow
+from .research_factor_cross_sectional_service import ResearchFactorCrossSectionalService, ResearchFactorRankedPanel, ResearchFactorRankRow
 
 __all__ = [
     "CompanyService",
