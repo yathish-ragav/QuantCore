@@ -710,3 +710,9 @@ deterministic security-id order; zero-delta holdings are omitted. The service re
 portfolio to precede the rebalance boundary and the target portfolio to exist exactly at that boundary.
 Only a `CONSTRUCTED` target portfolio may be rebalanced. This layer does not calculate transaction costs,
 slippage, market impact, orders, fills, broker instructions, or execution semantics.
+
+## Transaction costs
+
+`ResearchTransactionCostService` converts a versioned proportional transaction-cost definition and a validated `ResearchRebalance` into a deterministic portfolio cost. The initial model expresses a one-way cost rate in basis points and applies it to the rebalance's one-way weight turnover: `cost_bps = turnover * one_way_cost_bps`, with `cost_fraction = cost_bps / 10,000`.
+
+The result preserves rebalance, strategy, signal, and cost-definition provenance and reports an explicit `NO_TURNOVER` status when the transition has zero turnover. This boundary does not invent dollar commissions, bid/ask spreads, slippage, market impact, execution prices, orders, fills, or broker semantics because the current research rebalance contract does not contain the required execution inputs. Richer cost models can be added as separate versioned methodologies later.

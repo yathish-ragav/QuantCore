@@ -20,6 +20,12 @@ from .research_portfolio_constraint_service import (
     ResearchPortfolioConstraintStatus,
     ResearchPortfolioConstraintViolation,
 )
+from .research_transaction_cost_service import (
+    ResearchTransactionCostDefinition,
+    ResearchTransactionCostResult,
+    ResearchTransactionCostService,
+    ResearchTransactionCostStatus,
+)
 from .research_rebalance_service import (
     ResearchRebalanceDefinition,
     ResearchRebalanceFrequency,
@@ -93,6 +99,10 @@ __all__ = [
     "ResearchRebalance",
     "ResearchRebalanceService",
     "ResearchRebalanceStatus",
+    "ResearchTransactionCostDefinition",
+    "ResearchTransactionCostResult",
+    "ResearchTransactionCostService",
+    "ResearchTransactionCostStatus",
     "ResearchStrategyDefinition",
     "ResearchStrategyDefinitionRegistry",
     "ResearchStrategyDirection",
