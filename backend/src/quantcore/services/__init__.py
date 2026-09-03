@@ -13,6 +13,13 @@ from .research_factor_evaluation_service import ResearchFactorEvaluationService,
 from .research_factor_return_service import ResearchFactorReturnService, ResearchFactorReturnPanel, ResearchFactorReturnRow, ResearchPriceObservation
 from .research_factor_return_methodology_service import ResearchFactorReturnMethodologyService, ResearchFactorReturnSeries, ResearchFactorReturnSlice, ResearchFactorReturnBucket
 from .research_signal_service import ResearchSignalDefinition, ResearchSignalContribution, ResearchSignalRow, ResearchSignalPanel, ResearchSignalService
+from .research_portfolio_constraint_service import (
+    ResearchPortfolioConstraintDefinition,
+    ResearchPortfolioConstraintService,
+    ResearchPortfolioConstraintResult,
+    ResearchPortfolioConstraintStatus,
+    ResearchPortfolioConstraintViolation,
+)
 from .research_portfolio_construction_service import (
     ResearchPortfolioConstructionService,
     ResearchPortfolio,
@@ -64,6 +71,11 @@ __all__ = [
     "ResearchPortfolio",
     "ResearchPortfolioPosition",
     "ResearchPortfolioPositionSide",
+    "ResearchPortfolioConstraintDefinition",
+    "ResearchPortfolioConstraintService",
+    "ResearchPortfolioConstraintResult",
+    "ResearchPortfolioConstraintStatus",
+    "ResearchPortfolioConstraintViolation",
     "ResearchPortfolioConstructionStatus",
     "ResearchStrategyDefinition",
     "ResearchStrategyDefinitionRegistry",

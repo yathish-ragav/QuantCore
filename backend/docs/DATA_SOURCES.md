@@ -680,3 +680,17 @@ long-short leg is empty, no target positions are emitted and the result explicit
 The output contains target weights, not orders or executions. This layer does not apply portfolio
 constraints, turnover limits, rebalance schedules, transaction costs, liquidity assumptions, broker
 semantics, or persistence; those belong to subsequent Phase III boundaries.
+
+## Portfolio constraints
+
+`ResearchPortfolioConstraintDefinition` is a versioned, declarative set of portfolio-level limits,
+and `ResearchPortfolioConstraintService` validates a target `ResearchPortfolio` without modifying
+its weights. Supported limits are maximum absolute position weight, maximum gross exposure, signed
+minimum/maximum net exposure, maximum long exposure, and maximum short exposure. At least one limit
+must be configured, and all limits are deterministic and immutable under a constraint identity.
+
+Validation reports every violated rule together with its observed value and configured limit. A
+passing result does not rewrite or rebalance the portfolio; constraint enforcement remains a distinct
+methodology decision. Empty target portfolios pass exposure constraints because there is no exposure
+to violate a configured limit. This layer does not choose rebalance schedules, optimize weights,
+apply turnover or transaction costs, or create orders/execution instructions.
