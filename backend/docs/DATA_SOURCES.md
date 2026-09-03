@@ -694,3 +694,19 @@ passing result does not rewrite or rebalance the portfolio; constraint enforceme
 methodology decision. Empty target portfolios pass exposure constraints because there is no exposure
 to violate a configured limit. This layer does not choose rebalance schedules, optimize weights,
 apply turnover or transaction costs, or create orders/execution instructions.
+
+
+## Portfolio rebalancing
+
+`ResearchRebalanceService` converts a current target-portfolio state and a new constructed target
+portfolio into a deterministic set of non-zero weight transitions at an explicit, timezone-aware
+rebalance `as_of`. A versioned `ResearchRebalanceDefinition` records the declared evaluation cadence
+(`DAILY`, `WEEKLY`, or `MONTHLY`) without inventing calendar dates or performing scheduling itself.
+
+The rebalance result preserves strategy, signal, and rebalance provenance, reports current and target
+exposures, and calculates one-way weight turnover as `0.5 * sum(abs(target_weight - current_weight))`.
+Transitions are classified as `ADD`, `INCREASE`, `REDUCE`, `REMOVE`, or `REVERSE` and are emitted in
+deterministic security-id order; zero-delta holdings are omitted. The service requires the current
+portfolio to precede the rebalance boundary and the target portfolio to exist exactly at that boundary.
+Only a `CONSTRUCTED` target portfolio may be rebalanced. This layer does not calculate transaction costs,
+slippage, market impact, orders, fills, broker instructions, or execution semantics.
