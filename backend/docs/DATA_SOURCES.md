@@ -631,3 +631,19 @@ observations per leg is explicit and insufficient coverage yields a non-returnin
 rather than a fabricated spread. This layer is research analytics only: it does not apply
 transaction costs, portfolio constraints, sector/beta neutralization, execution assumptions,
 or persistence. Those concerns belong to later strategy/portfolio layers.
+
+## Research signal construction
+
+`ResearchSignalService` consumes one or more rank-normalized research factor panels and
+constructs a deterministic composite research signal. A `ResearchSignalDefinition` identifies
+the versioned factor inputs and requires explicit strictly-positive weights that sum to one.
+
+All input factors must share the exact same security/as-of universe. This is intentional: a
+missing factor observation must not silently change the universe or cause the remaining weights
+to be re-normalized. Each signal row preserves per-factor normalized rank, weight, and weighted
+contribution for provenance.
+
+The composite `score` is the weighted average of normalized ranks and is therefore in `[0, 1]`.
+`centered_score` maps that value to `[-1, 1]` for downstream research consumers. The service does
+not construct portfolios, orders, execution instructions, or transaction-cost assumptions; those
+belong to later strategy and portfolio layers.

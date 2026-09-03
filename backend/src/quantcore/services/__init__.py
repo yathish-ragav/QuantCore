@@ -12,6 +12,7 @@ from .research_factor_cross_sectional_service import ResearchFactorCrossSectiona
 from .research_factor_evaluation_service import ResearchFactorEvaluationService, ResearchFactorEvaluation, ResearchFactorEvaluationSlice
 from .research_factor_return_service import ResearchFactorReturnService, ResearchFactorReturnPanel, ResearchFactorReturnRow, ResearchPriceObservation
 from .research_factor_return_methodology_service import ResearchFactorReturnMethodologyService, ResearchFactorReturnSeries, ResearchFactorReturnSlice, ResearchFactorReturnBucket
+from .research_signal_service import ResearchSignalDefinition, ResearchSignalContribution, ResearchSignalRow, ResearchSignalPanel, ResearchSignalService
 
 __all__ = [
     "CompanyService",
@@ -47,4 +48,9 @@ __all__ = [
     "ResearchFactorReturnSeries",
     "ResearchFactorReturnSlice",
     "ResearchFactorReturnBucket",
+    "ResearchSignalDefinition",
+    "ResearchSignalContribution",
+    "ResearchSignalRow",
+    "ResearchSignalPanel",
+    "ResearchSignalService",
 ]
