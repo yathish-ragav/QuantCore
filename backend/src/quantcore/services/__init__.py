@@ -13,6 +13,13 @@ from .research_factor_evaluation_service import ResearchFactorEvaluationService,
 from .research_factor_return_service import ResearchFactorReturnService, ResearchFactorReturnPanel, ResearchFactorReturnRow, ResearchPriceObservation
 from .research_factor_return_methodology_service import ResearchFactorReturnMethodologyService, ResearchFactorReturnSeries, ResearchFactorReturnSlice, ResearchFactorReturnBucket
 from .research_signal_service import ResearchSignalDefinition, ResearchSignalContribution, ResearchSignalRow, ResearchSignalPanel, ResearchSignalService
+from .research_portfolio_construction_service import (
+    ResearchPortfolioConstructionService,
+    ResearchPortfolio,
+    ResearchPortfolioPosition,
+    ResearchPortfolioPositionSide,
+    ResearchPortfolioConstructionStatus,
+)
 
 __all__ = [
     "CompanyService",
@@ -53,6 +60,11 @@ __all__ = [
     "ResearchSignalRow",
     "ResearchSignalPanel",
     "ResearchSignalService",
+    "ResearchPortfolioConstructionService",
+    "ResearchPortfolio",
+    "ResearchPortfolioPosition",
+    "ResearchPortfolioPositionSide",
+    "ResearchPortfolioConstructionStatus",
     "ResearchStrategyDefinition",
     "ResearchStrategyDefinitionRegistry",
     "ResearchStrategyDirection",

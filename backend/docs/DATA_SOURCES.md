@@ -661,3 +661,22 @@ choose a rebalance schedule, apply constraints, model transaction costs, create 
 execution assumptions. Those concerns belong to the subsequent portfolio-construction and
 rebalancing layers. Threshold validation is deterministic and versioned so a strategy's meaning
 cannot silently change under an existing identity.
+
+## Portfolio construction
+
+`ResearchPortfolioConstructionService` converts a versioned `ResearchStrategyDefinition`
+and its matching `ResearchSignalPanel` into deterministic target portfolio weights at one
+explicit, timezone-aware `as_of` information boundary. The signal identity must exactly match
+the strategy identity, and duplicate security/as-of points are rejected.
+
+Long-only strategies select signal scores greater than or equal to the configured long threshold
+and assign equal positive weights summing to one. Short-only strategies select scores less than
+or equal to the short threshold and assign equal negative weights summing to negative one.
+Long-short strategies require both legs to be populated; each leg is equal-weighted with equal
+absolute dollar exposure, producing gross exposure of two and net exposure of zero. If a
+long-short leg is empty, no target positions are emitted and the result explicitly reports
+`INCOMPLETE_LONG_SHORT` rather than silently creating an unbalanced portfolio.
+
+The output contains target weights, not orders or executions. This layer does not apply portfolio
+constraints, turnover limits, rebalance schedules, transaction costs, liquidity assumptions, broker
+semantics, or persistence; those belong to subsequent Phase III boundaries.
