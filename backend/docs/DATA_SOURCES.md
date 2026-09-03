@@ -647,3 +647,17 @@ The composite `score` is the weighted average of normalized ranks and is therefo
 `centered_score` maps that value to `[-1, 1]` for downstream research consumers. The service does
 not construct portfolios, orders, execution instructions, or transaction-cost assumptions; those
 belong to later strategy and portfolio layers.
+
+## Strategy definition
+
+`ResearchStrategyDefinition` establishes the first Phase III contract above the research-signal
+layer. A strategy is identified by `(strategy_key, definition_version)` and explicitly references
+a versioned research signal. The definition declares whether the signal is interpreted as
+`LONG_ONLY`, `SHORT_ONLY`, or `LONG_SHORT` and, where applicable, provides score thresholds in
+the signal's `[0, 1]` domain.
+
+This boundary is deliberately declarative. It does not construct holdings or portfolio weights,
+choose a rebalance schedule, apply constraints, model transaction costs, create orders, or encode
+execution assumptions. Those concerns belong to the subsequent portfolio-construction and
+rebalancing layers. Threshold validation is deterministic and versioned so a strategy's meaning
+cannot silently change under an existing identity.

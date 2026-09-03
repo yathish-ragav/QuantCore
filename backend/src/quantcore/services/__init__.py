@@ -53,4 +53,14 @@ __all__ = [
     "ResearchSignalRow",
     "ResearchSignalPanel",
     "ResearchSignalService",
+    "ResearchStrategyDefinition",
+    "ResearchStrategyDefinitionRegistry",
+    "ResearchStrategyDirection",
+    "ResearchStrategyService",
 ]
+from .research_strategy_service import (
+    ResearchStrategyDefinition,
+    ResearchStrategyDefinitionRegistry,
+    ResearchStrategyDirection,
+    ResearchStrategyService,
+)
