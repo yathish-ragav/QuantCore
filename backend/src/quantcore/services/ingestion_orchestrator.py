@@ -42,6 +42,7 @@ from quantcore.services.sec_filing_service import (
 @dataclass(frozen=True)
 class IngestionResult:
     dataset: IngestionDataset
+    eligible: int
     attempted: int
     succeeded: int
     skipped: int
@@ -285,6 +286,7 @@ class IngestionOrchestrator:
         )
         return IngestionResult(
             dataset=dataset,
+            eligible=run.eligible,
             attempted=run.attempted,
             succeeded=run.succeeded,
             skipped=run.skipped,
@@ -589,6 +591,7 @@ class IngestionOrchestrator:
                     run,
                     status=status,
                     finished_at=finished_at,
+                    eligible=len(seen_entities),
                     attempted=attempted,
                     succeeded=succeeded,
                     skipped=skipped,
@@ -605,6 +608,7 @@ class IngestionOrchestrator:
                         run,
                         status=IngestionRunStatus.FAILED,
                         finished_at=datetime.now(timezone.utc),
+                        eligible=len(seen_entities),
                         attempted=attempted,
                         succeeded=succeeded,
                         skipped=skipped,
@@ -617,6 +621,7 @@ class IngestionOrchestrator:
             results.append(
                 IngestionResult(
                     dataset=dataset,
+                    eligible=len(seen_entities),
                     attempted=attempted,
                     succeeded=succeeded,
                     skipped=skipped,

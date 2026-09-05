@@ -148,6 +148,7 @@ class IngestionStateRepository:
         succeeded: int,
         skipped: int,
         failed: int,
+        eligible: int = 0,
         error_summary: str | None = None,
     ) -> None:
         run.status = status
@@ -156,4 +157,5 @@ class IngestionStateRepository:
         run.succeeded = succeeded
         run.skipped = skipped
         run.failed = failed
+        run.eligible = eligible
         run.error_summary = error_summary[:4000] if error_summary else None

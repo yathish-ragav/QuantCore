@@ -174,6 +174,33 @@ retry work, or quarantine data. Dataset-level quality validation and
 quarantine remain a separate concern so operational health is not confused
 with financial-data correctness.
 
+## Ingestion quality and completeness
+
+Operational health and data quality are separate boundaries. The ingestion
+quality layer measures execution coverage: how many eligible dataset targets
+succeeded, were skipped because they were fresh, or failed.
+
+Each ingestion run records its `eligible` target count. Company-scoped datasets
+count unique companies even when multiple active securities belong to the same
+issuer. Security-scoped datasets count unique securities.
+
+The deterministic quality states are:
+
+- `COMPLETE`: every eligible target succeeded or was validly skipped.
+- `PARTIAL`: at least one target failed, but some coverage succeeded or was skipped.
+- `FAILED`: every eligible target failed.
+- `NO_TARGETS`: the selected scope contained no eligible targets.
+- `INCONSISTENT`: persisted execution counters do not reconcile.
+
+`coverage_ratio` is `(succeeded + skipped) / eligible`. A complete run therefore
+has coverage `1.0`. This metric describes ingestion execution coverage; it does
+not claim that the provider contains every historical observation or that a
+stored financial value is economically correct.
+
+Provider-specific row validation remains inside dataset services. A later
+historical coverage/continuity layer can assess date-range completeness without
+coupling that concern to ingestion execution accounting.
+
 Ingestion runs also support an optional caller-supplied idempotency key. For a
 given dataset, reusing the same key returns the previously completed run
 summary instead of executing the dataset again. QuantCore stores a request

@@ -233,3 +233,10 @@ class IngestionRun(Base):
         String(4000),
         nullable=True,
     )
+
+    eligible: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )

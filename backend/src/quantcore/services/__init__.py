@@ -47,6 +47,11 @@ from .ingestion_health_service import (
     IngestionHealthStatus,
     IngestionHealthView,
 )
+from .ingestion_quality_service import (
+    IngestionQualityAssessment,
+    IngestionQualityService,
+    IngestionQualityStatus,
+)
 
 __all__ = [
     "CompanyService",
@@ -100,6 +105,9 @@ __all__ = [
     "IngestionHealthService",
     "IngestionHealthStatus",
     "IngestionHealthView",
+    "IngestionQualityAssessment",
+    "IngestionQualityService",
+    "IngestionQualityStatus",
     "ResearchRebalanceDefinition",
     "ResearchRebalanceFrequency",
     "ResearchRebalanceAction",
