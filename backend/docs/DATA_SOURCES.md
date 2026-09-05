@@ -864,3 +864,46 @@ This is a descriptive factor-loading representation on the existing rank scale. 
 `ResearchPortfolioStressService` applies a versioned, deterministic hypothetical return-shock scenario to an existing constructed target portfolio. A scenario can provide security-specific shocks and may optionally define a default shock for broad scenarios such as a market selloff; security-specific values take precedence. Each position's stress contribution is its target weight multiplied by the scenario return shock, so long and short directions are preserved explicitly.
 
 The result reports the aggregate hypothetical portfolio return, optional capital-scaled P&L and stressed value, and security-level contributions with strategy, signal, scenario, and `as_of` provenance. When no default shock is configured, every held security must have an explicit shock. Shocks below -100% are rejected. This is a deterministic what-if analysis, not a forecast, historical observation, covariance model, factor model, liquidity model, or execution simulation; it does not fetch data or mutate portfolio weights.
+
+
+## Historical coverage and continuity
+
+Execution completeness and historical coverage are separate guarantees.
+`IngestionQualityService` answers whether an ingestion run covered its
+eligible targets; `HistoricalCoverageService` answers whether a requested
+historical interval contains the observations that a dataset-specific
+schedule says should exist.
+
+The coverage service is intentionally schedule-driven. It does **not** assume
+that every calendar day is an observation day. The caller supplies the
+expected observation schedule, such as an exchange trading calendar for EOD
+prices or a dataset-specific publication schedule for fundamentals.
+
+For a requested interval it deterministically reports:
+
+- expected observation count,
+- observed observation count,
+- missing observation count,
+- coverage ratio,
+- first and last observed timestamps,
+- exact missing timestamps,
+- number of distinct missing runs, and
+- largest consecutive missing run.
+
+The service rejects duplicate timestamps, naive timestamps, and observations
+outside the requested interval. It does not silently discard unexpected
+observations or reinterpret weekends and holidays as missing data.
+
+Coverage states are:
+
+- `COMPLETE`: every expected observation is present.
+- `PARTIAL`: some, but not all, expected observations are present.
+- `NO_OBSERVATIONS`: the schedule expects observations but none were observed.
+- `NO_EXPECTED_OBSERVATIONS`: the supplied schedule contains no observations;
+  this is not treated as complete coverage.
+
+This boundary is deliberately read-only and provider-neutral. Dataset adapters
+and repositories remain responsible for obtaining observations; market
+calendar and publication-calendar logic remains outside the generic coverage
+service. Research and backtesting consumers can therefore require an explicit
+coverage result before treating a historical interval as usable.
