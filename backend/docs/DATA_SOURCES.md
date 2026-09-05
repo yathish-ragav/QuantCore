@@ -778,3 +778,9 @@ long, or short exposure. An empty portfolio has zero exposure and zero concentra
 risk is inferred. The snapshot is an exposure representation, not a return forecast or covariance
 model. It does not calculate volatility, factor exposures, stress losses, liquidity risk, transaction
 costs, or execution outcomes; those are separate risk methodologies.
+
+## Portfolio factor-risk analytics
+
+`ResearchPortfolioFactorRiskService` computes deterministic rank-based factor exposures for an existing constructed portfolio using versioned, rank-normalized factor panels at the portfolio's exact `as_of` boundary. Each factor exposure is the signed portfolio-weighted sum of centered normalized ranks, with separate long/short contributions, gross factor contribution, and gross-normalized exposure.
+
+This is a descriptive factor-loading representation on the existing rank scale. It is not a regression beta, covariance model, factor return forecast, or stress model. Missing factor observations for held securities, duplicate observations, identity mismatches, and invalid ranks are explicit input failures. The service does not mutate portfolios, fetch market data, forecast returns, or perform execution.

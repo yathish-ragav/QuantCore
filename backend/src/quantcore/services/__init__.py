@@ -153,3 +153,8 @@ from .research_portfolio_risk_service import (
     ResearchPortfolioRiskService,
     ResearchPortfolioRiskSnapshot,
 )
+from .research_portfolio_factor_risk_service import (
+    ResearchPortfolioFactorExposure,
+    ResearchPortfolioFactorRiskService,
+    ResearchPortfolioFactorRiskSnapshot,
+)
