@@ -1,7 +1,8 @@
 import hashlib
 import json
+import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -15,6 +16,7 @@ from quantcore.ingestion.datasets import (
     IngestionScope,
 )
 from quantcore.models.ingestion import IngestionRunStatus, IngestionState
+from quantcore.ingestion.retry import IngestionRetryPolicy
 from quantcore.models.security import Security, SecurityStatus
 from quantcore.repositories.ingestion_state_repository import (
     IngestionStateRepository,
@@ -68,9 +70,17 @@ class IngestionOrchestrator:
     boundaries remain inside the existing dataset services.
     """
 
-    def __init__(self, db: Session):
+    def __init__(
+        self,
+        db: Session,
+        *,
+        retry_policy: IngestionRetryPolicy | None = None,
+        sleeper=time.sleep,
+    ):
         self.db = db
         self.state_repo = IngestionStateRepository(db)
+        self.retry_policy = retry_policy or IngestionRetryPolicy()
+        self._sleeper = sleeper
 
     @staticmethod
     def _service_for(
@@ -89,6 +99,30 @@ class IngestionOrchestrator:
             IngestionDataset.SEC_XBRL_FACTS: SECXBRLFactService,
         }
         return services[dataset](db)
+
+    def _sync_with_retry(
+        self,
+        service,
+        dataset: IngestionDataset,
+        symbol: str,
+    ) -> int:
+        """Run one ingestion operation with bounded transient-failure retries."""
+        for attempt in range(1, self.retry_policy.max_attempts + 1):
+            try:
+                return self._sync(service, dataset, symbol)
+            except Exception as exc:
+                if not self.retry_policy.should_retry(exc, attempt):
+                    raise
+
+                # Dataset services own their transaction boundaries. Roll back
+                # before retrying so a failed attempt cannot leak a partial
+                # transaction into the next attempt.
+                self.db.rollback()
+                delay = self.retry_policy.delay_seconds(attempt)
+                if delay > 0:
+                    self._sleeper(delay)
+
+        raise RuntimeError("Ingestion retry policy exhausted unexpectedly.")
 
     @staticmethod
     def _sync(
@@ -313,6 +347,45 @@ class IngestionOrchestrator:
                 )
             return existing, True
 
+    def recover_stale_runs(
+        self,
+        *,
+        stale_after: timedelta,
+        now: datetime | None = None,
+    ) -> int:
+        """Mark abandoned RUNNING executions as terminal failures.
+
+        A process crash can leave an ingestion run in RUNNING forever. Recovery
+        deliberately does not reuse its idempotency key: callers must create a
+        new execution key for a new attempt, preserving the original audit
+        record and idempotency contract.
+        """
+        if stale_after.total_seconds() <= 0:
+            raise InvalidInputError("stale_after must be greater than zero.")
+
+        recovered_at = now or datetime.now(timezone.utc)
+        cutoff = recovered_at - stale_after
+        runs = self.state_repo.get_running_runs_started_before(cutoff)
+
+        for run in runs:
+            self.state_repo.finish_run(
+                run,
+                status=IngestionRunStatus.FAILED,
+                finished_at=recovered_at,
+                attempted=run.attempted,
+                succeeded=run.succeeded,
+                skipped=run.skipped,
+                failed=run.failed,
+                error_summary=(
+                    "Ingestion execution became stale before completion."
+                ),
+            )
+
+        if runs:
+            self.db.commit()
+
+        return len(runs)
+
     def sync_market(
         self,
         *,
@@ -452,7 +525,7 @@ class IngestionOrchestrator:
                     self.state_repo.mark_attempt(state, attempted_at)
 
                     try:
-                        records = self._sync(
+                        records = self._sync_with_retry(
                             service,
                             dataset,
                             security.symbol,

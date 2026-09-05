@@ -156,6 +156,19 @@ rejected. A key that is already running is also rejected rather than creating
 concurrent duplicate work. Callers that intentionally want a new execution
 should generate a new idempotency key.
 
+
+Transient upstream/transport failures are retried with a bounded deterministic
+policy (three attempts by default, with exponential backoff). Provider/input,
+validation, and configuration failures are not retried. Each failed attempt is
+rolled back before a retry so a partial transaction cannot leak into the next
+attempt.
+
+An ingestion process can also recover executions left in `RUNNING` after a
+process crash. `recover_stale_runs` marks executions older than an explicit
+operator-selected threshold as terminal failures. The original audit record
+and idempotency key are retained; a subsequent execution must use a new
+idempotency key rather than silently reusing an abandoned execution.
+
 The market-wide scope is the **managed QuantCore universe**, currently the SEC
 ticker/exchange feed filtered to the explicitly supported US listed-equity
 exchanges. It must not be described as every US security until the instrument

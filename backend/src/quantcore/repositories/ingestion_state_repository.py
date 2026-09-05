@@ -120,6 +120,21 @@ class IngestionStateRepository:
         self.db.flush()
         return run
 
+    def get_running_runs_started_before(
+        self,
+        cutoff: datetime,
+    ) -> list[IngestionRun]:
+        """Return RUNNING executions older than the supplied cutoff."""
+        stmt = (
+            select(IngestionRun)
+            .where(
+                IngestionRun.status == IngestionRunStatus.RUNNING,
+                IngestionRun.started_at < cutoff,
+            )
+            .order_by(IngestionRun.started_at, IngestionRun.id)
+        )
+        return list(self.db.scalars(stmt).all())
+
     def get_run(self, run_id: int) -> IngestionRun | None:
         return self.db.get(IngestionRun, run_id)
 

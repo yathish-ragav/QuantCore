@@ -3,7 +3,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.exceptions import ExternalDataError, InvalidInputError
+from quantcore.ingestion.retry import IngestionRetryPolicy
 from quantcore.ingestion.datasets import (
     DATASET_POLICIES,
     DATASET_SCOPES,
@@ -56,6 +57,8 @@ def make_service():
     service = IngestionOrchestrator.__new__(IngestionOrchestrator)
     service.db = Mock()
     service.state_repo = Mock()
+    service.retry_policy = IngestionRetryPolicy(max_attempts=1)
+    service._sleeper = Mock()
     return service
 
 
@@ -432,3 +435,112 @@ def test_result_from_completed_run_preserves_counts_and_errors():
         "AAPL: provider unavailable",
         "MSFT: timeout",
     )
+
+
+def test_sync_market_retries_transient_failure_before_success():
+    service = make_service()
+    service.retry_policy = IngestionRetryPolicy(
+        max_attempts=3,
+        base_delay_seconds=0,
+        max_delay_seconds=0,
+    )
+    service._sleeper = Mock()
+
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+
+    run = Mock()
+    run.id = 1
+    service.state_repo.create_run.return_value = run
+    service.state_repo.get.return_value = None
+    service.state_repo.get_or_create.return_value = Mock()
+
+    fake_service = Mock()
+    fake_service.provider.SOURCE = "FMP"
+    fake_service.sync_balance_sheets.side_effect = [
+        ExternalDataError("temporary outage"),
+        [Mock()],
+    ]
+    service._service_for = Mock(return_value=fake_service)
+
+    result = service.sync_market(
+        datasets=[IngestionDataset.BALANCE_SHEET],
+        only_stale=False,
+    )
+
+    assert result[0].attempted == 1
+    assert result[0].succeeded == 1
+    assert result[0].failed == 0
+    assert fake_service.sync_balance_sheets.call_count == 2
+    service.db.rollback.assert_called()
+    service._sleeper.assert_not_called()
+
+
+def test_sync_market_does_not_retry_permanent_failure():
+    service = make_service()
+    service.retry_policy = IngestionRetryPolicy(
+        max_attempts=3,
+        base_delay_seconds=0,
+        max_delay_seconds=0,
+    )
+    service._sleeper = Mock()
+
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+
+    run = Mock()
+    run.id = 1
+    service.state_repo.create_run.return_value = run
+    service.state_repo.get.return_value = None
+    service.state_repo.get_or_create.return_value = Mock()
+
+    fake_service = Mock()
+    fake_service.provider.SOURCE = "FMP"
+    fake_service.sync_balance_sheets.side_effect = RuntimeError("bad input")
+    service._service_for = Mock(return_value=fake_service)
+
+    result = service.sync_market(
+        datasets=[IngestionDataset.BALANCE_SHEET],
+        only_stale=False,
+    )
+
+    assert result[0].attempted == 1
+    assert result[0].succeeded == 0
+    assert result[0].failed == 1
+    assert fake_service.sync_balance_sheets.call_count == 1
+    service._sleeper.assert_not_called()
+
+
+def test_recover_stale_runs_marks_old_running_runs_failed():
+    service = make_service()
+    now = datetime(2026, 1, 10, tzinfo=timezone.utc)
+
+    stale = Mock()
+    stale.id = 9
+    stale.status = IngestionRunStatus.RUNNING
+    stale.started_at = now - timedelta(hours=2)
+    stale.attempted = 3
+    stale.succeeded = 1
+    stale.skipped = 1
+    stale.failed = 1
+    service.state_repo.get_running_runs_started_before.return_value = [stale]
+
+    recovered = service.recover_stale_runs(
+        stale_after=timedelta(hours=1),
+        now=now,
+    )
+
+    assert recovered == 1
+    service.state_repo.finish_run.assert_called_once()
+    kwargs = service.state_repo.finish_run.call_args.kwargs
+    assert kwargs["status"] is IngestionRunStatus.FAILED
+    assert kwargs["finished_at"] == now
+    assert "stale" in kwargs["error_summary"].lower()
+    service.db.commit.assert_called_once()
+
+
+def test_recover_stale_runs_rejects_non_positive_threshold():
+    service = make_service()
+
+    with pytest.raises(InvalidInputError, match="greater than zero"):
+        service.recover_stale_runs(stale_after=timedelta(0))
