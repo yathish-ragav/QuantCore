@@ -746,3 +746,21 @@ and weighted by elapsed calendar time, so the methodology does not assume that e
 backtest period has identical length. Drawdown is measured from the running equity peak,
 starting at initial capital. These metrics describe realized historical behavior only;
 they do not constitute a risk forecast, factor-risk model, stress test, or execution model.
+
+
+## Backtest portfolio attribution
+
+`ResearchBacktestAttributionService` decomposes realized historical return for each
+completed backtest period into security-level gross contributions and transaction-cost
+drag. Position contribution is target weight multiplied by the realized security return
+between the same valuation boundaries used by the backtest. Long and short contributions
+are reported separately and reconcile to gross return for each period. Contributions are
+also capital-scaled by each period's starting equity so the complete backtest attribution
+reconciles additively to total net return. `total_gross_return` and
+`total_transaction_cost_drag` are additive contributions relative to initial capital, not
+compounded standalone performance series; transaction-cost drag remains the exact period
+difference between recorded net and gross return.
+
+The service requires the target portfolio used at each period start and the same historical
+price basis as the backtest. It does not allocate transaction costs to individual
+securities, infer causal effects, forecast returns, or change portfolio weights.
