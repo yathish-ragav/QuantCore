@@ -38,3 +38,14 @@ def test_ingestion_run_defaults_to_running():
     assert IngestionRunStatus.RUNNING.value == "RUNNING"
     assert "status" in IngestionRun.__table__.c
     assert "started_at" in IngestionRun.__table__.c
+
+
+def test_ingestion_run_has_idempotency_metadata():
+    columns = IngestionRun.__table__.c
+    assert columns.idempotency_key.nullable is True
+    assert columns.request_fingerprint.nullable is True
+    constraints = IngestionRun.__table__.constraints
+    assert any(
+        c.name == "uq_ingestion_run_dataset_idempotency"
+        for c in constraints
+    )

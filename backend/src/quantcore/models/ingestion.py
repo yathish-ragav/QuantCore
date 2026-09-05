@@ -156,12 +156,30 @@ class IngestionRun(Base):
 
     __tablename__ = "ingestion_runs"
 
+    __table_args__ = (
+        UniqueConstraint(
+            "dataset",
+            "idempotency_key",
+            name="uq_ingestion_run_dataset_idempotency",
+        ),
+    )
+
     id: Mapped[int] = mapped_column(primary_key=True)
 
     dataset: Mapped[IngestionDataset | None] = mapped_column(
         DATASET_ENUM,
         nullable=True,
         index=True,
+    )
+
+    idempotency_key: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+    )
+
+    request_fingerprint: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
     )
 
     status: Mapped[IngestionRunStatus] = mapped_column(

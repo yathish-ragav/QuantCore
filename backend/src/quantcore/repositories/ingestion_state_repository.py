@@ -93,11 +93,29 @@ class IngestionStateRepository:
         state.last_error = error[:2000]
         state.updated_at = failed_at
 
+    def get_run_by_idempotency_key(
+        self,
+        dataset: IngestionDataset,
+        idempotency_key: str,
+    ) -> IngestionRun | None:
+        stmt = select(IngestionRun).where(
+            IngestionRun.dataset == dataset,
+            IngestionRun.idempotency_key == idempotency_key,
+        )
+        return self.db.scalar(stmt)
+
     def create_run(
         self,
         dataset: IngestionDataset | None,
+        *,
+        idempotency_key: str | None = None,
+        request_fingerprint: str | None = None,
     ) -> IngestionRun:
-        run = IngestionRun(dataset=dataset)
+        run = IngestionRun(
+            dataset=dataset,
+            idempotency_key=idempotency_key,
+            request_fingerprint=request_fingerprint,
+        )
         self.db.add(run)
         self.db.flush()
         return run

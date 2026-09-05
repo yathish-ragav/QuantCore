@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from quantcore.core.exceptions import InvalidInputError
 from quantcore.ingestion.datasets import (
     DATASET_POLICIES,
     DATASET_SCOPES,
@@ -317,3 +318,117 @@ def test_sync_market_supports_sec_xbrl_fact_dataset():
     assert result[0].attempted == 1
     assert result[0].succeeded == 1
     fake_service.sync_facts.assert_called_once_with("AAPL")
+
+
+def test_idempotency_fingerprint_is_deterministic():
+    service = make_service()
+
+    first = service._request_fingerprint(
+        IngestionDataset.PRICE_HISTORY,
+        ["AAPL", "MSFT"],
+        10,
+        True,
+    )
+    second = service._request_fingerprint(
+        IngestionDataset.PRICE_HISTORY,
+        ["AAPL", "MSFT"],
+        10,
+        True,
+    )
+
+    assert first == second
+    assert len(first) == 64
+
+
+def test_idempotency_replays_completed_run_without_creating_work():
+    service = make_service()
+    run = Mock()
+    run.id = 7
+    run.status = IngestionRunStatus.COMPLETED
+    run.request_fingerprint = "fingerprint"
+    run.attempted = 2
+    run.succeeded = 2
+    run.skipped = 0
+    run.failed = 0
+    run.error_summary = None
+    service.state_repo.get_run_by_idempotency_key.return_value = run
+
+    result_run, replayed = service._get_or_create_run(
+        IngestionDataset.PRICE_HISTORY,
+        idempotency_key="run-123",
+        request_fingerprint="fingerprint",
+    )
+
+    assert result_run is run
+    assert replayed is True
+    service.state_repo.create_run.assert_not_called()
+
+
+def test_idempotency_rejects_different_request_fingerprint():
+    service = make_service()
+    run = Mock()
+    run.status = IngestionRunStatus.COMPLETED
+    run.request_fingerprint = "original"
+    service.state_repo.get_run_by_idempotency_key.return_value = run
+
+    with pytest.raises(InvalidInputError, match="different ingestion request"):
+        service._get_or_create_run(
+            IngestionDataset.PRICE_HISTORY,
+            idempotency_key="run-123",
+            request_fingerprint="different",
+        )
+
+
+def test_idempotency_rejects_existing_running_run():
+    service = make_service()
+    run = Mock()
+    run.status = IngestionRunStatus.RUNNING
+    run.request_fingerprint = "fingerprint"
+    service.state_repo.get_run_by_idempotency_key.return_value = run
+
+    with pytest.raises(InvalidInputError, match="already running"):
+        service._get_or_create_run(
+            IngestionDataset.PRICE_HISTORY,
+            idempotency_key="run-123",
+            request_fingerprint="fingerprint",
+        )
+
+
+def test_idempotency_key_is_validated_before_execution():
+    service = make_service()
+
+    with pytest.raises(InvalidInputError, match="must not be empty"):
+        service.sync_market(
+            datasets=[IngestionDataset.PRICE_HISTORY],
+            idempotency_key="   ",
+        )
+
+    with pytest.raises(InvalidInputError, match="at most 128 characters"):
+        service.sync_market(
+            datasets=[IngestionDataset.PRICE_HISTORY],
+            idempotency_key="x" * 129,
+        )
+
+
+def test_result_from_completed_run_preserves_counts_and_errors():
+    service = make_service()
+    run = Mock()
+    run.attempted = 3
+    run.succeeded = 2
+    run.skipped = 0
+    run.failed = 1
+    run.error_summary = "AAPL: provider unavailable; MSFT: timeout"
+
+    result = service._result_from_run(
+        IngestionDataset.NEWS,
+        run,
+    )
+
+    assert result.dataset is IngestionDataset.NEWS
+    assert result.attempted == 3
+    assert result.succeeded == 2
+    assert result.failed == 1
+    assert result.errors == (
+        "AAPL: provider unavailable",
+        "MSFT: timeout",
+    )

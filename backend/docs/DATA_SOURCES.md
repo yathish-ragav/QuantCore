@@ -148,6 +148,14 @@ execution contract that a future worker/scheduler can call; Redis, Celery,
 Kafka and WebSocket infrastructure are not introduced merely to make the
 architecture diagram look complete.
 
+Ingestion runs also support an optional caller-supplied idempotency key. For a
+given dataset, reusing the same key returns the previously completed run
+summary instead of executing the dataset again. QuantCore stores a request
+fingerprint with the run so accidental reuse of a key for different inputs is
+rejected. A key that is already running is also rejected rather than creating
+concurrent duplicate work. Callers that intentionally want a new execution
+should generate a new idempotency key.
+
 The market-wide scope is the **managed QuantCore universe**, currently the SEC
 ticker/exchange feed filtered to the explicitly supported US listed-equity
 exchanges. It must not be described as every US security until the instrument

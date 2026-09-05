@@ -1,7 +1,10 @@
+import hashlib
+import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import InvalidInputError
@@ -216,6 +219,100 @@ class IngestionOrchestrator:
 
         return views
 
+    @staticmethod
+    def _request_fingerprint(
+        dataset: IngestionDataset,
+        symbols: list[str] | None,
+        limit: int | None,
+        only_stale: bool,
+    ) -> str:
+        payload = {
+            "dataset": dataset.value,
+            "symbols": symbols,
+            "limit": limit,
+            "only_stale": only_stale,
+        }
+        encoded = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode("utf-8")
+        return hashlib.sha256(encoded).hexdigest()
+
+    @staticmethod
+    def _result_from_run(
+        dataset: IngestionDataset,
+        run,
+    ) -> IngestionResult:
+        errors = tuple(
+            part.strip()
+            for part in (run.error_summary or "").split("; ")
+            if part.strip()
+        )
+        return IngestionResult(
+            dataset=dataset,
+            attempted=run.attempted,
+            succeeded=run.succeeded,
+            skipped=run.skipped,
+            failed=run.failed,
+            errors=errors,
+        )
+
+    def _get_or_create_run(
+        self,
+        dataset: IngestionDataset,
+        *,
+        idempotency_key: str | None,
+        request_fingerprint: str,
+    ) -> tuple[object, bool]:
+        if idempotency_key is None:
+            return (
+                self.state_repo.create_run(dataset),
+                False,
+            )
+
+        existing = self.state_repo.get_run_by_idempotency_key(
+            dataset,
+            idempotency_key,
+        )
+        if existing is not None:
+            if existing.request_fingerprint != request_fingerprint:
+                raise InvalidInputError(
+                    "Idempotency key was already used for a different ingestion request."
+                )
+            if existing.status is IngestionRunStatus.RUNNING:
+                raise InvalidInputError(
+                    "An ingestion run with this idempotency key is already running."
+                )
+            return existing, True
+
+        try:
+            return (
+                self.state_repo.create_run(
+                    dataset,
+                    idempotency_key=idempotency_key,
+                    request_fingerprint=request_fingerprint,
+                ),
+                False,
+            )
+        except IntegrityError:
+            self.db.rollback()
+            existing = self.state_repo.get_run_by_idempotency_key(
+                dataset,
+                idempotency_key,
+            )
+            if existing is None:
+                raise
+            if existing.request_fingerprint != request_fingerprint:
+                raise InvalidInputError(
+                    "Idempotency key was already used for a different ingestion request."
+                )
+            if existing.status is IngestionRunStatus.RUNNING:
+                raise InvalidInputError(
+                    "An ingestion run with this idempotency key is already running."
+                )
+            return existing, True
+
     def sync_market(
         self,
         *,
@@ -223,6 +320,7 @@ class IngestionOrchestrator:
         symbols: list[str] | None = None,
         limit: int | None = None,
         only_stale: bool = True,
+        idempotency_key: str | None = None,
     ) -> list[IngestionResult]:
         """Run selected datasets across the active managed security universe.
 
@@ -238,6 +336,13 @@ class IngestionOrchestrator:
 
         if limit is not None and limit <= 0:
             raise InvalidInputError("Limit must be greater than zero.")
+
+        if idempotency_key is not None:
+            idempotency_key = idempotency_key.strip()
+            if not idempotency_key:
+                raise InvalidInputError("Idempotency key must not be empty.")
+            if len(idempotency_key) > 128:
+                raise InvalidInputError("Idempotency key must be at most 128 characters.")
 
         normalized_symbols = None
         if symbols is not None:
@@ -271,7 +376,21 @@ class IngestionOrchestrator:
 
         for dataset in selected:
             scope = DATASET_SCOPES[dataset]
-            run = self.state_repo.create_run(dataset)
+            request_fingerprint = self._request_fingerprint(
+                dataset,
+                normalized_symbols,
+                limit,
+                only_stale,
+            )
+            run, replayed = self._get_or_create_run(
+                dataset,
+                idempotency_key=idempotency_key,
+                request_fingerprint=request_fingerprint,
+            )
+            if replayed:
+                results.append(self._result_from_run(dataset, run))
+                continue
+
             self.db.commit()
 
             attempted = succeeded = skipped = failed = 0
