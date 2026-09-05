@@ -5,6 +5,7 @@ from .income_statement_repository import IncomeStatementRepository
 from .financial_statement_revision_repository import FinancialStatementRevisionRepository
 from .corporate_action_revision_repository import CorporateActionRevisionRepository
 from .ingestion_lineage_repository import IngestionLineageRepository
+from .ingestion_state_repository import IngestionStateRepository
 
 __all__ = [
     "CompanyRepository",
@@ -14,4 +15,5 @@ __all__ = [
     "FinancialStatementRevisionRepository",
     "CorporateActionRevisionRepository",
     "IngestionLineageRepository",
+    "IngestionStateRepository",
 ]

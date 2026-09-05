@@ -108,6 +108,8 @@ __all__ = [
     "ResearchPortfolioConstraintStatus",
     "ResearchPortfolioConstraintViolation",
     "ResearchPortfolioConstructionStatus",
+    "IngestionExecutionService",
+    "IngestionJobView",
     "IngestionHealthService",
     "IngestionHealthStatus",
     "IngestionHealthView",
@@ -190,3 +192,5 @@ from .research_portfolio_stress_service import (
     ResearchPortfolioStressService,
     ResearchStressScenarioDefinition,
 )
+
+from .ingestion_execution_service import IngestionExecutionService, IngestionJobView

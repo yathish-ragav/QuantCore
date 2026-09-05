@@ -7,6 +7,7 @@ from sqlalchemy import (
     Enum as SQLAlchemyEnum,
     ForeignKey,
     Integer,
+    JSON,
     String,
     UniqueConstraint,
 )
@@ -21,6 +22,15 @@ class IngestionRunStatus(str, Enum):
     COMPLETED = "COMPLETED"
     COMPLETED_WITH_ERRORS = "COMPLETED_WITH_ERRORS"
     FAILED = "FAILED"
+
+
+class IngestionJobStatus(str, Enum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    COMPLETED_WITH_ERRORS = "COMPLETED_WITH_ERRORS"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
 
 
 DATASET_ENUM = SQLAlchemyEnum(
@@ -44,6 +54,15 @@ SCOPE_ENUM = SQLAlchemyEnum(
 RUN_STATUS_ENUM = SQLAlchemyEnum(
     IngestionRunStatus,
     name="ingestion_run_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+    values_callable=lambda enum: [member.value for member in enum],
+)
+
+JOB_STATUS_ENUM = SQLAlchemyEnum(
+    IngestionJobStatus,
+    name="ingestion_job_status",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -151,6 +170,93 @@ class IngestionState(Base):
     )
 
 
+class IngestionJob(Base):
+    """Persistent requested ingestion work item awaiting execution."""
+
+    __tablename__ = "ingestion_jobs"
+
+    __table_args__ = (
+        CheckConstraint("target_limit IS NULL OR target_limit > 0", name="ck_ingestion_job_limit_positive"),
+        CheckConstraint("attempt_count >= 0", name="ck_ingestion_job_attempt_nonnegative"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    dataset: Mapped[IngestionDataset] = mapped_column(
+        DATASET_ENUM,
+        nullable=False,
+        index=True,
+    )
+
+    symbols: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+
+    target_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    only_stale: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=True,
+        server_default="1",
+    )
+
+    idempotency_key: Mapped[str] = mapped_column(
+        String(128),
+        nullable=False,
+        unique=True,
+    )
+
+    request_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    status: Mapped[IngestionJobStatus] = mapped_column(
+        JOB_STATUS_ENUM,
+        nullable=False,
+        default=IngestionJobStatus.QUEUED,
+        server_default=IngestionJobStatus.QUEUED.value,
+        index=True,
+    )
+
+    attempt_count: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+        server_default="0",
+    )
+
+    submitted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    started_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    finished_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    worker_id: Mapped[str | None] = mapped_column(
+        String(128),
+        nullable=True,
+    )
+
+    heartbeat_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    error_summary: Mapped[str | None] = mapped_column(
+        String(4000),
+        nullable=True,
+    )
+
+
 class IngestionRun(Base):
     """Audit record for a coordinator execution."""
 
@@ -162,9 +268,31 @@ class IngestionRun(Base):
             "idempotency_key",
             name="uq_ingestion_run_dataset_idempotency",
         ),
+        UniqueConstraint(
+            "job_id",
+            "attempt_number",
+            name="uq_ingestion_run_job_attempt",
+        ),
+        CheckConstraint(
+            "attempt_number >= 1",
+            name="ck_ingestion_run_attempt_positive",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+
+    job_id: Mapped[int | None] = mapped_column(
+        ForeignKey("ingestion_jobs.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    attempt_number: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=1,
+        server_default="1",
+    )
 
     dataset: Mapped[IngestionDataset | None] = mapped_column(
         DATASET_ENUM,

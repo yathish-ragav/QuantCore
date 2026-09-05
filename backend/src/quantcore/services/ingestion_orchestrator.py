@@ -49,6 +49,7 @@ class IngestionResult:
     skipped: int
     failed: int
     errors: tuple[str, ...]
+    run_id: int | None = None
 
 
 @dataclass(frozen=True)
@@ -306,6 +307,7 @@ class IngestionOrchestrator:
             skipped=run.skipped,
             failed=run.failed,
             errors=errors,
+            run_id=run.id,
         )
 
     def _get_or_create_run(
@@ -314,6 +316,8 @@ class IngestionOrchestrator:
         *,
         idempotency_key: str | None,
         request_fingerprint: str,
+        job_id: int | None = None,
+        attempt_number: int = 1,
     ) -> tuple[object, bool]:
         if idempotency_key is None:
             return (
@@ -342,6 +346,8 @@ class IngestionOrchestrator:
                     dataset,
                     idempotency_key=idempotency_key,
                     request_fingerprint=request_fingerprint,
+                    job_id=job_id,
+                    attempt_number=attempt_number,
                 ),
                 False,
             )
@@ -410,6 +416,8 @@ class IngestionOrchestrator:
         limit: int | None = None,
         only_stale: bool = True,
         idempotency_key: str | None = None,
+        job_id: int | None = None,
+        attempt_number: int = 1,
     ) -> list[IngestionResult]:
         """Run selected datasets across the active managed security universe.
 
@@ -425,6 +433,11 @@ class IngestionOrchestrator:
 
         if limit is not None and limit <= 0:
             raise InvalidInputError("Limit must be greater than zero.")
+
+        if job_id is not None and job_id <= 0:
+            raise InvalidInputError("Job id must be greater than zero.")
+        if attempt_number < 1:
+            raise InvalidInputError("Attempt number must be at least one.")
 
         if idempotency_key is not None:
             idempotency_key = idempotency_key.strip()
@@ -475,6 +488,8 @@ class IngestionOrchestrator:
                 dataset,
                 idempotency_key=idempotency_key,
                 request_fingerprint=request_fingerprint,
+                job_id=job_id,
+                attempt_number=attempt_number,
             )
             if replayed:
                 results.append(self._result_from_run(dataset, run))
@@ -653,6 +668,7 @@ class IngestionOrchestrator:
                     skipped=skipped,
                     failed=failed,
                     errors=tuple(errors),
+                    run_id=run.id,
                 )
             )
 
