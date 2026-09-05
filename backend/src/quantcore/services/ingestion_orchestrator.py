@@ -16,6 +16,7 @@ from quantcore.ingestion.datasets import (
     IngestionScope,
 )
 from quantcore.models.ingestion import IngestionRunStatus, IngestionState
+from quantcore.services.ingestion_lineage_service import IngestionLineageService
 from quantcore.ingestion.retry import IngestionRetryPolicy
 from quantcore.models.security import Security, SecurityStatus
 from quantcore.repositories.ingestion_state_repository import (
@@ -80,6 +81,7 @@ class IngestionOrchestrator:
     ):
         self.db = db
         self.state_repo = IngestionStateRepository(db)
+        self.lineage_service = IngestionLineageService(db)
         self.retry_policy = retry_policy or IngestionRetryPolicy()
         self._sleeper = sleeper
 
@@ -100,6 +102,18 @@ class IngestionOrchestrator:
             IngestionDataset.SEC_XBRL_FACTS: SECXBRLFactService,
         }
         return services[dataset](db)
+
+    @staticmethod
+    def _source_for(service) -> str | None:
+        return getattr(
+            getattr(service, "provider", None),
+            "SOURCE",
+            getattr(
+                getattr(service, "client", None),
+                "SOURCE",
+                None,
+            ),
+        )
 
     def _sync_with_retry(
         self,
@@ -532,19 +546,31 @@ class IngestionOrchestrator:
                             dataset,
                             security.symbol,
                         )
+                        succeeded_at = datetime.now(timezone.utc)
+                        source = self._source_for(service)
                         self.state_repo.mark_success(
                             state,
-                            succeeded_at=datetime.now(timezone.utc),
-                            source=getattr(
-                                getattr(service, "provider", None),
-                                "SOURCE",
-                                getattr(
-                                    getattr(service, "client", None),
-                                    "SOURCE",
-                                    None,
-                                ),
-                            ),
+                            succeeded_at=succeeded_at,
+                            source=source,
                             records=records,
+                        )
+                        self.lineage_service.record_success(
+                            ingestion_run_id=run.id,
+                            dataset=dataset,
+                            scope=scope,
+                            company_id=(
+                                security.company_id
+                                if scope is IngestionScope.COMPANY
+                                else None
+                            ),
+                            security_id=(
+                                security.id
+                                if scope is IngestionScope.SECURITY
+                                else None
+                            ),
+                            source=source,
+                            records_processed=records,
+                            recorded_at=succeeded_at,
                         )
                         self.db.commit()
                         succeeded += 1

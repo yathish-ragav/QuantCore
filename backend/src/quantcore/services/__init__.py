@@ -52,6 +52,7 @@ from .historical_coverage_service import (
     HistoricalCoverageService,
     HistoricalCoverageStatus,
 )
+from .ingestion_lineage_service import IngestionLineageService
 from .ingestion_quality_service import (
     IngestionQualityAssessment,
     IngestionQualityService,
@@ -116,6 +117,7 @@ __all__ = [
     "HistoricalCoverageResult",
     "HistoricalCoverageService",
     "HistoricalCoverageStatus",
+    "IngestionLineageService",
     "ResearchRebalanceDefinition",
     "ResearchRebalanceFrequency",
     "ResearchRebalanceAction",

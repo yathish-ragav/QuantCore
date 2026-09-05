@@ -907,3 +907,31 @@ and repositories remain responsible for obtaining observations; market
 calendar and publication-calendar logic remains outside the generic coverage
 service. Research and backtesting consumers can therefore require an explicit
 coverage result before treating a historical interval as usable.
+
+
+## Ingestion lineage and provenance
+
+`IngestionLineage` provides the execution-level bridge between the ingestion coordinator
+and the company/security entity whose data was successfully persisted. Each successful
+entity-level ingestion records the coordinator run, dataset, entity scope and identity,
+provider source, processed-record count, and timestamp.
+
+This complements the existing row-level provenance fields (`source`, `fetched_at`, and
+`source_reference`) rather than replacing them. The lineage record answers **which
+ingestion execution produced this entity's persisted dataset**, while dataset-specific
+rows retain their more precise source references where available.
+
+Only successful entity ingestion is recorded as a lineage edge. Freshness skips are not
+new data production events, and failed attempts remain represented by the ingestion run
+and failure/health state rather than being presented as successful provenance.
+
+The lineage identity is deterministic within an execution: a run can have at most one
+lineage record for a given company or security. Historical runs are retained, so an
+entity can be traced across successive ingestion executions without overwriting the
+execution history.
+
+This is execution-level lineage, not yet a universal row-to-row dependency graph.
+Research observations continue to carry their own input manifest and fingerprint, while
+source datasets retain their existing provenance. Future experiment and evidence layers
+can use these identifiers to build higher-level research lineage without coupling the
+ingestion coordinator to every downstream calculation.

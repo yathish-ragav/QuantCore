@@ -11,6 +11,7 @@ from quantcore.models.balance_sheet import BalanceSheet
 from quantcore.models.provenance import CompanyFieldProvenance
 from quantcore.models.financial_statement import FinancialStatementMetadataMixin
 from quantcore.models.ingestion import IngestionRun, IngestionState
+from quantcore.models.ingestion_lineage import IngestionLineage
 from quantcore.models.sec_filing import FilingEvent, SECFiling
 from quantcore.models.corporate_action import CorporateAction
 from quantcore.models.corporate_action_revision import CorporateActionRevision
@@ -33,6 +34,7 @@ __all__ = [
     "FinancialStatementMetadataMixin",
     "IngestionRun",
     "IngestionState",
+    "IngestionLineage",
     "SECFiling",
     "FilingEvent",
     "CorporateAction",

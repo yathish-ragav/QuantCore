@@ -57,6 +57,7 @@ def make_service():
     service = IngestionOrchestrator.__new__(IngestionOrchestrator)
     service.db = Mock()
     service.state_repo = Mock()
+    service.lineage_service = Mock()
     service.retry_policy = IngestionRetryPolicy(max_attempts=1)
     service._sleeper = Mock()
     return service
@@ -162,6 +163,15 @@ def test_sync_market_deduplicates_company_scoped_work():
     assert result[0].succeeded == 1
     fake_dataset_service.sync_balance_sheets.assert_called_once_with("AAPL")
     service.state_repo.finish_run.assert_called_once()
+    service.lineage_service.record_success.assert_called_once()
+    lineage_kwargs = service.lineage_service.record_success.call_args.kwargs
+    assert lineage_kwargs["ingestion_run_id"] == run.id
+    assert lineage_kwargs["dataset"] is dataset
+    assert lineage_kwargs["scope"] is IngestionScope.COMPANY
+    assert lineage_kwargs["company_id"] == security_a.company_id
+    assert lineage_kwargs["security_id"] is None
+    assert lineage_kwargs["source"] == "FMP"
+    assert lineage_kwargs["records_processed"] == 1
 
     service._service_for = original
 
@@ -228,6 +238,7 @@ def test_sync_market_records_failure_without_stopping_other_symbols():
     assert len(result[0].errors) == 1
     service.state_repo.mark_failure.assert_called_once()
     service.state_repo.finish_run.assert_called_once()
+    service.lineage_service.record_success.assert_called_once()
 
 
 def test_sync_market_supports_sec_filing_dataset():
