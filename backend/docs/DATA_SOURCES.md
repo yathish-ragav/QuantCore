@@ -716,3 +716,19 @@ slippage, market impact, orders, fills, broker instructions, or execution semant
 `ResearchTransactionCostService` converts a versioned proportional transaction-cost definition and a validated `ResearchRebalance` into a deterministic portfolio cost. The initial model expresses a one-way cost rate in basis points and applies it to the rebalance's one-way weight turnover: `cost_bps = turnover * one_way_cost_bps`, with `cost_fraction = cost_bps / 10,000`.
 
 The result preserves rebalance, strategy, signal, and cost-definition provenance and reports an explicit `NO_TURNOVER` status when the transition has zero turnover. This boundary does not invent dollar commissions, bid/ask spreads, slippage, market impact, execution prices, orders, fills, or broker semantics because the current research rebalance contract does not contain the required execution inputs. Richer cost models can be added as separate versioned methodologies later.
+
+## Backtesting
+
+`ResearchBacktestService` runs a deterministic weight-based historical backtest from an ordered
+sequence of constructed target portfolios at explicit `as_of` boundaries. The first target
+establishes the initial allocation; each later target is treated as the next rebalance boundary.
+Historical valuation uses the first available price strictly after each period boundary, preserving
+the information-boundary convention used by forward-return research. The configured `PriceBasis`
+must be used consistently, and missing or invalid historical prices are explicit input failures.
+
+Each period records starting and ending equity, gross return, transaction-cost fraction, net return,
+turnover, and completion status. Transaction costs are consumed from the versioned rebalance
+transition rather than recomputed. Portfolio constraints are validated at every target boundary
+before the backtest proceeds. The first implementation deliberately uses successive target weights
+for turnover and does not model intra-period weight drift, share-level fills, slippage, market impact,
+risk metrics, attribution, or order execution. Those are separate future methodologies.
