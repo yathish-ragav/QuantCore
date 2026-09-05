@@ -148,6 +148,32 @@ execution contract that a future worker/scheduler can call; Redis, Celery,
 Kafka and WebSocket infrastructure are not introduced merely to make the
 architecture diagram look complete.
 
+## Ingestion health
+
+QuantCore exposes a deterministic health classification on top of the existing
+ingestion state. This is an operational signal, not a claim that the underlying
+dataset is financially correct.
+
+For a security symbol and each registered dataset, the health layer classifies
+the latest known state as:
+
+- `NEVER_INGESTED`: no successful ingestion has been recorded.
+- `FAILED`: the latest attempt failed after the most recent success, or there
+  has never been a successful ingestion.
+- `STALE`: the last successful ingestion exists but is outside the dataset's
+  configured freshness window.
+- `HEALTHY`: the last successful ingestion is inside the freshness window and
+  there is no outstanding failure state.
+
+The overall symbol health is the worst dataset status. Classification is
+derived from `IngestionOrchestrator.get_freshness()` and therefore does not
+duplicate provider validation or persistence logic.
+
+This layer is intentionally read-only: it does not mutate ingestion state,
+retry work, or quarantine data. Dataset-level quality validation and
+quarantine remain a separate concern so operational health is not confused
+with financial-data correctness.
+
 Ingestion runs also support an optional caller-supplied idempotency key. For a
 given dataset, reusing the same key returns the previously completed run
 summary instead of executing the dataset again. QuantCore stores a request
