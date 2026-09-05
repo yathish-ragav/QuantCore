@@ -103,6 +103,8 @@ __all__ = [
     "ResearchTransactionCostResult",
     "ResearchTransactionCostService",
     "ResearchTransactionCostStatus",
+    "ResearchBacktestPerformance",
+    "ResearchBacktestPerformanceService",
     "ResearchBacktestDefinition",
     "ResearchBacktestPeriod",
     "ResearchBacktestPeriodStatus",
@@ -114,6 +116,11 @@ __all__ = [
     "ResearchStrategyDirection",
     "ResearchStrategyService",
 ]
+
+from .research_backtest_performance_service import (
+    ResearchBacktestPerformance,
+    ResearchBacktestPerformanceService,
+)
 
 from .research_backtest_service import (
     ResearchBacktestDefinition,

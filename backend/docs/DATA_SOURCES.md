@@ -732,3 +732,17 @@ transition rather than recomputed. Portfolio constraints are validated at every 
 before the backtest proceeds. The first implementation deliberately uses successive target weights
 for turnover and does not model intra-period weight drift, share-level fills, slippage, market impact,
 risk metrics, attribution, or order execution. Those are separate future methodologies.
+
+## Backtest performance analytics
+
+`ResearchBacktestPerformanceService` derives deterministic performance and realized-risk
+metrics from a completed `ResearchBacktest` without fetching new data or changing the
+strategy. It reports total return, CAGR-style annualized return over the backtest calendar
+interval, annualized realized log-return volatility, maximum drawdown, maximum drawdown
+duration, average period return, win/loss/flat period counts, win rate, and average turnover.
+
+Volatility is based on each completed period's log return converted to an annualized rate
+and weighted by elapsed calendar time, so the methodology does not assume that every
+backtest period has identical length. Drawdown is measured from the running equity peak,
+starting at initial capital. These metrics describe realized historical behavior only;
+they do not constitute a risk forecast, factor-risk model, stress test, or execution model.
