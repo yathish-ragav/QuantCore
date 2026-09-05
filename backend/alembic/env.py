@@ -20,6 +20,7 @@ from quantcore.models.cash_flow_statement import CashFlowStatement
 from quantcore.models.balance_sheet import BalanceSheet
 from quantcore.models.provenance import CompanyFieldProvenance
 from quantcore.models.ingestion import IngestionJob, IngestionRun, IngestionState
+from quantcore.models.ingestion_schedule import IngestionSchedule
 from quantcore.models.sec_filing import FilingEvent, SECFiling
 from quantcore.models.corporate_action import CorporateAction
 from quantcore.models.corporate_action_revision import CorporateActionRevision

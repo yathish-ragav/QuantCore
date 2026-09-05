@@ -109,6 +109,9 @@ __all__ = [
     "ResearchPortfolioConstraintViolation",
     "ResearchPortfolioConstructionStatus",
     "IngestionExecutionService",
+    "IngestionScheduleService",
+    "IngestionScheduleView",
+    "ScheduledIngestionTrigger",
     "IngestionJobView",
     "IngestionHealthService",
     "IngestionHealthStatus",
@@ -194,3 +197,9 @@ from .research_portfolio_stress_service import (
 )
 
 from .ingestion_execution_service import IngestionExecutionService, IngestionJobView
+
+from .ingestion_schedule_service import (
+    IngestionScheduleService,
+    IngestionScheduleView,
+    ScheduledIngestionTrigger,
+)

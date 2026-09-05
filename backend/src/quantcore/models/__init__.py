@@ -17,6 +17,7 @@ from quantcore.models.ingestion import (
     IngestionState,
 )
 from quantcore.models.ingestion_lineage import IngestionLineage
+from quantcore.models.ingestion_schedule import IngestionSchedule
 from quantcore.models.sec_filing import FilingEvent, SECFiling
 from quantcore.models.corporate_action import CorporateAction
 from quantcore.models.corporate_action_revision import CorporateActionRevision
@@ -42,6 +43,7 @@ __all__ = [
     "IngestionRun",
     "IngestionState",
     "IngestionLineage",
+    "IngestionSchedule",
     "SECFiling",
     "FilingEvent",
     "CorporateAction",

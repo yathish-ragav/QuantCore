@@ -935,3 +935,9 @@ Research observations continue to carry their own input manifest and fingerprint
 source datasets retain their existing provenance. Future experiment and evidence layers
 can use these identifiers to build higher-level research lineage without coupling the
 ingestion coordinator to every downstream calculation.
+
+## Scheduled Ingestion / Job Triggering
+
+QuantCore persists ingestion schedules separately from ingestion execution. A schedule defines a dataset request, interval, next due time, and enabled state. `IngestionScheduleService.trigger_due()` converts due schedules into persistent `ingestion_jobs` without executing provider work itself.
+
+The scheduled timestamp is incorporated into the generated job idempotency key. Schedule advancement and job creation occur in the same database transaction, and missed intervals are coalesced rather than replayed as a burst. The trigger layer is therefore compatible with an external cron/systemd/Kubernetes scheduler without coupling the application to a scheduler framework.

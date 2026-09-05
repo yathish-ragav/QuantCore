@@ -16,4 +16,7 @@ __all__ = [
     "CorporateActionRevisionRepository",
     "IngestionLineageRepository",
     "IngestionStateRepository",
+    "IngestionScheduleRepository",
 ]
+
+from .ingestion_schedule_repository import IngestionScheduleRepository
