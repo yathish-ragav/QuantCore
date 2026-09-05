@@ -148,3 +148,8 @@ from .research_strategy_service import (
     ResearchStrategyDirection,
     ResearchStrategyService,
 )
+
+from .research_portfolio_risk_service import (
+    ResearchPortfolioRiskService,
+    ResearchPortfolioRiskSnapshot,
+)

@@ -764,3 +764,17 @@ difference between recorded net and gross return.
 The service requires the target portfolio used at each period start and the same historical
 price basis as the backtest. It does not allocate transaction costs to individual
 securities, infer causal effects, forecast returns, or change portfolio weights.
+
+## Portfolio risk and exposure analytics
+
+`ResearchPortfolioRiskService` produces a deterministic descriptive risk snapshot from an existing
+`ResearchPortfolio` without changing the portfolio or accessing market data. It reports position
+counts, long/short/gross/net exposure, maximum absolute position weight, net-to-gross exposure ratio,
+and weight concentration using Herfindahl-Hirschman Index (HHI) with its corresponding effective
+position count. Long and short legs also receive separate concentration metrics.
+
+Concentration is calculated from absolute portfolio weights normalized within the relevant gross,
+long, or short exposure. An empty portfolio has zero exposure and zero concentration; no artificial
+risk is inferred. The snapshot is an exposure representation, not a return forecast or covariance
+model. It does not calculate volatility, factor exposures, stress losses, liquidity risk, transaction
+costs, or execution outcomes; those are separate risk methodologies.
