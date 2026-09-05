@@ -158,3 +158,9 @@ from .research_portfolio_factor_risk_service import (
     ResearchPortfolioFactorRiskService,
     ResearchPortfolioFactorRiskSnapshot,
 )
+from .research_portfolio_stress_service import (
+    ResearchPortfolioStressImpact,
+    ResearchPortfolioStressResult,
+    ResearchPortfolioStressService,
+    ResearchStressScenarioDefinition,
+)

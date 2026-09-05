@@ -784,3 +784,9 @@ costs, or execution outcomes; those are separate risk methodologies.
 `ResearchPortfolioFactorRiskService` computes deterministic rank-based factor exposures for an existing constructed portfolio using versioned, rank-normalized factor panels at the portfolio's exact `as_of` boundary. Each factor exposure is the signed portfolio-weighted sum of centered normalized ranks, with separate long/short contributions, gross factor contribution, and gross-normalized exposure.
 
 This is a descriptive factor-loading representation on the existing rank scale. It is not a regression beta, covariance model, factor return forecast, or stress model. Missing factor observations for held securities, duplicate observations, identity mismatches, and invalid ranks are explicit input failures. The service does not mutate portfolios, fetch market data, forecast returns, or perform execution.
+
+## Portfolio scenario and stress-risk analytics
+
+`ResearchPortfolioStressService` applies a versioned, deterministic hypothetical return-shock scenario to an existing constructed target portfolio. A scenario can provide security-specific shocks and may optionally define a default shock for broad scenarios such as a market selloff; security-specific values take precedence. Each position's stress contribution is its target weight multiplied by the scenario return shock, so long and short directions are preserved explicitly.
+
+The result reports the aggregate hypothetical portfolio return, optional capital-scaled P&L and stressed value, and security-level contributions with strategy, signal, scenario, and `as_of` provenance. When no default shock is configured, every held security must have an explicit shock. Shocks below -100% are rejected. This is a deterministic what-if analysis, not a forecast, historical observation, covariance model, factor model, liquidity model, or execution simulation; it does not fetch data or mutate portfolio weights.
