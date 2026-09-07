@@ -24,6 +24,7 @@ dependencies = [
 
 [project.scripts]
 quantcore-ingestion-worker = "quantcore.services.ingestion_worker:main"
+quantcore-ingestion-scheduler = "quantcore.services.ingestion_scheduler:main"
 
 [build-system]
 requires = ["uv_build>=0.12.0,<0.13.0"]
