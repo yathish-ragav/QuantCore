@@ -79,3 +79,26 @@ def test_worker_claims_then_executes_with_same_worker_id():
         db.close.assert_called_once()
     finally:
         module.IngestionExecutionService = original
+
+
+def test_worker_survives_transient_recovery_failure():
+    worker = IngestionWorker(
+        session_factory=Mock(),
+        worker_id="worker-a",
+        config=IngestionWorkerConfig(
+            poll_interval_seconds=1,
+            recovery_interval_seconds=30,
+        ),
+    )
+    worker.recover_stale = Mock(side_effect=RuntimeError("database unavailable"))
+
+    def stop_after_poll():
+        worker.stop()
+        return False
+
+    worker.run_once = Mock(side_effect=stop_after_poll)
+
+    worker.run_forever()
+
+    worker.recover_stale.assert_called_once()
+    worker.run_once.assert_called_once()

@@ -147,12 +147,21 @@ class IngestionWorker:
                 if (
                     now - self._last_recovery_at
                 ).total_seconds() >= self.config.recovery_interval_seconds:
-                    recovered = self.recover_stale()
+                    # Recovery is an operational maintenance pass. A transient
+                    # database/provider failure here must not terminate the
+                    # worker process; the next scheduled pass can retry it.
                     self._last_recovery_at = now
-                    if recovered:
-                        logger.warning(
-                            "Recovered %s stale ingestion execution(s)", recovered
+                    try:
+                        recovered = self.recover_stale()
+                    except Exception:
+                        logger.exception(
+                            "Ingestion worker failed while recovering stale executions"
                         )
+                    else:
+                        if recovered:
+                            logger.warning(
+                                "Recovered %s stale ingestion execution(s)", recovered
+                            )
 
                 try:
                     worked = self.run_once()
