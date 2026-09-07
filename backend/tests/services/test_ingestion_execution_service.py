@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.exceptions import IngestionJobClaimConflictError, InvalidInputError
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.models.ingestion import IngestionJobStatus
 from quantcore.services.ingestion_execution_service import IngestionExecutionService
@@ -124,6 +124,18 @@ def test_claim_is_single_winner():
     service.db.commit.assert_called_once()
 
 
+def test_claim_raises_typed_conflict_when_atomic_claim_loses():
+    service = make_service()
+    job = make_job()
+    service.repository.get_job.return_value = job
+    service.repository.claim_job.return_value = False
+
+    with pytest.raises(IngestionJobClaimConflictError, match="claimed by another worker"):
+        service.claim(7, worker_id="worker-a")
+
+    service.db.commit.assert_not_called()
+
+
 def test_claim_rejects_already_running_job():
     service = make_service()
     service.repository.get_job.return_value = make_job(
@@ -170,8 +182,8 @@ def test_execute_finishes_job_from_deterministic_orchestrator_result():
         job_id=7,
         attempt_number=1,
     )
-    service.repository.finish_job.assert_called_once()
-    assert service.repository.finish_job.call_args.kwargs["status"] is IngestionJobStatus.COMPLETED_WITH_ERRORS
+    service.repository.finish_owned_job.assert_called_once()
+    assert service.repository.finish_owned_job.call_args.kwargs["status"] is IngestionJobStatus.COMPLETED_WITH_ERRORS
 
 
 def test_heartbeat_requires_owning_worker():
@@ -183,6 +195,21 @@ def test_heartbeat_requires_owning_worker():
 
     with pytest.raises(InvalidInputError, match="owning worker"):
         service.heartbeat(7, worker_id="worker-b")
+
+
+def test_heartbeat_rejects_stale_attempt():
+    service = make_service()
+    job = make_job(
+        status=IngestionJobStatus.RUNNING,
+        attempt_count=2,
+        worker_id="worker-a",
+    )
+    service.repository.get_job.return_value = job
+
+    with pytest.raises(InvalidInputError, match="this job attempt"):
+        service.heartbeat(7, worker_id="worker-a", attempt_number=1)
+
+    service.repository.heartbeat_job.assert_not_called()
 
 
 def test_cancel_only_allows_queued_jobs():
@@ -218,6 +245,7 @@ def test_recover_stale_jobs_marks_abandoned_work_failed():
         heartbeat_at=NOW - timedelta(hours=2),
     )
     service.repository.get_running_jobs_started_before.return_value = [job]
+    service.repository.recover_stale_job.return_value = True
     service.orchestrator.recover_stale_runs.return_value = 1
 
     recovered = service.recover_stale(
@@ -226,5 +254,60 @@ def test_recover_stale_jobs_marks_abandoned_work_failed():
     )
 
     assert recovered == 1
-    service.repository.finish_job.assert_called_once()
-    assert service.repository.finish_job.call_args.kwargs["status"] is IngestionJobStatus.FAILED
+    service.repository.recover_stale_job.assert_called_once_with(
+        job,
+        cutoff=NOW - timedelta(hours=1),
+        recovered_at=NOW,
+    )
+
+
+def test_execute_passes_claimed_attempt_to_execution():
+    service = make_service()
+    claimed = make_job(attempt_count=3)
+    service.repository.get_job.return_value = claimed
+    service.repository.claim_job.return_value = True
+    service.execute_claimed = Mock(return_value=object())
+
+    result = service.execute(7, worker_id="worker-a")
+
+    assert result is service.execute_claimed.return_value
+    service.execute_claimed.assert_called_once_with(
+        7, worker_id="worker-a", attempt_number=3
+    )
+
+
+def test_execute_next_returns_none_on_typed_claim_conflict():
+    service = make_service()
+    service.repository.get_queued_jobs.return_value = [make_job()]
+    service.execute = Mock(side_effect=IngestionJobClaimConflictError("lost claim"))
+
+    assert service.execute_next(worker_id="worker-a") is None
+
+
+def test_execute_rejects_completion_after_worker_lease_is_lost():
+    service = make_service()
+    running = make_job(
+        status=IngestionJobStatus.RUNNING,
+        attempt_count=1,
+        worker_id="worker-a",
+    )
+    service.repository.get_job.side_effect = [running, running]
+    service.repository.claim_job.return_value = True
+    service.repository.finish_owned_job.return_value = False
+    service.orchestrator.sync_market.return_value = [
+        IngestionResult(
+            dataset=IngestionDataset.PRICE_HISTORY,
+            eligible=1,
+            attempted=1,
+            succeeded=1,
+            skipped=0,
+            failed=0,
+            errors=(),
+            run_id=13,
+        )
+    ]
+
+    with pytest.raises(InvalidInputError, match="lease was lost"):
+        service.execute_claimed(7, worker_id="worker-a", attempt_number=1)
+
+    service.repository.finish_owned_job.assert_called_once()

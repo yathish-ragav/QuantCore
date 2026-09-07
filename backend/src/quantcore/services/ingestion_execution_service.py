@@ -8,7 +8,10 @@ from uuid import uuid4
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.exceptions import (
+    IngestionJobClaimConflictError,
+    InvalidInputError,
+)
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.models.ingestion import (
     IngestionJob,
@@ -19,6 +22,10 @@ from quantcore.services.ingestion_orchestrator import (
     IngestionOrchestrator,
     IngestionResult,
 )
+
+
+class _JobLeaseLostError(RuntimeError):
+    """Internal control-flow exception for a lost execution lease."""
 
 
 @dataclass(frozen=True)
@@ -175,7 +182,9 @@ class IngestionExecutionService:
 
         now = datetime.now(timezone.utc)
         if not self.repository.claim_job(job, worker_id=worker_id, started_at=now):
-            raise InvalidInputError(f"Ingestion job {job_id} was claimed by another worker.")
+            raise IngestionJobClaimConflictError(
+                f"Ingestion job {job_id} was claimed by another worker."
+            )
 
         self.db.commit()
         return self._view(job)
@@ -183,12 +192,44 @@ class IngestionExecutionService:
     def execute(self, job_id: int, *, worker_id: str) -> IngestionResult:
         """Claim and execute one job through the existing deterministic core."""
         claimed = self.claim(job_id, worker_id=worker_id)
+        return self.execute_claimed(
+            job_id,
+            worker_id=worker_id,
+            attempt_number=claimed.attempt_count,
+        )
+
+    def execute_claimed(
+        self,
+        job_id: int,
+        *,
+        worker_id: str,
+        attempt_number: int | None = None,
+    ) -> IngestionResult:
+        """Execute a job already claimed by the supplied worker."""
+        if job_id <= 0:
+            raise InvalidInputError("Job id must be greater than zero.")
+        worker_id = worker_id.strip()
+        if not worker_id or len(worker_id) > 128:
+            raise InvalidInputError("Worker id must be 1-128 characters.")
         job = self.repository.get_job(job_id)
         if job is None:
-            raise InvalidInputError(f"Ingestion job {job_id} disappeared after claim.")
+            raise InvalidInputError(f"Ingestion job {job_id} was not found.")
+        if job.status is not IngestionJobStatus.RUNNING or job.worker_id != worker_id:
+            raise InvalidInputError("Only the owning worker may execute a running job.")
+        expected_attempt = job.attempt_count if attempt_number is None else attempt_number
+        if expected_attempt < 1:
+            raise InvalidInputError("Attempt number must be at least one.")
+        if job.attempt_count != expected_attempt:
+            raise InvalidInputError("Only the owning worker may execute this job attempt.")
 
         try:
-            self.repository.heartbeat_job(job, at=datetime.now(timezone.utc))
+            if not self.repository.heartbeat_job(
+                job,
+                worker_id=worker_id,
+                attempt_number=expected_attempt,
+                at=datetime.now(timezone.utc),
+            ):
+                raise _JobLeaseLostError
             self.db.commit()
 
             results = self.orchestrator.sync_market(
@@ -211,22 +252,33 @@ class IngestionExecutionService:
             )
             job = self.repository.get_job(job_id)
             if job is not None:
-                self.repository.finish_job(
+                finished = self.repository.finish_owned_job(
                     job,
+                    worker_id=worker_id,
                     status=status,
                     finished_at=datetime.now(timezone.utc),
+                    attempt_number=expected_attempt,
                     error_summary="; ".join(result.errors) if result.errors else None,
                 )
                 self.db.commit()
+                if not finished:
+                    raise _JobLeaseLostError
             return result
+        except _JobLeaseLostError:
+            self.db.rollback()
+            raise InvalidInputError(
+                "Ingestion job lease was lost before completion."
+            )
         except Exception as exc:
             self.db.rollback()
             job = self.repository.get_job(job_id)
             if job is not None and job.status is IngestionJobStatus.RUNNING:
-                self.repository.finish_job(
+                self.repository.finish_owned_job(
                     job,
+                    worker_id=worker_id,
                     status=IngestionJobStatus.FAILED,
                     finished_at=datetime.now(timezone.utc),
+                    attempt_number=expected_attempt,
                     error_summary=str(exc),
                 )
                 self.db.commit()
@@ -239,12 +291,16 @@ class IngestionExecutionService:
             return None
         try:
             return self.execute(jobs[0].id, worker_id=worker_id)
-        except InvalidInputError as exc:
-            if "claimed by another worker" in str(exc):
-                return None
-            raise
+        except IngestionJobClaimConflictError:
+            return None
 
-    def heartbeat(self, job_id: int, *, worker_id: str) -> IngestionJobView:
+    def heartbeat(
+        self,
+        job_id: int,
+        *,
+        worker_id: str,
+        attempt_number: int | None = None,
+    ) -> IngestionJobView:
         if job_id <= 0:
             raise InvalidInputError("Job id must be greater than zero.")
         worker_id = worker_id.strip()
@@ -253,7 +309,19 @@ class IngestionExecutionService:
             raise InvalidInputError(f"Ingestion job {job_id} was not found.")
         if job.status is not IngestionJobStatus.RUNNING or job.worker_id != worker_id:
             raise InvalidInputError("Only the owning worker may heartbeat a running job.")
-        self.repository.heartbeat_job(job, at=datetime.now(timezone.utc))
+        expected_attempt = job.attempt_count if attempt_number is None else attempt_number
+        if expected_attempt < 1:
+            raise InvalidInputError("Attempt number must be at least one.")
+        if job.attempt_count != expected_attempt:
+            raise InvalidInputError("Only the owning worker may heartbeat this job attempt.")
+        if not self.repository.heartbeat_job(
+            job,
+            worker_id=worker_id,
+            attempt_number=expected_attempt,
+            at=datetime.now(timezone.utc),
+        ):
+            self.db.rollback()
+            raise InvalidInputError("Only the owning worker may heartbeat this job attempt.")
         self.db.commit()
         return self._view(job)
 
@@ -303,18 +371,20 @@ class IngestionExecutionService:
             raise InvalidInputError("stale_after must be greater than zero.")
         recovered_at = now or datetime.now(timezone.utc)
         cutoff = recovered_at - stale_after
+        jobs = self.repository.get_running_jobs_started_before(cutoff)
+        recovered_jobs = 0
+        for job in jobs:
+            if self.repository.recover_stale_job(
+                job,
+                cutoff=cutoff,
+                recovered_at=recovered_at,
+            ):
+                recovered_jobs += 1
+        if recovered_jobs:
+            self.db.commit()
+
         recovered_runs = self.orchestrator.recover_stale_runs(
             stale_after=stale_after,
             now=recovered_at,
         )
-        jobs = self.repository.get_running_jobs_started_before(cutoff)
-        for job in jobs:
-            self.repository.finish_job(
-                job,
-                status=IngestionJobStatus.FAILED,
-                finished_at=recovered_at,
-                error_summary="Ingestion job became stale before completion.",
-            )
-        if jobs:
-            self.db.commit()
-        return max(recovered_runs, len(jobs))
+        return max(recovered_runs, recovered_jobs)

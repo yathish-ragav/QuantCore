@@ -20,6 +20,13 @@ class InvalidInputError(QuantCoreError, ValueError):
     code = "INVALID_INPUT"
 
 
+class IngestionJobClaimConflictError(QuantCoreError):
+    """Another worker won the atomic claim for an ingestion job."""
+
+    status_code = 409
+    code = "INGESTION_JOB_CLAIM_CONFLICT"
+
+
 class ResourceNotFoundError(QuantCoreError, ValueError):
     """
     A requested application resource does not exist.

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import exists, or_, select, update
 from sqlalchemy.orm import Session
 
 from quantcore.ingestion.datasets import IngestionDataset, IngestionScope
@@ -200,8 +200,60 @@ class IngestionStateRepository:
         self.db.refresh(job)
         return True
 
-    def heartbeat_job(self, job: IngestionJob, *, at: datetime) -> None:
-        job.heartbeat_at = at
+    def heartbeat_job(
+        self,
+        job: IngestionJob,
+        *,
+        worker_id: str,
+        attempt_number: int,
+        at: datetime,
+    ) -> bool:
+        """Refresh a worker lease only for the exact execution attempt."""
+        result = self.db.execute(
+            update(IngestionJob)
+            .where(
+                IngestionJob.id == job.id,
+                IngestionJob.status == IngestionJobStatus.RUNNING,
+                IngestionJob.worker_id == worker_id,
+                IngestionJob.attempt_count == attempt_number,
+            )
+            .values(heartbeat_at=at)
+        )
+        if result.rowcount != 1:
+            return False
+        self.db.refresh(job)
+        return True
+
+    def finish_owned_job(
+        self,
+        job: IngestionJob,
+        *,
+        worker_id: str,
+        status: IngestionJobStatus,
+        finished_at: datetime,
+        attempt_number: int,
+        error_summary: str | None = None,
+    ) -> bool:
+        """Finish a job only if the same worker still owns this attempt."""
+        result = self.db.execute(
+            update(IngestionJob)
+            .where(
+                IngestionJob.id == job.id,
+                IngestionJob.status == IngestionJobStatus.RUNNING,
+                IngestionJob.worker_id == worker_id,
+                IngestionJob.attempt_count == attempt_number,
+            )
+            .values(
+                status=status,
+                finished_at=finished_at,
+                heartbeat_at=finished_at,
+                error_summary=error_summary[:4000] if error_summary else None,
+            )
+        )
+        if result.rowcount != 1:
+            return False
+        self.db.refresh(job)
+        return True
 
     def finish_job(
         self,
@@ -224,6 +276,34 @@ class IngestionStateRepository:
         job.heartbeat_at = None
         job.error_summary = None
 
+    def recover_stale_job(
+        self,
+        job: IngestionJob,
+        *,
+        cutoff: datetime,
+        recovered_at: datetime,
+    ) -> bool:
+        """Fail a stale running job only if its heartbeat is still stale."""
+        result = self.db.execute(
+            update(IngestionJob)
+            .execution_options(synchronize_session=False)
+            .where(
+                IngestionJob.id == job.id,
+                IngestionJob.status == IngestionJobStatus.RUNNING,
+                IngestionJob.heartbeat_at < cutoff,
+            )
+            .values(
+                status=IngestionJobStatus.FAILED,
+                finished_at=recovered_at,
+                heartbeat_at=recovered_at,
+                error_summary="Ingestion job became stale before completion.",
+            )
+        )
+        if result.rowcount != 1:
+            return False
+        self.db.refresh(job)
+        return True
+
     def get_running_jobs_started_before(
         self,
         cutoff: datetime,
@@ -243,11 +323,18 @@ class IngestionStateRepository:
         cutoff: datetime,
     ) -> list[IngestionRun]:
         """Return RUNNING executions older than the supplied cutoff."""
+        active_job = exists(
+            select(IngestionJob.id).where(
+                IngestionJob.id == IngestionRun.job_id,
+                IngestionJob.status == IngestionJobStatus.RUNNING,
+            )
+        )
         stmt = (
             select(IngestionRun)
             .where(
                 IngestionRun.status == IngestionRunStatus.RUNNING,
                 IngestionRun.started_at < cutoff,
+                or_(IngestionRun.job_id.is_(None), ~active_job),
             )
             .order_by(IngestionRun.started_at, IngestionRun.id)
         )
