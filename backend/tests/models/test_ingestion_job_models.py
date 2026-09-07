@@ -28,3 +28,15 @@ def test_ingestion_run_can_reference_job_attempt():
         getattr(constraint, "name", None) == "uq_ingestion_run_job_attempt"
         for constraint in constraints
     )
+
+
+def test_ingestion_job_has_queue_polling_index():
+    indexes = {
+        index.name: tuple(index.columns.keys())
+        for index in IngestionJob.__table__.indexes
+    }
+    assert indexes["ix_ingestion_jobs_status_submitted_at_id"] == (
+        "status",
+        "submitted_at",
+        "id",
+    )

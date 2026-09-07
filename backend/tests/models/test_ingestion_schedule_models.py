@@ -21,3 +21,15 @@ def test_ingestion_schedule_schema():
     assert "uq_ingestion_schedule_name" in names
     assert "ck_ingestion_schedule_interval_positive" in names
     assert "ck_ingestion_schedule_limit_positive" in names
+
+
+def test_ingestion_schedule_has_due_polling_index():
+    indexes = {
+        index.name: tuple(index.columns.keys())
+        for index in IngestionSchedule.__table__.indexes
+    }
+    assert indexes["ix_ingestion_schedules_enabled_next_run_at_id"] == (
+        "enabled",
+        "next_run_at",
+        "id",
+    )

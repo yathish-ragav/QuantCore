@@ -4,6 +4,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Index,
     Integer,
     JSON,
     String,
@@ -34,6 +35,12 @@ class IngestionSchedule(Base):
         CheckConstraint(
             "target_limit IS NULL OR target_limit > 0",
             name="ck_ingestion_schedule_limit_positive",
+        ),
+        Index(
+            "ix_ingestion_schedules_enabled_next_run_at_id",
+            "enabled",
+            "next_run_at",
+            "id",
         ),
     )
 

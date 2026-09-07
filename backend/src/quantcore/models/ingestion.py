@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     Enum as SQLAlchemyEnum,
     ForeignKey,
+    Index,
     Integer,
     JSON,
     String,
@@ -178,6 +179,12 @@ class IngestionJob(Base):
     __table_args__ = (
         CheckConstraint("target_limit IS NULL OR target_limit > 0", name="ck_ingestion_job_limit_positive"),
         CheckConstraint("attempt_count >= 0", name="ck_ingestion_job_attempt_nonnegative"),
+        Index(
+            "ix_ingestion_jobs_status_submitted_at_id",
+            "status",
+            "submitted_at",
+            "id",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
