@@ -7,12 +7,88 @@ import json
 import math
 from typing import Any, Iterable, Mapping
 
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
+from quantcore.models.research_experiment import (
+    ResearchExperimentRun,
+    ResearchExperimentRunStatus,
+)
+from quantcore.repositories.research_experiment_repository import ResearchExperimentRepository
 
 
 DefinitionIdentity = tuple[str, str]
 ResearchSignalIdentity = DefinitionIdentity
 ResearchStrategyIdentity = DefinitionIdentity
+
+
+class _FrozenDict(dict):
+    """JSON-compatible mapping that rejects mutation after construction."""
+
+    def __setitem__(self, key, value):
+        raise TypeError("Frozen mapping cannot be modified.")
+
+    def __delitem__(self, key):
+        raise TypeError("Frozen mapping cannot be modified.")
+
+    def clear(self):
+        raise TypeError("Frozen mapping cannot be modified.")
+
+    def pop(self, key, default=None):
+        raise TypeError("Frozen mapping cannot be modified.")
+
+    def popitem(self):
+        raise TypeError("Frozen mapping cannot be modified.")
+
+    def setdefault(self, key, default=None):
+        raise TypeError("Frozen mapping cannot be modified.")
+
+    def update(self, *args, **kwargs):
+        raise TypeError("Frozen mapping cannot be modified.")
+
+    def __ior__(self, other):
+        raise TypeError("Frozen mapping cannot be modified.")
+
+
+class _FrozenList(list):
+    """JSON-compatible sequence that rejects mutation after construction."""
+
+    def __setitem__(self, index, value):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def __delitem__(self, index):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def append(self, value):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def clear(self):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def extend(self, values):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def insert(self, index, value):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def pop(self, index=-1):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def remove(self, value):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def reverse(self):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def sort(self, *args, **kwargs):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def __iadd__(self, values):
+        raise TypeError("Frozen sequence cannot be modified.")
+
+    def __imul__(self, value):
+        raise TypeError("Frozen sequence cannot be modified.")
 
 
 @dataclass(frozen=True)
@@ -89,14 +165,9 @@ class ResearchExperimentDefinition:
         return self.experiment_key, self.definition_version
 
     @property
-    def run_input_fingerprint(self) -> str:
-        """Return a deterministic SHA-256 fingerprint of the run inputs.
-
-        The fingerprint excludes execution time and output artifacts so that the
-        same experiment definition and research inputs resolve to the same input
-        identity across repeated executions.
-        """
-        payload = {
+    def canonical_payload(self) -> dict[str, Any]:
+        """Return the canonical JSON-compatible snapshot of the run inputs."""
+        return {
             "experiment": {
                 "key": self.experiment_key,
                 "definition_version": self.definition_version,
@@ -110,8 +181,17 @@ class ResearchExperimentDefinition:
             "parameters": self.parameters,
             "code_version": self.code_version,
         }
+
+    @property
+    def run_input_fingerprint(self) -> str:
+        """Return a deterministic SHA-256 fingerprint of the run inputs.
+
+        The fingerprint excludes execution time and output artifacts so that the
+        same experiment definition and research inputs resolve to the same input
+        identity across repeated executions.
+        """
         canonical = json.dumps(
-            payload,
+            self.canonical_payload,
             sort_keys=True,
             separators=(",", ":"),
             ensure_ascii=True,
@@ -209,14 +289,16 @@ class ResearchExperimentDefinition:
                 raise ValueError("Non-finite parameter.")
             return value
         if isinstance(value, Mapping):
-            normalized: dict[str, Any] = {}
+            normalized = _FrozenDict()
             for key, item in value.items():
                 if not isinstance(key, str):
                     raise TypeError("Parameter mapping keys must be strings.")
-                normalized[key] = cls._canonicalize(item)
-            return {key: normalized[key] for key in sorted(normalized)}
+                dict.__setitem__(normalized, key, cls._canonicalize(item))
+            return _FrozenDict(
+                (key, normalized[key]) for key in sorted(normalized)
+            )
         if isinstance(value, (list, tuple)):
-            return [cls._canonicalize(item) for item in value]
+            return _FrozenList(cls._canonicalize(item) for item in value)
         raise TypeError(f"Unsupported parameter type: {type(value).__name__}")
 
     @staticmethod
@@ -271,8 +353,28 @@ class ResearchExperimentDefinitionRegistry:
         return definition
 
 
+@dataclass(frozen=True)
+class ResearchExperimentRunView:
+    """Stable read model for one persisted experiment run."""
+
+    run_id: str
+    experiment_key: str
+    definition_version: str
+    run_input_fingerprint: str
+    definition_payload: dict
+    status: ResearchExperimentRunStatus
+    submitted_at: datetime
+    started_at: datetime | None
+    finished_at: datetime | None
+    error_summary: str | None
+
+
 class ResearchExperimentService:
-    """Validate the versioned experiment-definition boundary."""
+    """Own the definition validation and persisted experiment-run boundary."""
+
+    def __init__(self, db: Session):
+        self.db = db
+        self.repository = ResearchExperimentRepository(db)
 
     @staticmethod
     def validate_definition(
@@ -283,3 +385,137 @@ class ResearchExperimentService:
                 "Experiment validation requires a ResearchExperimentDefinition."
             )
         return definition
+
+    @staticmethod
+    def _validate_run_id(run_id: str) -> str:
+        if not isinstance(run_id, str) or not run_id.strip():
+            raise InvalidInputError("Experiment run id must be a non-empty string.")
+        normalized = run_id.strip()
+        if len(normalized) > 64:
+            raise InvalidInputError("Experiment run id must be at most 64 characters.")
+        return normalized
+
+    @staticmethod
+    def _view(run: ResearchExperimentRun) -> ResearchExperimentRunView:
+        return ResearchExperimentRunView(
+            run_id=run.run_id,
+            experiment_key=run.experiment_key,
+            definition_version=run.definition_version,
+            run_input_fingerprint=run.run_input_fingerprint,
+            definition_payload=run.definition_payload,
+            status=run.status,
+            submitted_at=run.submitted_at,
+            started_at=run.started_at,
+            finished_at=run.finished_at,
+            error_summary=run.error_summary,
+        )
+
+    def create_run(
+        self,
+        definition: ResearchExperimentDefinition,
+        *,
+        run_id: str | None = None,
+    ) -> ResearchExperimentRunView:
+        """Persist one queued run against an immutable definition snapshot."""
+        definition = self.validate_definition(definition)
+        normalized_run_id = (
+            ResearchExperimentRun.new_run_id()
+            if run_id is None
+            else self._validate_run_id(run_id)
+        )
+        submitted_at = datetime.now(timezone.utc)
+        try:
+            run = self.repository.create(
+                run_id=normalized_run_id,
+                experiment_key=definition.experiment_key,
+                definition_version=definition.definition_version,
+                run_input_fingerprint=definition.run_input_fingerprint,
+                definition_payload=definition.canonical_payload,
+                submitted_at=submitted_at,
+            )
+            self.db.commit()
+            return self._view(run)
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise InvalidInputError(
+                f"Experiment run id '{normalized_run_id}' already exists."
+            ) from exc
+
+    def get_run(self, run_id: str) -> ResearchExperimentRunView:
+        normalized_run_id = self._validate_run_id(run_id)
+        run = self.repository.get(normalized_run_id)
+        if run is None:
+            raise ResourceNotFoundError(
+                f"Experiment run not found: {normalized_run_id}"
+            )
+        return self._view(run)
+
+    def start_run(self, run_id: str) -> dict[str, object]:
+        return self._transition(
+            run_id,
+            expected_statuses=(ResearchExperimentRunStatus.QUEUED,),
+            status=ResearchExperimentRunStatus.RUNNING,
+        )
+
+    def complete_run(self, run_id: str) -> dict[str, object]:
+        return self._transition(
+            run_id,
+            expected_statuses=(ResearchExperimentRunStatus.RUNNING,),
+            status=ResearchExperimentRunStatus.COMPLETED,
+        )
+
+    def fail_run(self, run_id: str, *, error_summary: str) -> dict[str, object]:
+        if not isinstance(error_summary, str) or not error_summary.strip():
+            raise InvalidInputError("Experiment run error summary must be a non-empty string.")
+        return self._transition(
+            run_id,
+            expected_statuses=(ResearchExperimentRunStatus.RUNNING,),
+            status=ResearchExperimentRunStatus.FAILED,
+            error_summary=error_summary,
+        )
+
+    def cancel_run(self, run_id: str) -> dict[str, object]:
+        return self._transition(
+            run_id,
+            expected_statuses=(
+                ResearchExperimentRunStatus.QUEUED,
+                ResearchExperimentRunStatus.RUNNING,
+            ),
+            status=ResearchExperimentRunStatus.CANCELLED,
+        )
+
+    def _transition(
+        self,
+        run_id: str,
+        *,
+        expected_statuses: tuple[ResearchExperimentRunStatus, ...],
+        status: ResearchExperimentRunStatus,
+        error_summary: str | None = None,
+    ) -> ResearchExperimentRunView:
+        normalized_run_id = self._validate_run_id(run_id)
+        run = self.repository.get(normalized_run_id)
+        if run is None:
+            raise ResourceNotFoundError(
+                f"Experiment run not found: {normalized_run_id}"
+            )
+        if run.status not in expected_statuses:
+            allowed = ", ".join(item.value for item in expected_statuses)
+            raise InvalidInputError(
+                f"Experiment run {normalized_run_id} cannot transition from "
+                f"{run.status.value}; expected one of: {allowed}."
+            )
+
+        now = datetime.now(timezone.utc)
+        if not self.repository.transition(
+            run,
+            expected_statuses=expected_statuses,
+            status=status,
+            now=now,
+            error_summary=error_summary,
+        ):
+            self.db.rollback()
+            raise InvalidInputError(
+                f"Experiment run {normalized_run_id} changed state concurrently."
+            )
+        self.db.commit()
+        return self._view(run)

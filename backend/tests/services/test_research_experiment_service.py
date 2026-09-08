@@ -6,6 +6,7 @@ from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.services.research_experiment_service import (
     ResearchExperimentDefinition,
     ResearchExperimentDefinitionRegistry,
+    ResearchExperimentRunView,
     ResearchExperimentService,
 )
 
@@ -69,6 +70,16 @@ def test_parameters_are_canonicalized():
     assert item.parameters["z"][1] == {"a": 3, "b": 1}
 
 
+def test_parameters_are_immutable_after_definition_creation():
+    item = definition(parameters={"nested": {"value": 1}, "items": [1, 2]})
+    with pytest.raises(TypeError, match="Frozen"):
+        item.parameters["nested"] = {}
+    with pytest.raises(TypeError, match="Frozen"):
+        item.parameters["nested"]["value"] = 2
+    with pytest.raises(TypeError, match="Frozen"):
+        item.parameters["items"].append(3)
+
+
 @pytest.mark.parametrize("parameters", [{"bad": float("nan")}, {"bad": float("inf")}])
 def test_parameters_reject_nonfinite_numbers(parameters):
     with pytest.raises(InvalidInputError, match="deterministic JSON"):
@@ -110,3 +121,95 @@ def test_service_accepts_only_valid_definitions():
     assert ResearchExperimentService.validate_definition(item) is item
     with pytest.raises(InvalidInputError):
         ResearchExperimentService.validate_definition(object())
+
+
+@pytest.fixture
+def db_session():
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import Session
+
+    from quantcore.models.research_experiment import ResearchExperimentRun
+
+    engine = create_engine("sqlite://")
+    ResearchExperimentRun.__table__.create(engine)
+    with Session(engine) as session:
+        yield session
+
+
+def test_create_run_persists_identity_and_definition_snapshot(db_session):
+    service = ResearchExperimentService(db_session)
+    item = service.create_run(definition(), run_id="run-001")
+
+    assert isinstance(item, ResearchExperimentRunView)
+    assert item.run_id == "run-001"
+    assert item.status.value == "QUEUED"
+    assert item.run_input_fingerprint == definition().run_input_fingerprint
+    assert item.definition_payload["experiment"]["key"] == "value-quality"
+
+    persisted = service.get_run("run-001")
+    assert persisted == item
+
+
+def test_create_run_generates_unique_run_id(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition())
+    second = service.create_run(definition())
+
+    assert first.run_id != second.run_id
+    assert first.run_input_fingerprint == second.run_input_fingerprint
+
+
+def test_create_run_rejects_duplicate_explicit_run_id(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="duplicate")
+
+    with pytest.raises(InvalidInputError, match="already exists"):
+        service.create_run(definition(), run_id="duplicate")
+
+
+def test_run_lifecycle_allows_queued_running_completed(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="lifecycle")
+
+    running = service.start_run("lifecycle")
+    assert running.status.value == "RUNNING"
+    assert running.started_at is not None
+
+    completed = service.complete_run("lifecycle")
+    assert completed.status.value == "COMPLETED"
+    assert completed.finished_at is not None
+
+
+def test_run_failure_records_error_and_finishes(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="failure")
+    service.start_run("failure")
+
+    failed = service.fail_run("failure", error_summary="calculation failed")
+    assert failed.status.value == "FAILED"
+    assert failed.finished_at is not None
+    assert failed.error_summary == "calculation failed"
+
+
+def test_queued_run_can_be_cancelled(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="cancel")
+
+    cancelled = service.cancel_run("cancel")
+    assert cancelled.status.value == "CANCELLED"
+    assert cancelled.finished_at is not None
+
+
+def test_terminal_run_cannot_transition_again(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="terminal")
+    service.cancel_run("terminal")
+
+    with pytest.raises(InvalidInputError, match="cannot transition"):
+        service.start_run("terminal")
+
+
+def test_missing_run_is_not_found(db_session):
+    service = ResearchExperimentService(db_session)
+    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+        service.get_run("missing")
