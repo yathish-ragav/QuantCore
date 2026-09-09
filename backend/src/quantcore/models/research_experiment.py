@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, Index, JSON, String
+from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, Index, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from quantcore.db.database import Base
@@ -107,3 +107,40 @@ class ResearchExperimentRun(Base):
     def new_run_id() -> str:
         """Return a unique opaque identifier suitable for external run references."""
         return uuid4().hex
+
+
+class ResearchExperimentRunResult(Base):
+    """Immutable persisted output produced by one completed experiment run."""
+
+    __tablename__ = "research_experiment_run_results"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    run_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("research_experiment_runs.run_id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+    )
+
+    result_payload: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+    )
+
+    metrics: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+    )
+
+    result_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )

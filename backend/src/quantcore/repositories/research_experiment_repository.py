@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from quantcore.models.research_experiment import (
     ResearchExperimentRun,
+    ResearchExperimentRunResult,
     ResearchExperimentRunStatus,
 )
 
@@ -79,3 +80,31 @@ class ResearchExperimentRepository:
             return False
         self.db.refresh(run)
         return True
+
+
+    def get_result(self, run_id: str) -> ResearchExperimentRunResult | None:
+        return self.db.scalar(
+            select(ResearchExperimentRunResult).where(
+                ResearchExperimentRunResult.run_id == run_id
+            )
+        )
+
+    def create_result(
+        self,
+        *,
+        run_id: str,
+        result_payload: dict,
+        metrics: dict,
+        result_fingerprint: str,
+        recorded_at: datetime,
+    ) -> ResearchExperimentRunResult:
+        result = ResearchExperimentRunResult(
+            run_id=run_id,
+            result_payload=result_payload,
+            metrics=metrics,
+            result_fingerprint=result_fingerprint,
+            recorded_at=recorded_at,
+        )
+        self.db.add(result)
+        self.db.flush()
+        return result

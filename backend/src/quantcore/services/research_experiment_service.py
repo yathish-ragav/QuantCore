@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from hashlib import sha256
 import json
 import math
-from typing import Any, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -354,6 +354,68 @@ class ResearchExperimentDefinitionRegistry:
 
 
 @dataclass(frozen=True)
+class ResearchExperimentExecutionResult:
+    """Validated, JSON-compatible output contract for one experiment execution."""
+
+    result_payload: Mapping[str, Any]
+    metrics: Mapping[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.result_payload, Mapping):
+            raise InvalidInputError("Experiment result payload must be a mapping.")
+        if self.metrics is not None and not isinstance(self.metrics, Mapping):
+            raise InvalidInputError("Experiment result metrics must be a mapping.")
+        try:
+            payload = ResearchExperimentDefinition._canonicalize(
+                dict(self.result_payload)
+            )
+            metrics = (
+                ResearchExperimentDefinition._canonicalize(dict(self.metrics))
+                if self.metrics is not None
+                else {}
+            )
+            json.dumps(
+                {"result": payload, "metrics": metrics},
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+                allow_nan=False,
+            )
+        except (TypeError, ValueError) as exc:
+            raise InvalidInputError(
+                "Experiment results must contain only deterministic JSON values."
+            ) from exc
+        object.__setattr__(self, "result_payload", payload)
+        object.__setattr__(self, "metrics", metrics)
+
+    @property
+    def canonical_payload(self) -> dict[str, Any]:
+        return {"result": self.result_payload, "metrics": self.metrics}
+
+    @property
+    def result_fingerprint(self) -> str:
+        canonical = json.dumps(
+            self.canonical_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class ResearchExperimentRunResultView:
+    """Stable read model for one persisted experiment result."""
+
+    run_id: str
+    result_payload: dict
+    metrics: dict
+    result_fingerprint: str
+    recorded_at: datetime
+
+
+@dataclass(frozen=True)
 class ResearchExperimentRunView:
     """Stable read model for one persisted experiment run."""
 
@@ -483,6 +545,121 @@ class ResearchExperimentService:
             ),
             status=ResearchExperimentRunStatus.CANCELLED,
         )
+
+    def get_result(self, run_id: str) -> ResearchExperimentRunResultView:
+        normalized_run_id = self._validate_run_id(run_id)
+        result = self.repository.get_result(normalized_run_id)
+        if result is None:
+            raise ResourceNotFoundError(
+                f"Experiment result not found for run: {normalized_run_id}"
+            )
+        return ResearchExperimentRunResultView(
+            run_id=result.run_id,
+            result_payload=result.result_payload,
+            metrics=result.metrics,
+            result_fingerprint=result.result_fingerprint,
+            recorded_at=result.recorded_at,
+        )
+
+    def execute_run(
+        self,
+        run_id: str,
+        definition: ResearchExperimentDefinition,
+        executor: Callable[
+            [ResearchExperimentDefinition], ResearchExperimentExecutionResult
+        ],
+    ) -> ResearchExperimentRunResultView:
+        """Execute one queued run and persist exactly one validated result.
+
+        The executor is deliberately supplied by the caller: this boundary owns
+        lifecycle/result persistence, not experiment-specific orchestration.
+        """
+        if not callable(executor):
+            raise InvalidInputError("Experiment executor must be callable.")
+        definition = self.validate_definition(definition)
+        normalized_run_id = self._validate_run_id(run_id)
+        run = self.repository.get(normalized_run_id)
+        if run is None:
+            raise ResourceNotFoundError(
+                f"Experiment run not found: {normalized_run_id}"
+            )
+        if run.status is not ResearchExperimentRunStatus.QUEUED:
+            raise InvalidInputError(
+                f"Experiment run {normalized_run_id} is not queued."
+            )
+        if (
+            run.experiment_key != definition.experiment_key
+            or run.definition_version != definition.definition_version
+            or run.run_input_fingerprint != definition.run_input_fingerprint
+        ):
+            raise InvalidInputError(
+                "Experiment definition does not match the persisted run inputs."
+            )
+
+        self.start_run(normalized_run_id)
+
+        try:
+            execution_result = executor(definition)
+            if not isinstance(execution_result, ResearchExperimentExecutionResult):
+                raise InvalidInputError(
+                    "Experiment executor must return ResearchExperimentExecutionResult."
+                )
+            existing = self.repository.get_result(normalized_run_id)
+            if existing is not None:
+                raise InvalidInputError(
+                    f"Experiment result already exists for run: {normalized_run_id}"
+                )
+            recorded_at = datetime.now(timezone.utc)
+            result = self.repository.create_result(
+                run_id=normalized_run_id,
+                result_payload=execution_result.result_payload,
+                metrics=execution_result.metrics,
+                result_fingerprint=execution_result.result_fingerprint,
+                recorded_at=recorded_at,
+            )
+            current = self.repository.get(normalized_run_id)
+            if current is None or current.status is not ResearchExperimentRunStatus.RUNNING:
+                self.db.rollback()
+                raise InvalidInputError(
+                    f"Experiment run {normalized_run_id} changed state concurrently."
+                )
+            completed = self.repository.transition(
+                current,
+                expected_statuses=(ResearchExperimentRunStatus.RUNNING,),
+                status=ResearchExperimentRunStatus.COMPLETED,
+                now=recorded_at,
+            )
+            if not completed:
+                self.db.rollback()
+                raise InvalidInputError(
+                    f"Experiment run {normalized_run_id} changed state concurrently."
+                )
+            self.db.commit()
+            return ResearchExperimentRunResultView(
+                run_id=result.run_id,
+                result_payload=result.result_payload,
+                metrics=result.metrics,
+                result_fingerprint=result.result_fingerprint,
+                recorded_at=result.recorded_at,
+            )
+        except Exception as exc:
+            self.db.rollback()
+            current = self.repository.get(normalized_run_id)
+            if (
+                current is not None
+                and current.status is ResearchExperimentRunStatus.RUNNING
+            ):
+                if self.repository.transition(
+                    current,
+                    expected_statuses=(ResearchExperimentRunStatus.RUNNING,),
+                    status=ResearchExperimentRunStatus.FAILED,
+                    now=datetime.now(timezone.utc),
+                    error_summary=str(exc),
+                ):
+                    self.db.commit()
+                else:
+                    self.db.rollback()
+            raise
 
     def _transition(
         self,
