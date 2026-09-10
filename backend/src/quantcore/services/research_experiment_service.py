@@ -484,7 +484,13 @@ class ResearchExperimentExecutionResult:
 
 @dataclass(frozen=True)
 class ResearchExperimentArtifactDefinition:
-    """Immutable descriptor for one artifact produced by an experiment run."""
+    """Immutable descriptor for one artifact produced by an experiment run.
+
+    The provenance mapping is retained only as caller-supplied annotation for
+    compatibility. It is deliberately excluded from artifact
+    identity; authoritative lineage is derived from the persisted run/result
+    state by ``get_artifact_provenance``.
+    """
 
     run_id: str
     artifact_type: str
@@ -504,7 +510,6 @@ class ResearchExperimentArtifactDefinition:
             "artifact_type": artifact_type,
             "content_hash": content_hash,
             "metadata": metadata,
-            "provenance": provenance,
         }
         try:
             json.dumps(
@@ -560,12 +565,17 @@ class ResearchExperimentArtifactDefinition:
 
     @property
     def canonical_payload(self) -> dict[str, Any]:
+        """Return the identity payload for the artifact descriptor.
+
+        Caller-supplied provenance is intentionally absent. It must not be able
+        to change artifact identity or create competing identities for the same
+        artifact descriptor.
+        """
         return {
             "run_id": self.run_id,
             "artifact_type": self.artifact_type,
             "content_hash": self.content_hash,
             "metadata": self.metadata,
-            "provenance": self.provenance,
         }
 
     @property

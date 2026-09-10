@@ -441,6 +441,37 @@ def test_create_and_get_artifact_persists_provenance(db_session):
     assert service.get_artifact("artifact-001") == artifact
 
 
+def test_artifact_fingerprint_excludes_caller_supplied_provenance():
+    first = ResearchExperimentArtifactDefinition(
+        run_id="artifact-identity",
+        artifact_type="report",
+        content_hash="a" * 64,
+        metadata={"format": "json"},
+        provenance={"producer": "caller-a"},
+    )
+    second = ResearchExperimentArtifactDefinition(
+        run_id="artifact-identity",
+        artifact_type="report",
+        content_hash="a" * 64,
+        metadata={"format": "json"},
+        provenance={"producer": "caller-b", "claim": "untrusted"},
+    )
+
+    assert first.artifact_fingerprint == second.artifact_fingerprint
+    assert first.provenance != second.provenance
+
+
+def test_artifact_identity_payload_excludes_caller_supplied_provenance():
+    artifact = ResearchExperimentArtifactDefinition(
+        run_id="artifact-identity-payload",
+        artifact_type="report",
+        content_hash="b" * 64,
+        provenance={"producer": "caller-asserted"},
+    )
+
+    assert "provenance" not in artifact.canonical_payload
+
+
 def test_artifact_provenance_is_derived_from_persisted_run(db_session):
     service = ResearchExperimentService(db_session)
     service.create_run(definition(), run_id="artifact-provenance")
