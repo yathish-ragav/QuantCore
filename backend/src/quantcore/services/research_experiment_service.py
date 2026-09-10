@@ -647,6 +647,94 @@ class ResearchExperimentArtifactView:
 
 
 @dataclass(frozen=True)
+class ResearchExperimentRunQuery:
+    """Validated bounded query contract for experiment run discovery."""
+
+    experiment_key: str | None = None
+    definition_version: str | None = None
+    statuses: tuple[ResearchExperimentRunStatus, ...] = ()
+    submitted_after: datetime | None = None
+    submitted_before: datetime | None = None
+    limit: int = 100
+
+    def __post_init__(self) -> None:
+        experiment_key = self._normalize_optional_text(
+            self.experiment_key, "Experiment key", max_length=200
+        )
+        definition_version = self._normalize_optional_text(
+            self.definition_version, "Experiment definition version", max_length=50
+        )
+        statuses = tuple(self.statuses)
+        if any(
+            not isinstance(status, ResearchExperimentRunStatus)
+            for status in statuses
+        ):
+            raise InvalidInputError(
+                "Experiment run statuses must contain "
+                "ResearchExperimentRunStatus values."
+            )
+        if len(statuses) != len(set(statuses)):
+            raise InvalidInputError(
+                "Experiment run statuses must not contain duplicates."
+            )
+        submitted_after = self._normalize_optional_timestamp(
+            self.submitted_after, "Submitted-after"
+        )
+        submitted_before = self._normalize_optional_timestamp(
+            self.submitted_before, "Submitted-before"
+        )
+        if (
+            submitted_after is not None
+            and submitted_before is not None
+            and submitted_after > submitted_before
+        ):
+            raise InvalidInputError(
+                "Submitted-after must not be later than submitted-before."
+            )
+        if not isinstance(self.limit, int) or isinstance(self.limit, bool):
+            raise InvalidInputError("Experiment run query limit must be an integer.")
+        if self.limit < 1 or self.limit > 100:
+            raise InvalidInputError(
+                "Experiment run query limit must be between 1 and 100."
+            )
+
+        object.__setattr__(self, "experiment_key", experiment_key)
+        object.__setattr__(self, "definition_version", definition_version)
+        object.__setattr__(self, "statuses", statuses)
+        object.__setattr__(self, "submitted_after", submitted_after)
+        object.__setattr__(self, "submitted_before", submitted_before)
+
+    @staticmethod
+    def _normalize_optional_text(
+        value: str | None, name: str, *, max_length: int
+    ) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value.strip():
+            raise InvalidInputError(
+                f"{name} must be a non-empty string when provided."
+            )
+        normalized = value.strip()
+        if len(normalized) > max_length:
+            raise InvalidInputError(
+                f"{name} must be at most {max_length} characters."
+            )
+        return normalized
+
+    @staticmethod
+    def _normalize_optional_timestamp(
+        value: datetime | None, name: str
+    ) -> datetime | None:
+        if value is None:
+            return None
+        if not isinstance(value, datetime):
+            raise InvalidInputError(f"{name} must be a datetime when provided.")
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise InvalidInputError(f"{name} must be timezone-aware.")
+        return value.astimezone(timezone.utc)
+
+
+@dataclass(frozen=True)
 class ResearchExperimentRunResultView:
     """Stable read model for one persisted experiment result."""
 
@@ -743,6 +831,29 @@ class ResearchExperimentService:
             raise InvalidInputError(
                 f"Experiment run id '{normalized_run_id}' already exists."
             ) from exc
+
+    def list_runs(
+        self,
+        query: ResearchExperimentRunQuery | None = None,
+    ) -> tuple[ResearchExperimentRunView, ...]:
+        """Return a bounded, deterministically ordered set of matching runs."""
+        if query is None:
+            query = ResearchExperimentRunQuery()
+        if not isinstance(query, ResearchExperimentRunQuery):
+            raise InvalidInputError(
+                "Experiment run discovery requires a ResearchExperimentRunQuery."
+            )
+        return tuple(
+            self._view(run)
+            for run in self.repository.list_runs(
+                experiment_key=query.experiment_key,
+                definition_version=query.definition_version,
+                statuses=query.statuses,
+                submitted_after=query.submitted_after,
+                submitted_before=query.submitted_before,
+                limit=query.limit,
+            )
+        )
 
     def get_run(self, run_id: str) -> ResearchExperimentRunView:
         normalized_run_id = self._validate_run_id(run_id)

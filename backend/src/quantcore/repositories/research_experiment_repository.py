@@ -24,6 +24,44 @@ class ResearchExperimentRepository:
             )
         )
 
+    def list_runs(
+        self,
+        *,
+        experiment_key: str | None = None,
+        definition_version: str | None = None,
+        statuses: tuple[ResearchExperimentRunStatus, ...] | None = None,
+        submitted_after: datetime | None = None,
+        submitted_before: datetime | None = None,
+        limit: int = 100,
+    ) -> list[ResearchExperimentRun]:
+        if limit < 1:
+            raise ValueError("limit must be at least one")
+
+        stmt = select(ResearchExperimentRun)
+        if experiment_key is not None:
+            stmt = stmt.where(
+                ResearchExperimentRun.experiment_key == experiment_key
+            )
+        if definition_version is not None:
+            stmt = stmt.where(
+                ResearchExperimentRun.definition_version == definition_version
+            )
+        if statuses:
+            stmt = stmt.where(ResearchExperimentRun.status.in_(statuses))
+        if submitted_after is not None:
+            stmt = stmt.where(ResearchExperimentRun.submitted_at >= submitted_after)
+        if submitted_before is not None:
+            stmt = stmt.where(ResearchExperimentRun.submitted_at <= submitted_before)
+
+        stmt = (
+            stmt.order_by(
+                ResearchExperimentRun.submitted_at.desc(),
+                ResearchExperimentRun.id.desc(),
+            )
+            .limit(limit)
+        )
+        return list(self.db.scalars(stmt).all())
+
     def create(
         self,
         *,

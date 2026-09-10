@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 import json
 
 import pytest
@@ -10,6 +10,7 @@ from quantcore.services.research_experiment_service import (
     ResearchExperimentArtifactDefinition,
     ResearchExperimentArtifactProvenance,
     ResearchExperimentExecutionResult,
+    ResearchExperimentRunQuery,
     ResearchExperimentRunResultView,
     ResearchExperimentRunStatus,
     ResearchExperimentRunView,
@@ -206,6 +207,95 @@ def test_run_lifecycle_allows_queued_running_completed(db_session):
     completed = service.complete_run("lifecycle")
     assert completed.status.value == "COMPLETED"
     assert completed.finished_at is not None
+
+
+def test_run_query_returns_newest_runs_in_deterministic_order(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="query-001")
+    service.create_run(definition(), run_id="query-002")
+    service.create_run(definition(), run_id="query-003")
+
+    runs = service.list_runs(ResearchExperimentRunQuery(limit=2))
+
+    assert [item.run_id for item in runs] == ["query-003", "query-002"]
+
+
+def test_run_query_filters_by_identity_status_and_submission_window(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(
+        definition(experiment_key="momentum"), run_id="query-filter-001"
+    )
+    second = service.create_run(
+        definition(experiment_key="value-quality", definition_version="2"),
+        run_id="query-filter-002",
+    )
+    third = service.create_run(
+        definition(experiment_key="value-quality", definition_version="2"),
+        run_id="query-filter-003",
+    )
+    service.start_run(second.run_id)
+    service.start_run(third.run_id)
+
+    first_timestamp = datetime(2026, 9, 10, 13, 30, tzinfo=timezone.utc)
+    second_timestamp = datetime(2026, 9, 10, 13, 0, tzinfo=timezone.utc)
+    third_timestamp = datetime(2026, 9, 10, 15, 0, tzinfo=timezone.utc)
+
+    first_row = service.repository.get(first.run_id)
+    second_row = service.repository.get(second.run_id)
+    third_row = service.repository.get(third.run_id)
+    first_row.submitted_at = first_timestamp
+    second_row.submitted_at = second_timestamp
+    third_row.submitted_at = third_timestamp
+    db_session.commit()
+
+    runs = service.list_runs(
+        ResearchExperimentRunQuery(
+            experiment_key=" value-quality ",
+            definition_version="2",
+            statuses=(ResearchExperimentRunStatus.RUNNING,),
+            submitted_after=datetime(2026, 9, 10, 12, 59, tzinfo=timezone.utc),
+            submitted_before=datetime(2026, 9, 10, 13, 1, tzinfo=timezone.utc),
+        )
+    )
+
+    assert [item.run_id for item in runs] == [second.run_id]
+    assert first.run_id not in {item.run_id for item in runs}
+    assert third.run_id not in {item.run_id for item in runs}
+
+
+def test_run_query_rejects_invalid_limit():
+    with pytest.raises(InvalidInputError, match="between 1 and 100"):
+        ResearchExperimentRunQuery(limit=0)
+
+    with pytest.raises(InvalidInputError, match="between 1 and 100"):
+        ResearchExperimentRunQuery(limit=101)
+
+
+def test_run_query_rejects_invalid_filters():
+    with pytest.raises(InvalidInputError, match="timezone-aware"):
+        ResearchExperimentRunQuery(
+            submitted_after=datetime(2026, 8, 1),
+        )
+
+    with pytest.raises(InvalidInputError, match="must not contain duplicates"):
+        ResearchExperimentRunQuery(
+            statuses=(
+                ResearchExperimentRunStatus.QUEUED,
+                ResearchExperimentRunStatus.QUEUED,
+            )
+        )
+
+    with pytest.raises(InvalidInputError, match="later than"):
+        ResearchExperimentRunQuery(
+            submitted_after=datetime(2026, 8, 2, tzinfo=timezone.utc),
+            submitted_before=datetime(2026, 8, 1, tzinfo=timezone.utc),
+        )
+
+
+def test_run_query_rejects_wrong_query_type(db_session):
+    service = ResearchExperimentService(db_session)
+    with pytest.raises(InvalidInputError, match="ResearchExperimentRunQuery"):
+        service.list_runs(object())
 
 
 def test_run_failure_records_error_and_finishes(db_session):
