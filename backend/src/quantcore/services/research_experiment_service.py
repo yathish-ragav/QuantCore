@@ -935,6 +935,122 @@ class ResearchExperimentComparison:
         return sha256(canonical.encode("utf-8")).hexdigest()
 
 
+
+@dataclass(frozen=True)
+class ResearchExperimentComparisonMetric:
+    """Immutable aligned numeric metric values for comparison participants."""
+
+    metric_name: str
+    values: tuple[tuple[str, int | float], ...]
+
+    def __post_init__(self) -> None:
+        metric_name = ResearchExperimentRunQuery._normalize_optional_text(
+            self.metric_name, "Comparison metric name", max_length=100
+        )
+        if metric_name is None:
+            raise InvalidInputError("Comparison metric name must be provided.")
+
+        values = tuple(self.values)
+        if len(values) < 2:
+            raise InvalidInputError(
+                "Comparison metric must contain at least two run values."
+            )
+
+        normalized_values: list[tuple[str, int | float]] = []
+        run_ids: set[str] = set()
+        for value in values:
+            if not isinstance(value, (tuple, list)) or len(value) != 2:
+                raise InvalidInputError(
+                    "Comparison metric values must contain run id and numeric value pairs."
+                )
+            run_id = _validate_identifier(value[0], "Comparison metric run id")
+            metric_value = value[1]
+            if isinstance(metric_value, bool) or not isinstance(
+                metric_value, (int, float)
+            ):
+                raise InvalidInputError(
+                    "Comparison metric values must be finite numeric values."
+                )
+            if not math.isfinite(float(metric_value)):
+                raise InvalidInputError(
+                    "Comparison metric values must be finite numeric values."
+                )
+            if run_id in run_ids:
+                raise InvalidInputError(
+                    "Comparison metric values must not contain duplicate run ids."
+                )
+            run_ids.add(run_id)
+            normalized_values.append((run_id, metric_value))
+
+        object.__setattr__(self, "metric_name", metric_name)
+        object.__setattr__(
+            self,
+            "values",
+            tuple(sorted(normalized_values, key=lambda item: item[0])),
+        )
+
+    @property
+    def canonical_payload(self) -> dict[str, Any]:
+        return {
+            "metric_name": self.metric_name,
+            "values": tuple(
+                {"run_id": run_id, "value": value}
+                for run_id, value in self.values
+            ),
+        }
+
+
+@dataclass(frozen=True)
+class ResearchExperimentComparisonResult:
+    """Immutable deterministic result containing aligned comparison metrics."""
+
+    comparison_fingerprint: str
+    metrics: tuple[ResearchExperimentComparisonMetric, ...]
+
+    def __post_init__(self) -> None:
+        comparison_fingerprint = _validate_sha256_fingerprint(
+            self.comparison_fingerprint, "Comparison fingerprint"
+        )
+        metrics = tuple(self.metrics)
+        if not metrics:
+            raise InvalidInputError("Comparison result must contain at least one metric.")
+        if any(
+            not isinstance(metric, ResearchExperimentComparisonMetric)
+            for metric in metrics
+        ):
+            raise InvalidInputError(
+                "Comparison result metrics must contain ResearchExperimentComparisonMetric values."
+            )
+        metric_names = tuple(metric.metric_name for metric in metrics)
+        if len(metric_names) != len(set(metric_names)):
+            raise InvalidInputError(
+                "Comparison result metrics must not contain duplicate names."
+            )
+        object.__setattr__(self, "comparison_fingerprint", comparison_fingerprint)
+        object.__setattr__(
+            self,
+            "metrics",
+            tuple(sorted(metrics, key=lambda metric: metric.metric_name)),
+        )
+
+    @property
+    def canonical_payload(self) -> dict[str, Any]:
+        return {
+            "comparison_fingerprint": self.comparison_fingerprint,
+            "metrics": tuple(metric.canonical_payload for metric in self.metrics),
+        }
+
+    @property
+    def result_fingerprint(self) -> str:
+        canonical = json.dumps(
+            self.canonical_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
+
+
 @dataclass(frozen=True)
 class ResearchExperimentRunResultView:
     """Stable read model for one persisted experiment result."""
@@ -1145,6 +1261,77 @@ class ResearchExperimentService:
             experiment_key=experiment_key,
             definition_version=definition_version,
             runs=comparison_runs,
+        )
+
+    def build_comparison_result(
+        self,
+        selection: ResearchExperimentRunSelection,
+        metric_names: Iterable[str],
+    ) -> ResearchExperimentComparisonResult:
+        """Build a deterministic aligned numeric metric result for selected runs."""
+        comparison = self.compare_runs(selection)
+
+        if isinstance(metric_names, (str, bytes)):
+            raise InvalidInputError("Comparison metric names must be an iterable of names.")
+
+        normalized_metric_names: list[str] = []
+        seen_names: set[str] = set()
+        try:
+            raw_metric_names = tuple(metric_names)
+        except TypeError as exc:
+            raise InvalidInputError(
+                "Comparison metric names must be an iterable of names."
+            ) from exc
+
+        if not raw_metric_names:
+            raise InvalidInputError("Comparison requires at least one metric name.")
+        if len(raw_metric_names) > 50:
+            raise InvalidInputError("Comparison supports at most 50 metric names.")
+
+        for name in raw_metric_names:
+            normalized = ResearchExperimentRunQuery._normalize_optional_text(
+                name, "Comparison metric name", max_length=100
+            )
+            if normalized is None:
+                raise InvalidInputError("Comparison metric name must be provided.")
+            if normalized in seen_names:
+                raise InvalidInputError(
+                    "Comparison metric names must not contain duplicates."
+                )
+            seen_names.add(normalized)
+            normalized_metric_names.append(normalized)
+
+        persisted_results = self.repository.get_results_by_run_ids(selection.run_ids)
+        results_by_run_id = {result.run_id: result for result in persisted_results}
+
+        metrics: list[ResearchExperimentComparisonMetric] = []
+        for metric_name in normalized_metric_names:
+            values: list[tuple[str, int | float]] = []
+            missing_runs: list[str] = []
+            for run in comparison.runs:
+                result = results_by_run_id[run.run_id]
+                if metric_name not in result.metrics:
+                    missing_runs.append(run.run_id)
+                    continue
+                values.append((run.run_id, result.metrics[metric_name]))
+
+            if missing_runs:
+                raise InvalidInputError(
+                    f"Comparison metric '{metric_name}' is missing for runs: "
+                    + ", ".join(missing_runs)
+                    + "."
+                )
+
+            metrics.append(
+                ResearchExperimentComparisonMetric(
+                    metric_name=metric_name,
+                    values=tuple(values),
+                )
+            )
+
+        return ResearchExperimentComparisonResult(
+            comparison_fingerprint=comparison.comparison_fingerprint,
+            metrics=tuple(metrics),
         )
 
     def get_run(self, run_id: str) -> ResearchExperimentRunView:

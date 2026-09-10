@@ -12,6 +12,8 @@ from quantcore.services.research_experiment_service import (
     ResearchExperimentExecutionResult,
     ResearchExperimentComparison,
     ResearchExperimentComparisonRun,
+    ResearchExperimentComparisonMetric,
+    ResearchExperimentComparisonResult,
     ResearchExperimentRunQuery,
     ResearchExperimentRunSelection,
     ResearchExperimentRunResultView,
@@ -1058,3 +1060,180 @@ def test_compare_runs_requires_selection_type(db_session):
     service = ResearchExperimentService(db_session)
     with pytest.raises(InvalidInputError, match="ResearchExperimentRunSelection"):
         service.compare_runs(object())
+
+
+def test_comparison_metric_normalizes_and_orders_values():
+    metric = ResearchExperimentComparisonMetric(
+        metric_name=" sharpe ",
+        values=(("run-b", 1.3), (" run-a ", 1.1)),
+    )
+
+    assert metric.metric_name == "sharpe"
+    assert metric.values == (("run-a", 1.1), ("run-b", 1.3))
+    assert metric.canonical_payload["values"][0]["run_id"] == "run-a"
+
+
+@pytest.mark.parametrize(
+    "values,match",
+    [
+        ((("run-a", 1.0),), "at least two"),
+        ((("run-a", float("nan")), ("run-b", 1.0)), "finite"),
+        ((("run-a", True), ("run-b", 1.0)), "finite"),
+        ((("run-a", 1.0), ("run-a", 2.0)), "duplicate"),
+    ],
+)
+def test_comparison_metric_rejects_invalid_values(values, match):
+    with pytest.raises(InvalidInputError, match=match):
+        ResearchExperimentComparisonMetric(metric_name="sharpe", values=values)
+
+
+def test_comparison_result_is_canonical_and_fingerprinted():
+    metric_a = ResearchExperimentComparisonMetric(
+        metric_name="return",
+        values=(("run-b", 0.2), ("run-a", 0.1)),
+    )
+    metric_b = ResearchExperimentComparisonMetric(
+        metric_name="sharpe",
+        values=(("run-b", 1.3), ("run-a", 1.1)),
+    )
+
+    first = ResearchExperimentComparisonResult(
+        comparison_fingerprint="A" * 64,
+        metrics=(metric_a, metric_b),
+    )
+    second = ResearchExperimentComparisonResult(
+        comparison_fingerprint="a" * 64,
+        metrics=tuple(reversed((metric_a, metric_b))),
+    )
+
+    assert first.comparison_fingerprint == "a" * 64
+    assert [metric.metric_name for metric in first.metrics] == ["return", "sharpe"]
+    assert first.canonical_payload == second.canonical_payload
+    assert first.result_fingerprint == second.result_fingerprint
+
+
+def test_comparison_result_rejects_duplicate_metric_names():
+    metric = ResearchExperimentComparisonMetric(
+        metric_name="sharpe",
+        values=(("run-a", 1.0), ("run-b", 1.1)),
+    )
+    with pytest.raises(InvalidInputError, match="duplicate names"):
+        ResearchExperimentComparisonResult(
+            comparison_fingerprint="a" * 64,
+            metrics=(metric, metric),
+        )
+
+
+def test_build_comparison_result_aligns_selected_metrics(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition(), run_id="metric-001")
+    second = service.create_run(definition(), run_id="metric-002")
+
+    service.execute_run(
+        first.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={"value": 1},
+            metrics={"sharpe": 1.1, "return": 0.1},
+        ),
+    )
+    service.execute_run(
+        second.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={"value": 2},
+            metrics={"sharpe": 1.3, "return": 0.2},
+        ),
+    )
+
+    result = service.build_comparison_result(
+        ResearchExperimentRunSelection(
+            run_ids=(second.run_id, first.run_id),
+            experiment_key="value-quality",
+            definition_version="1",
+        ),
+        ("return", "sharpe"),
+    )
+
+    assert isinstance(result, ResearchExperimentComparisonResult)
+    assert result.comparison_fingerprint
+    assert result.result_fingerprint
+    assert [metric.metric_name for metric in result.metrics] == ["return", "sharpe"]
+    assert result.metrics[0].values == (("metric-001", 0.1), ("metric-002", 0.2))
+    assert result.metrics[1].values == (("metric-001", 1.1), ("metric-002", 1.3))
+
+
+def test_build_comparison_result_rejects_missing_metric(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition(), run_id="metric-missing-001")
+    second = service.create_run(definition(), run_id="metric-missing-002")
+
+    service.execute_run(
+        first.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={},
+            metrics={"sharpe": 1.1},
+        ),
+    )
+    service.execute_run(
+        second.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={},
+            metrics={"return": 0.2},
+        ),
+    )
+
+    with pytest.raises(InvalidInputError, match="missing for runs"):
+        service.build_comparison_result(
+            ResearchExperimentRunSelection(
+                run_ids=(first.run_id, second.run_id),
+                experiment_key="value-quality",
+                definition_version="1",
+            ),
+            ("sharpe",),
+        )
+
+
+@pytest.mark.parametrize(
+    "metric_names,match",
+    [
+        ((), "at least one"),
+        (("sharpe", "sharpe"), "duplicates"),
+        (["sharpe"] * 51, "at most 50"),
+        ("sharpe", "iterable of names"),
+    ],
+)
+def test_build_comparison_result_rejects_invalid_metric_selection(
+    db_session, metric_names, match
+):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition(), run_id="metric-input-001")
+    second = service.create_run(definition(), run_id="metric-input-002")
+    service.execute_run(
+        first.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={},
+            metrics={"sharpe": 1.1},
+        ),
+    )
+    service.execute_run(
+        second.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={},
+            metrics={"sharpe": 1.2},
+        ),
+    )
+
+    with pytest.raises(InvalidInputError, match=match):
+        service.build_comparison_result(
+            ResearchExperimentRunSelection(
+                run_ids=(first.run_id, second.run_id),
+                experiment_key="value-quality",
+                definition_version="1",
+            ),
+            metric_names,
+        )
