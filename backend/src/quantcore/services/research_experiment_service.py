@@ -1026,6 +1026,17 @@ class ResearchExperimentComparisonResult:
             raise InvalidInputError(
                 "Comparison result metrics must not contain duplicate names."
             )
+
+        participant_run_ids = tuple(run_id for run_id, _ in metrics[0].values)
+        participant_run_id_set = set(participant_run_ids)
+        if any(
+            {run_id for run_id, _ in metric.values} != participant_run_id_set
+            for metric in metrics[1:]
+        ):
+            raise InvalidInputError(
+                "Comparison result metrics must contain the same run ids."
+            )
+
         object.__setattr__(self, "comparison_fingerprint", comparison_fingerprint)
         object.__setattr__(
             self,

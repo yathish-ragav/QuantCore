@@ -1124,6 +1124,23 @@ def test_comparison_result_rejects_duplicate_metric_names():
         )
 
 
+def test_comparison_result_rejects_mismatched_participants():
+    first = ResearchExperimentComparisonMetric(
+        metric_name="return",
+        values=(("run-a", 0.1), ("run-b", 0.2)),
+    )
+    second = ResearchExperimentComparisonMetric(
+        metric_name="sharpe",
+        values=(("run-a", 1.1), ("run-c", 1.3)),
+    )
+
+    with pytest.raises(InvalidInputError, match="same run ids"):
+        ResearchExperimentComparisonResult(
+            comparison_fingerprint="a" * 64,
+            metrics=(first, second),
+        )
+
+
 def test_build_comparison_result_aligns_selected_metrics(db_session):
     service = ResearchExperimentService(db_session)
     first = service.create_run(definition(), run_id="metric-001")
