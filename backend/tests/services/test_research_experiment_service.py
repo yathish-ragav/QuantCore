@@ -11,6 +11,7 @@ from quantcore.services.research_experiment_service import (
     ResearchExperimentArtifactProvenance,
     ResearchExperimentExecutionResult,
     ResearchExperimentRunQuery,
+    ResearchExperimentRunSelection,
     ResearchExperimentRunResultView,
     ResearchExperimentRunStatus,
     ResearchExperimentRunView,
@@ -261,6 +262,102 @@ def test_run_query_filters_by_identity_status_and_submission_window(db_session):
     assert [item.run_id for item in runs] == [second.run_id]
     assert first.run_id not in {item.run_id for item in runs}
     assert third.run_id not in {item.run_id for item in runs}
+
+
+def test_run_selection_is_order_independent_and_fingerprinted():
+    first = ResearchExperimentRunSelection(
+        run_ids=("run-003", "run-001", "run-002"),
+        experiment_key=" value-quality ",
+        definition_version=" 2 ",
+    )
+    second = ResearchExperimentRunSelection(
+        run_ids=("run-002", "run-003", "run-001"),
+        experiment_key="value-quality",
+        definition_version="2",
+    )
+
+    assert first.run_ids == ("run-001", "run-002", "run-003")
+    assert first.canonical_payload == second.canonical_payload
+    assert first.selection_fingerprint == second.selection_fingerprint
+
+
+def test_run_selection_rejects_empty_duplicates_and_oversized_sets():
+    with pytest.raises(InvalidInputError, match="at least one"):
+        ResearchExperimentRunSelection(run_ids=())
+
+    with pytest.raises(InvalidInputError, match="must not contain duplicates"):
+        ResearchExperimentRunSelection(run_ids=("run-001", "run-001"))
+
+    with pytest.raises(InvalidInputError, match="between 1 and 100"):
+        ResearchExperimentRunSelection(run_ids=("run-001",), max_runs=101)
+
+    with pytest.raises(InvalidInputError, match="more than max_runs"):
+        ResearchExperimentRunSelection(run_ids=("run-001", "run-002"), max_runs=1)
+
+
+def test_run_selection_resolves_existing_runs_in_deterministic_order(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition(), run_id="selection-001")
+    second = service.create_run(definition(), run_id="selection-002")
+    third = service.create_run(definition(), run_id="selection-003")
+
+    service.repository.get(first.run_id).submitted_at = datetime(2026, 9, 10, 13, 0, tzinfo=timezone.utc)
+    service.repository.get(second.run_id).submitted_at = datetime(2026, 9, 10, 15, 0, tzinfo=timezone.utc)
+    service.repository.get(third.run_id).submitted_at = datetime(2026, 9, 10, 14, 0, tzinfo=timezone.utc)
+    db_session.commit()
+
+    runs = service.select_runs(
+        ResearchExperimentRunSelection(
+            run_ids=(first.run_id, third.run_id, second.run_id),
+        )
+    )
+
+    assert [item.run_id for item in runs] == [second.run_id, third.run_id, first.run_id]
+
+
+def test_run_selection_rejects_missing_runs(db_session):
+    service = ResearchExperimentService(db_session)
+    with pytest.raises(ResourceNotFoundError, match="Experiment runs not found"):
+        service.select_runs(
+            ResearchExperimentRunSelection(run_ids=("missing-001", "missing-002"))
+        )
+
+
+def test_run_selection_enforces_optional_experiment_identity(db_session):
+    service = ResearchExperimentService(db_session)
+    matching = service.create_run(definition(), run_id="selection-match")
+    service.create_run(definition(experiment_key="momentum"), run_id="selection-mismatch")
+
+    selected = service.select_runs(
+        ResearchExperimentRunSelection(
+            run_ids=(matching.run_id,),
+            experiment_key="value-quality",
+            definition_version="1",
+        )
+    )
+    assert [item.run_id for item in selected] == [matching.run_id]
+
+    with pytest.raises(InvalidInputError, match="experiment key"):
+        service.select_runs(
+            ResearchExperimentRunSelection(
+                run_ids=(matching.run_id, "selection-mismatch"),
+                experiment_key="value-quality",
+            )
+        )
+
+    with pytest.raises(InvalidInputError, match="definition version"):
+        service.select_runs(
+            ResearchExperimentRunSelection(
+                run_ids=(matching.run_id,),
+                definition_version="2",
+            )
+        )
+
+
+def test_run_selection_rejects_wrong_selection_type(db_session):
+    service = ResearchExperimentService(db_session)
+    with pytest.raises(InvalidInputError, match="ResearchExperimentRunSelection"):
+        service.select_runs(object())
 
 
 def test_run_query_rejects_invalid_limit():

@@ -24,6 +24,20 @@ class ResearchExperimentRepository:
             )
         )
 
+    def get_by_run_ids(self, run_ids: tuple[str, ...]) -> list[ResearchExperimentRun]:
+        if not run_ids:
+            return []
+        return list(
+            self.db.scalars(
+                select(ResearchExperimentRun)
+                .where(ResearchExperimentRun.run_id.in_(run_ids))
+                .order_by(
+                    ResearchExperimentRun.submitted_at.desc(),
+                    ResearchExperimentRun.id.desc(),
+                )
+            ).all()
+        )
+
     def list_runs(
         self,
         *,

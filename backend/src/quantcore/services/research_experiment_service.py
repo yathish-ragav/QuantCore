@@ -735,6 +735,84 @@ class ResearchExperimentRunQuery:
 
 
 @dataclass(frozen=True)
+class ResearchExperimentRunSelection:
+    """Immutable bounded set of persisted run identities for higher-level research."""
+
+    run_ids: tuple[str, ...]
+    experiment_key: str | None = None
+    definition_version: str | None = None
+    max_runs: int = 100
+
+    def __post_init__(self) -> None:
+        normalized_ids = tuple(
+            _validate_identifier(run_id, "Experiment run id")
+            for run_id in tuple(self.run_ids)
+        )
+        if not normalized_ids:
+            raise InvalidInputError("Experiment run selection must contain at least one run id.")
+        if len(normalized_ids) != len(set(normalized_ids)):
+            raise InvalidInputError("Experiment run selection must not contain duplicates.")
+
+        experiment_key = self._normalize_optional_text(
+            self.experiment_key, "Experiment key", max_length=200
+        )
+        definition_version = self._normalize_optional_text(
+            self.definition_version, "Experiment definition version", max_length=50
+        )
+        if not isinstance(self.max_runs, int) or isinstance(self.max_runs, bool):
+            raise InvalidInputError("Experiment run selection max_runs must be an integer.")
+        if self.max_runs < 1 or self.max_runs > 100:
+            raise InvalidInputError(
+                "Experiment run selection max_runs must be between 1 and 100."
+            )
+        if len(normalized_ids) > self.max_runs:
+            raise InvalidInputError(
+                "Experiment run selection cannot contain more than max_runs run ids."
+            )
+
+        object.__setattr__(self, "run_ids", tuple(sorted(normalized_ids)))
+        object.__setattr__(self, "experiment_key", experiment_key)
+        object.__setattr__(self, "definition_version", definition_version)
+
+    @property
+    def canonical_payload(self) -> dict[str, Any]:
+        return {
+            "run_ids": self.run_ids,
+            "experiment": {
+                "key": self.experiment_key,
+                "definition_version": self.definition_version,
+            },
+        }
+
+    @property
+    def selection_fingerprint(self) -> str:
+        canonical = json.dumps(
+            self.canonical_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
+
+    @staticmethod
+    def _normalize_optional_text(
+        value: str | None, name: str, *, max_length: int
+    ) -> str | None:
+        if value is None:
+            return None
+        if not isinstance(value, str) or not value.strip():
+            raise InvalidInputError(
+                f"{name} must be a non-empty string when provided."
+            )
+        normalized = value.strip()
+        if len(normalized) > max_length:
+            raise InvalidInputError(
+                f"{name} must be at most {max_length} characters."
+            )
+        return normalized
+
+
+@dataclass(frozen=True)
 class ResearchExperimentRunResultView:
     """Stable read model for one persisted experiment result."""
 
@@ -854,6 +932,49 @@ class ResearchExperimentService:
                 limit=query.limit,
             )
         )
+
+    def select_runs(
+        self, selection: ResearchExperimentRunSelection
+    ) -> tuple[ResearchExperimentRunView, ...]:
+        """Resolve a validated run selection against persisted experiment runs."""
+        if not isinstance(selection, ResearchExperimentRunSelection):
+            raise InvalidInputError(
+                "Experiment run selection requires a ResearchExperimentRunSelection."
+            )
+
+        runs = self.repository.get_by_run_ids(selection.run_ids)
+        found_ids = {run.run_id for run in runs}
+        missing_ids = [run_id for run_id in selection.run_ids if run_id not in found_ids]
+        if missing_ids:
+            raise ResourceNotFoundError(
+                "Experiment runs not found: " + ", ".join(missing_ids)
+            )
+
+        if selection.experiment_key is not None:
+            mismatched = [
+                run.run_id
+                for run in runs
+                if run.experiment_key != selection.experiment_key
+            ]
+            if mismatched:
+                raise InvalidInputError(
+                    "Experiment run selection contains runs outside the requested "
+                    f"experiment key: {', '.join(mismatched)}."
+                )
+
+        if selection.definition_version is not None:
+            mismatched = [
+                run.run_id
+                for run in runs
+                if run.definition_version != selection.definition_version
+            ]
+            if mismatched:
+                raise InvalidInputError(
+                    "Experiment run selection contains runs outside the requested "
+                    f"definition version: {', '.join(mismatched)}."
+                )
+
+        return tuple(self._view(run) for run in runs)
 
     def get_run(self, run_id: str) -> ResearchExperimentRunView:
         normalized_run_id = self._validate_run_id(run_id)
