@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
 
-from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, Index, JSON, String
+from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, Index, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from quantcore.db.database import Base
@@ -144,3 +144,79 @@ class ResearchExperimentRunResult(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+
+class ResearchExperimentArtifact(Base):
+    """Immutable descriptor and provenance record for one experiment artifact."""
+
+    __tablename__ = "research_experiment_artifacts"
+
+    __table_args__ = (
+        UniqueConstraint(
+            "run_id",
+            "artifact_fingerprint",
+            name="uq_research_experiment_artifacts_run_fingerprint",
+        ),
+        Index(
+            "ix_research_experiment_artifacts_run_created_id",
+            "run_id",
+            "created_at",
+            "id",
+        ),
+        Index(
+            "ix_research_experiment_artifacts_content_hash",
+            "content_hash",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    artifact_id: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        unique=True,
+    )
+
+    run_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("research_experiment_runs.run_id", ondelete="CASCADE"),
+        nullable=False,
+    )
+
+    artifact_type: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+    )
+
+    content_hash: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+    )
+
+    artifact_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    artifact_metadata: Mapped[dict] = mapped_column(
+        "metadata",
+        JSON,
+        nullable=False,
+    )
+
+    provenance: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+    @staticmethod
+    def new_artifact_id() -> str:
+        """Return a unique opaque identifier suitable for artifact references."""
+        return uuid4().hex

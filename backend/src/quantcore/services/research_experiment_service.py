@@ -12,10 +12,20 @@ from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.models.research_experiment import (
+    ResearchExperimentArtifact,
     ResearchExperimentRun,
     ResearchExperimentRunStatus,
 )
 from quantcore.repositories.research_experiment_repository import ResearchExperimentRepository
+
+
+def _validate_identifier(value: str, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise InvalidInputError(f"{name} must be a non-empty string.")
+    normalized = value.strip()
+    if len(normalized) > 64:
+        raise InvalidInputError(f"{name} must be at most 64 characters.")
+    return normalized
 
 
 DefinitionIdentity = tuple[str, str]
@@ -405,6 +415,118 @@ class ResearchExperimentExecutionResult:
 
 
 @dataclass(frozen=True)
+class ResearchExperimentArtifactDefinition:
+    """Immutable descriptor for one artifact produced by an experiment run."""
+
+    run_id: str
+    artifact_type: str
+    content_hash: str
+    metadata: Mapping[str, Any] | None = None
+    provenance: Mapping[str, Any] | None = None
+
+    def __post_init__(self) -> None:
+        run_id = _validate_identifier(self.run_id, "Experiment run id")
+        artifact_type = self._required_text(self.artifact_type, "Artifact type")
+        content_hash = self._normalize_hash(self.content_hash, "Content hash")
+        metadata = self._normalize_mapping(self.metadata, "Artifact metadata")
+        provenance = self._normalize_mapping(self.provenance, "Artifact provenance")
+
+        canonical = {
+            "run_id": run_id,
+            "artifact_type": artifact_type,
+            "content_hash": content_hash,
+            "metadata": metadata,
+            "provenance": provenance,
+        }
+        try:
+            json.dumps(
+                canonical,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
+                allow_nan=False,
+            )
+        except (TypeError, ValueError) as exc:
+            raise InvalidInputError(
+                "Artifact metadata and provenance must contain only deterministic JSON values."
+            ) from exc
+
+        object.__setattr__(self, "run_id", run_id)
+        object.__setattr__(self, "artifact_type", artifact_type)
+        object.__setattr__(self, "content_hash", content_hash)
+        object.__setattr__(self, "metadata", metadata)
+        object.__setattr__(self, "provenance", provenance)
+
+    @staticmethod
+    def _required_text(value: str, name: str) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise InvalidInputError(f"{name} must be a non-empty string.")
+        normalized = value.strip()
+        if len(normalized) > 100:
+            raise InvalidInputError(f"{name} must be at most 100 characters.")
+        return normalized
+
+    @staticmethod
+    def _normalize_hash(value: str, name: str) -> str:
+        if not isinstance(value, str):
+            raise InvalidInputError(f"{name} must be a SHA-256 hexadecimal string.")
+        normalized = value.strip().lower()
+        if len(normalized) != 64 or any(char not in "0123456789abcdef" for char in normalized):
+            raise InvalidInputError(f"{name} must be a SHA-256 hexadecimal string.")
+        return normalized
+
+    @classmethod
+    def _normalize_mapping(
+        cls, value: Mapping[str, Any] | None, name: str
+    ) -> dict[str, Any]:
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise InvalidInputError(f"{name} must be a mapping.")
+        try:
+            return ResearchExperimentDefinition._canonicalize(dict(value))
+        except (TypeError, ValueError) as exc:
+            raise InvalidInputError(
+                f"{name} must contain only deterministic JSON values."
+            ) from exc
+
+    @property
+    def canonical_payload(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "artifact_type": self.artifact_type,
+            "content_hash": self.content_hash,
+            "metadata": self.metadata,
+            "provenance": self.provenance,
+        }
+
+    @property
+    def artifact_fingerprint(self) -> str:
+        canonical = json.dumps(
+            self.canonical_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class ResearchExperimentArtifactView:
+    """Stable read model for one persisted experiment artifact descriptor."""
+
+    artifact_id: str
+    run_id: str
+    artifact_type: str
+    content_hash: str
+    artifact_fingerprint: str
+    metadata: dict
+    provenance: dict
+    created_at: datetime
+
+
+@dataclass(frozen=True)
 class ResearchExperimentRunResultView:
     """Stable read model for one persisted experiment result."""
 
@@ -450,12 +572,11 @@ class ResearchExperimentService:
 
     @staticmethod
     def _validate_run_id(run_id: str) -> str:
-        if not isinstance(run_id, str) or not run_id.strip():
-            raise InvalidInputError("Experiment run id must be a non-empty string.")
-        normalized = run_id.strip()
-        if len(normalized) > 64:
-            raise InvalidInputError("Experiment run id must be at most 64 characters.")
-        return normalized
+        return _validate_identifier(run_id, "Experiment run id")
+
+    @staticmethod
+    def _validate_artifact_id(artifact_id: str) -> str:
+        return _validate_identifier(artifact_id, "Experiment artifact id")
 
     @staticmethod
     def _view(run: ResearchExperimentRun) -> ResearchExperimentRunView:
@@ -545,6 +666,104 @@ class ResearchExperimentService:
             ),
             status=ResearchExperimentRunStatus.CANCELLED,
         )
+
+    @staticmethod
+    def validate_artifact(
+        artifact: ResearchExperimentArtifactDefinition,
+    ) -> ResearchExperimentArtifactDefinition:
+        if not isinstance(artifact, ResearchExperimentArtifactDefinition):
+            raise InvalidInputError(
+                "Artifact validation requires a ResearchExperimentArtifactDefinition."
+            )
+        return artifact
+
+    @staticmethod
+    def _artifact_view(
+        artifact: ResearchExperimentArtifact,
+    ) -> ResearchExperimentArtifactView:
+        return ResearchExperimentArtifactView(
+            artifact_id=artifact.artifact_id,
+            run_id=artifact.run_id,
+            artifact_type=artifact.artifact_type,
+            content_hash=artifact.content_hash,
+            artifact_fingerprint=artifact.artifact_fingerprint,
+            metadata=artifact.artifact_metadata,
+            provenance=artifact.provenance,
+            created_at=artifact.created_at,
+        )
+
+    def create_artifact(
+        self,
+        artifact: ResearchExperimentArtifactDefinition,
+        *,
+        artifact_id: str | None = None,
+    ) -> ResearchExperimentArtifactView:
+        """Persist one immutable artifact descriptor against an existing run."""
+        artifact = self.validate_artifact(artifact)
+        normalized_artifact_id = (
+            ResearchExperimentArtifact.new_artifact_id()
+            if artifact_id is None
+            else self._validate_artifact_id(artifact_id)
+        )
+        run_id = self._validate_run_id(artifact.run_id)
+        if self.repository.get(run_id) is None:
+            raise ResourceNotFoundError(f"Experiment run not found: {run_id}")
+        if self.repository.get_artifact(normalized_artifact_id) is not None:
+            raise InvalidInputError(
+                f"Experiment artifact id '{normalized_artifact_id}' already exists."
+            )
+        if self.repository.get_artifact_by_fingerprint(
+            run_id, artifact.artifact_fingerprint
+        ) is not None:
+            raise InvalidInputError(
+                "An artifact with the same identity is already registered for this run."
+            )
+
+        created_at = datetime.now(timezone.utc)
+        try:
+            persisted = self.repository.create_artifact(
+                artifact_id=normalized_artifact_id,
+                run_id=run_id,
+                artifact_type=artifact.artifact_type,
+                content_hash=artifact.content_hash,
+                artifact_fingerprint=artifact.artifact_fingerprint,
+                metadata=dict(artifact.metadata),
+                provenance=dict(artifact.provenance),
+                created_at=created_at,
+            )
+            self.db.commit()
+            return self._artifact_view(persisted)
+        except IntegrityError as exc:
+            self.db.rollback()
+            if self.repository.get_artifact_by_fingerprint(
+                run_id, artifact.artifact_fingerprint
+            ) is not None:
+                raise InvalidInputError(
+                    "An artifact with the same identity is already registered for this run."
+                ) from exc
+            raise InvalidInputError(
+                f"Experiment artifact id '{normalized_artifact_id}' already exists."
+            ) from exc
+
+    def list_artifacts(self, run_id: str) -> tuple[ResearchExperimentArtifactView, ...]:
+        normalized_run_id = self._validate_run_id(run_id)
+        if self.repository.get(normalized_run_id) is None:
+            raise ResourceNotFoundError(
+                f"Experiment run not found: {normalized_run_id}"
+            )
+        return tuple(
+            self._artifact_view(artifact)
+            for artifact in self.repository.list_artifacts(normalized_run_id)
+        )
+
+    def get_artifact(self, artifact_id: str) -> ResearchExperimentArtifactView:
+        normalized_artifact_id = self._validate_artifact_id(artifact_id)
+        artifact = self.repository.get_artifact(normalized_artifact_id)
+        if artifact is None:
+            raise ResourceNotFoundError(
+                f"Experiment artifact not found: {normalized_artifact_id}"
+            )
+        return self._artifact_view(artifact)
 
     def get_result(self, run_id: str) -> ResearchExperimentRunResultView:
         normalized_run_id = self._validate_run_id(run_id)

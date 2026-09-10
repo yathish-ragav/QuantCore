@@ -4,6 +4,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from quantcore.models.research_experiment import (
+    ResearchExperimentArtifact,
     ResearchExperimentRun,
     ResearchExperimentRunResult,
     ResearchExperimentRunStatus,
@@ -108,3 +109,56 @@ class ResearchExperimentRepository:
         self.db.add(result)
         self.db.flush()
         return result
+
+
+    def get_artifact(self, artifact_id: str) -> ResearchExperimentArtifact | None:
+        return self.db.scalar(
+            select(ResearchExperimentArtifact).where(
+                ResearchExperimentArtifact.artifact_id == artifact_id
+            )
+        )
+
+    def list_artifacts(self, run_id: str) -> list[ResearchExperimentArtifact]:
+        return list(
+            self.db.scalars(
+                select(ResearchExperimentArtifact)
+                .where(ResearchExperimentArtifact.run_id == run_id)
+                .order_by(ResearchExperimentArtifact.created_at, ResearchExperimentArtifact.id)
+            )
+        )
+
+    def get_artifact_by_fingerprint(
+        self, run_id: str, artifact_fingerprint: str
+    ) -> ResearchExperimentArtifact | None:
+        return self.db.scalar(
+            select(ResearchExperimentArtifact).where(
+                ResearchExperimentArtifact.run_id == run_id,
+                ResearchExperimentArtifact.artifact_fingerprint == artifact_fingerprint,
+            )
+        )
+
+    def create_artifact(
+        self,
+        *,
+        artifact_id: str,
+        run_id: str,
+        artifact_type: str,
+        content_hash: str,
+        artifact_fingerprint: str,
+        metadata: dict,
+        provenance: dict,
+        created_at: datetime,
+    ) -> ResearchExperimentArtifact:
+        artifact = ResearchExperimentArtifact(
+            artifact_id=artifact_id,
+            run_id=run_id,
+            artifact_type=artifact_type,
+            content_hash=content_hash,
+            artifact_fingerprint=artifact_fingerprint,
+            artifact_metadata=metadata,
+            provenance=provenance,
+            created_at=created_at,
+        )
+        self.db.add(artifact)
+        self.db.flush()
+        return artifact

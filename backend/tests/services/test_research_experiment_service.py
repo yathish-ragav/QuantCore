@@ -6,6 +6,7 @@ from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.services.research_experiment_service import (
     ResearchExperimentDefinition,
     ResearchExperimentDefinitionRegistry,
+    ResearchExperimentArtifactDefinition,
     ResearchExperimentExecutionResult,
     ResearchExperimentRunResultView,
     ResearchExperimentRunStatus,
@@ -133,12 +134,14 @@ def db_session():
 
     from quantcore.models.research_experiment import (
         ResearchExperimentRun,
+        ResearchExperimentArtifact,
         ResearchExperimentRunResult,
     )
 
     engine = create_engine("sqlite://")
     ResearchExperimentRun.__table__.create(engine)
     ResearchExperimentRunResult.__table__.create(engine)
+    ResearchExperimentArtifact.__table__.create(engine)
     with Session(engine) as session:
         yield session
 
@@ -346,3 +349,135 @@ def test_execute_run_result_is_reloaded_from_persistence(db_session):
     reloaded = service.get_result("reload-result")
     assert reloaded.result_payload == {"value": 42}
     assert reloaded.metrics == {"accuracy": 0.91}
+
+
+def test_artifact_definition_is_canonical_and_fingerprinted():
+    first = ResearchExperimentArtifactDefinition(
+        run_id="run-001",
+        artifact_type="factor_panel",
+        content_hash="A" * 64,
+        metadata={"b": {"y": 2, "x": 1}, "a": 3},
+        provenance={"source": "execution"},
+    )
+    second = ResearchExperimentArtifactDefinition(
+        run_id="run-001",
+        artifact_type="factor_panel",
+        content_hash="a" * 64,
+        metadata={"a": 3, "b": {"x": 1, "y": 2}},
+        provenance={"source": "execution"},
+    )
+    assert first.metadata["b"]["x"] == 1
+    assert first.content_hash == second.content_hash
+    assert first.artifact_fingerprint == second.artifact_fingerprint
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("artifact_type", ""),
+        ("content_hash", "not-a-hash"),
+        ("content_hash", "g" * 64),
+    ],
+)
+def test_artifact_definition_validates_identity_fields(field, value):
+    with pytest.raises(InvalidInputError):
+        ResearchExperimentArtifactDefinition(
+            run_id="run-001",
+            artifact_type="factor_panel" if field != "artifact_type" else value,
+            content_hash="a" * 64 if field != "content_hash" else value,
+        )
+
+
+def test_artifact_fingerprint_is_order_independent():
+    first = ResearchExperimentArtifactDefinition(
+        run_id="run-001", artifact_type="report", content_hash="a" * 64,
+        metadata={"z": 2, "a": 1}, provenance={"b": 2, "a": 1},
+    )
+    second = ResearchExperimentArtifactDefinition(
+        run_id="run-001", artifact_type="report", content_hash="a" * 64,
+        metadata={"a": 1, "z": 2}, provenance={"a": 1, "b": 2},
+    )
+    assert first.artifact_fingerprint == second.artifact_fingerprint
+
+
+def test_create_and_get_artifact_persists_provenance(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="artifact-run")
+    artifact = service.create_artifact(
+        ResearchExperimentArtifactDefinition(
+            run_id="artifact-run",
+            artifact_type="factor_panel",
+            content_hash="a" * 64,
+            metadata={"format": "json", "schema_version": 1},
+            provenance={"producer": "research-experiment", "result": "run-result"},
+        ),
+        artifact_id="artifact-001",
+    )
+
+    assert artifact.artifact_id == "artifact-001"
+    assert artifact.run_id == "artifact-run"
+    assert artifact.content_hash == "a" * 64
+    assert artifact.metadata["format"] == "json"
+    assert artifact.provenance["result"] == "run-result"
+    assert artifact.artifact_fingerprint
+    assert service.get_artifact("artifact-001") == artifact
+
+
+def test_get_artifact_validates_artifact_id():
+    service = ResearchExperimentService.__new__(ResearchExperimentService)
+    with pytest.raises(InvalidInputError, match="Experiment artifact id"):
+        service.get_artifact("   ")
+
+
+def test_artifact_requires_existing_run(db_session):
+    service = ResearchExperimentService(db_session)
+    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+        service.create_artifact(
+            ResearchExperimentArtifactDefinition(
+                run_id="missing", artifact_type="report", content_hash="a" * 64
+            )
+        )
+
+
+def test_artifact_registration_is_idempotency_protected(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="artifact-duplicate")
+    artifact = ResearchExperimentArtifactDefinition(
+        run_id="artifact-duplicate", artifact_type="report", content_hash="a" * 64
+    )
+    service.create_artifact(artifact)
+    with pytest.raises(InvalidInputError, match="same identity"):
+        service.create_artifact(artifact)
+
+
+def test_artifacts_can_be_listed_by_run(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="artifact-list")
+    service.create_artifact(
+        ResearchExperimentArtifactDefinition(
+            run_id="artifact-list", artifact_type="report", content_hash="a" * 64
+        ),
+        artifact_id="artifact-a",
+    )
+    service.create_artifact(
+        ResearchExperimentArtifactDefinition(
+            run_id="artifact-list", artifact_type="factor_panel", content_hash="b" * 64
+        ),
+        artifact_id="artifact-b",
+    )
+
+    artifacts = service.list_artifacts("artifact-list")
+    assert [item.artifact_id for item in artifacts] == ["artifact-a", "artifact-b"]
+
+
+def test_artifact_has_no_update_boundary(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="artifact-immutable")
+    artifact = service.create_artifact(
+        ResearchExperimentArtifactDefinition(
+            run_id="artifact-immutable", artifact_type="report", content_hash="a" * 64
+        ),
+        artifact_id="artifact-immutable-1",
+    )
+    assert not hasattr(service, "update_artifact")
+    assert artifact.artifact_id == "artifact-immutable-1"
