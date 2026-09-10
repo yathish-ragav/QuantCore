@@ -21,6 +21,7 @@ from quantcore.models.balance_sheet import BalanceSheet
 from quantcore.models.provenance import CompanyFieldProvenance
 from quantcore.models.ingestion import IngestionJob, IngestionRun, IngestionState
 from quantcore.models.research_experiment import (
+    ResearchExperimentArtifact,
     ResearchExperimentRun,
     ResearchExperimentRunResult,
 )
