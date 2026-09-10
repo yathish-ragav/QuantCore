@@ -798,6 +798,107 @@ def test_artifact_has_no_update_boundary(db_session):
     assert artifact.artifact_id == "artifact-immutable-1"
 
 
+
+def test_comparison_run_normalizes_identity_and_fingerprints():
+    run = ResearchExperimentComparisonRun(
+        run_id="  run-001  ",
+        experiment_key=" value-quality ",
+        definition_version=" 1 ",
+        run_input_fingerprint="A" * 64,
+        result_fingerprint="B" * 64,
+    )
+
+    assert run.run_id == "run-001"
+    assert run.experiment_key == "value-quality"
+    assert run.definition_version == "1"
+    assert run.run_input_fingerprint == "a" * 64
+    assert run.result_fingerprint == "b" * 64
+
+
+@pytest.mark.parametrize(
+    "field,value,match",
+    [
+        ("run_id", " ", "Experiment run id"),
+        ("experiment_key", " ", "Experiment key"),
+        ("definition_version", " ", "Experiment definition version"),
+        ("run_input_fingerprint", "not-a-hash", "Run input fingerprint"),
+        ("result_fingerprint", "g" * 64, "Result fingerprint"),
+    ],
+)
+def test_comparison_run_rejects_invalid_identity_fields(field, value, match):
+    values = {
+        "run_id": "run-001",
+        "experiment_key": "value-quality",
+        "definition_version": "1",
+        "run_input_fingerprint": "a" * 64,
+        "result_fingerprint": "b" * 64,
+    }
+    values[field] = value
+
+    with pytest.raises(InvalidInputError, match=match):
+        ResearchExperimentComparisonRun(**values)
+
+
+def test_comparison_contract_normalizes_selection_fingerprint():
+    run_a = ResearchExperimentComparisonRun(
+        run_id="run-a",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="a" * 64,
+        result_fingerprint="b" * 64,
+    )
+    run_b = ResearchExperimentComparisonRun(
+        run_id="run-b",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="c" * 64,
+        result_fingerprint="d" * 64,
+    )
+
+    comparison = ResearchExperimentComparison(
+        selection_fingerprint="A" * 64,
+        experiment_key="value-quality",
+        definition_version="1",
+        runs=(run_b, run_a),
+    )
+
+    assert comparison.selection_fingerprint == "a" * 64
+    assert [run.run_id for run in comparison.runs] == ["run-a", "run-b"]
+
+
+def test_comparison_contract_rejects_invalid_selection_fingerprint():
+    run = ResearchExperimentComparisonRun(
+        run_id="run-a",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="a" * 64,
+        result_fingerprint="b" * 64,
+    )
+    with pytest.raises(InvalidInputError, match="selection fingerprint"):
+        ResearchExperimentComparison(
+            selection_fingerprint="not-a-hash",
+            experiment_key="value-quality",
+            definition_version="1",
+            runs=(run, run),
+        )
+
+
+def test_comparison_run_canonical_payload_is_normalized():
+    run = ResearchExperimentComparisonRun(
+        run_id="  run-a ",
+        experiment_key=" value-quality ",
+        definition_version=" 1 ",
+        run_input_fingerprint="A" * 64,
+        result_fingerprint="B" * 64,
+    )
+
+    assert run.canonical_payload == {
+        "run_id": "run-a",
+        "experiment": {"key": "value-quality", "definition_version": "1"},
+        "run_input_fingerprint": "a" * 64,
+        "result_fingerprint": "b" * 64,
+    }
+
 def test_comparison_contract_is_canonical_and_order_independent():
     first = ResearchExperimentComparison(
         selection_fingerprint="a" * 64,

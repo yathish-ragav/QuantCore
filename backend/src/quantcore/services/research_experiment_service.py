@@ -29,6 +29,15 @@ def _validate_identifier(value: str, name: str) -> str:
     return normalized
 
 
+def _validate_sha256_fingerprint(value: str, name: str) -> str:
+    if not isinstance(value, str) or len(value) != 64:
+        raise InvalidInputError(f"{name} must be a SHA-256 hexadecimal string.")
+    normalized = value.lower()
+    if any(char not in "0123456789abcdef" for char in normalized):
+        raise InvalidInputError(f"{name} must be a SHA-256 hexadecimal string.")
+    return normalized
+
+
 DefinitionIdentity = tuple[str, str]
 ResearchSignalIdentity = DefinitionIdentity
 ResearchStrategyIdentity = DefinitionIdentity
@@ -823,6 +832,30 @@ class ResearchExperimentComparisonRun:
     run_input_fingerprint: str
     result_fingerprint: str
 
+    def __post_init__(self) -> None:
+        run_id = _validate_identifier(self.run_id, "Experiment run id")
+        experiment_key = ResearchExperimentRunQuery._normalize_optional_text(
+            self.experiment_key, "Experiment key", max_length=200
+        )
+        definition_version = ResearchExperimentRunQuery._normalize_optional_text(
+            self.definition_version, "Experiment definition version", max_length=50
+        )
+        if experiment_key is None or definition_version is None:
+            raise InvalidInputError(
+                "Comparison run experiment identity must be complete."
+            )
+        run_input_fingerprint = _validate_sha256_fingerprint(
+            self.run_input_fingerprint, "Run input fingerprint"
+        )
+        result_fingerprint = _validate_sha256_fingerprint(
+            self.result_fingerprint, "Result fingerprint"
+        )
+        object.__setattr__(self, "run_id", run_id)
+        object.__setattr__(self, "experiment_key", experiment_key)
+        object.__setattr__(self, "definition_version", definition_version)
+        object.__setattr__(self, "run_input_fingerprint", run_input_fingerprint)
+        object.__setattr__(self, "result_fingerprint", result_fingerprint)
+
     @property
     def canonical_payload(self) -> dict[str, Any]:
         return {
@@ -846,10 +879,9 @@ class ResearchExperimentComparison:
     runs: tuple[ResearchExperimentComparisonRun, ...]
 
     def __post_init__(self) -> None:
-        if not isinstance(self.selection_fingerprint, str) or len(self.selection_fingerprint) != 64:
-            raise InvalidInputError("Comparison selection fingerprint must be a SHA-256 hexadecimal string.")
-        if any(char not in "0123456789abcdef" for char in self.selection_fingerprint):
-            raise InvalidInputError("Comparison selection fingerprint must be a SHA-256 hexadecimal string.")
+        selection_fingerprint = _validate_sha256_fingerprint(
+            self.selection_fingerprint, "Comparison selection fingerprint"
+        )
         experiment_key = ResearchExperimentRunQuery._normalize_optional_text(
             self.experiment_key, "Experiment key", max_length=200
         )
@@ -876,6 +908,7 @@ class ResearchExperimentComparison:
             raise InvalidInputError(
                 "Experiment comparison runs must share the comparison experiment identity."
             )
+        object.__setattr__(self, "selection_fingerprint", selection_fingerprint)
         object.__setattr__(self, "experiment_key", experiment_key)
         object.__setattr__(self, "definition_version", definition_version)
         object.__setattr__(self, "runs", tuple(sorted(runs, key=lambda run: run.run_id)))
