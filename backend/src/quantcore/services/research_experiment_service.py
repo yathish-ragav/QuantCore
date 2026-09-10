@@ -311,6 +311,74 @@ class ResearchExperimentDefinition:
             return _FrozenList(cls._canonicalize(item) for item in value)
         raise TypeError(f"Unsupported parameter type: {type(value).__name__}")
 
+    @classmethod
+    def from_canonical_payload(
+        cls,
+        payload: Mapping[str, Any],
+    ) -> "ResearchExperimentDefinition":
+        """Reconstruct and validate a persisted canonical definition snapshot."""
+        if not isinstance(payload, Mapping):
+            raise InvalidInputError(
+                "Persisted experiment definition snapshot must be a mapping."
+            )
+
+        def identity(value: Any, name: str) -> DefinitionIdentity:
+            if not isinstance(value, (list, tuple)) or len(value) != 2:
+                raise InvalidInputError(
+                    f"Persisted {name} must be a two-item identity."
+                )
+            return value[0], value[1]
+
+        try:
+            experiment = payload["experiment"]
+            dataset = payload["dataset"]
+            universe = payload["universe"]
+            observation_as_of = datetime.fromisoformat(payload["observation_as_of"])
+            factors = tuple(
+                identity(item, "factor identity")
+                for item in payload["factors"]
+            )
+            signal = (
+                None
+                if payload["signal"] is None
+                else identity(payload["signal"], "signal identity")
+            )
+            strategy = (
+                None
+                if payload["strategy"] is None
+                else identity(payload["strategy"], "strategy identity")
+            )
+            parameters = payload["parameters"]
+            code_version = payload["code_version"]
+            experiment_key = experiment["key"]
+            definition_version = experiment["definition_version"]
+        except (KeyError, TypeError, ValueError) as exc:
+            raise InvalidInputError(
+                "Persisted experiment definition snapshot is invalid."
+            ) from exc
+
+        if not isinstance(experiment, Mapping):
+            raise InvalidInputError(
+                "Persisted experiment definition snapshot has an invalid experiment identity."
+            )
+        if not isinstance(payload.get("factors"), (list, tuple)):
+            raise InvalidInputError(
+                "Persisted experiment definition snapshot has invalid factor identities."
+            )
+
+        return cls(
+            experiment_key=experiment_key,
+            definition_version=definition_version,
+            dataset_identity=identity(dataset, "dataset identity"),
+            universe_identity=identity(universe, "universe identity"),
+            observation_as_of=observation_as_of,
+            factor_identities=factors,
+            signal_identity=signal,
+            strategy_identity=strategy,
+            parameters=parameters,
+            code_version=code_version,
+        )
+
     @staticmethod
     def _json_default(value: Any) -> Any:
         raise TypeError(f"Unsupported JSON value: {type(value).__name__}")
@@ -508,6 +576,48 @@ class ResearchExperimentArtifactDefinition:
             separators=(",", ":"),
             ensure_ascii=True,
             allow_nan=False,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
+class ResearchExperimentArtifactProvenance:
+    """Authoritative read contract linking an artifact to its persisted run inputs."""
+
+    artifact_id: str
+    artifact_type: str
+    content_hash: str
+    artifact_fingerprint: str
+    run_id: str
+    definition: ResearchExperimentDefinition
+    result_fingerprint: str | None = None
+
+    @property
+    def canonical_payload(self) -> dict[str, Any]:
+        return {
+            "artifact": {
+                "id": self.artifact_id,
+                "type": self.artifact_type,
+                "content_hash": self.content_hash,
+                "fingerprint": self.artifact_fingerprint,
+            },
+            "run": {
+                "run_id": self.run_id,
+                "definition": self.definition.canonical_payload,
+                "run_input_fingerprint": self.definition.run_input_fingerprint,
+            },
+            "result": {
+                "result_fingerprint": self.result_fingerprint,
+            },
+        }
+
+    @property
+    def provenance_fingerprint(self) -> str:
+        canonical = json.dumps(
+            self.canonical_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
         )
         return sha256(canonical.encode("utf-8")).hexdigest()
 
@@ -764,6 +874,54 @@ class ResearchExperimentService:
                 f"Experiment artifact not found: {normalized_artifact_id}"
             )
         return self._artifact_view(artifact)
+
+    def get_artifact_provenance(
+        self,
+        artifact_id: str,
+    ) -> ResearchExperimentArtifactProvenance:
+        """Return authoritative provenance derived from persisted run and result state.
+
+        The artifact's caller-supplied provenance field is deliberately excluded
+        from this contract. The persisted run definition snapshot and result
+        fingerprint are the source of truth for the experiment lineage.
+        """
+        normalized_artifact_id = self._validate_artifact_id(artifact_id)
+        artifact = self.repository.get_artifact(normalized_artifact_id)
+        if artifact is None:
+            raise ResourceNotFoundError(
+                f"Experiment artifact not found: {normalized_artifact_id}"
+            )
+
+        run = self.repository.get(artifact.run_id)
+        if run is None:
+            raise InvalidInputError(
+                f"Experiment artifact {normalized_artifact_id} references a missing run."
+            )
+
+        definition = ResearchExperimentDefinition.from_canonical_payload(
+            run.definition_payload
+        )
+        if (
+            definition.experiment_key != run.experiment_key
+            or definition.definition_version != run.definition_version
+            or definition.run_input_fingerprint != run.run_input_fingerprint
+        ):
+            raise InvalidInputError(
+                f"Persisted experiment run {run.run_id} has an inconsistent definition snapshot."
+            )
+
+        result = self.repository.get_result(run.run_id)
+        return ResearchExperimentArtifactProvenance(
+            artifact_id=artifact.artifact_id,
+            artifact_type=artifact.artifact_type,
+            content_hash=artifact.content_hash,
+            artifact_fingerprint=artifact.artifact_fingerprint,
+            run_id=run.run_id,
+            definition=definition,
+            result_fingerprint=(
+                result.result_fingerprint if result is not None else None
+            ),
+        )
 
     def get_result(self, run_id: str) -> ResearchExperimentRunResultView:
         normalized_run_id = self._validate_run_id(run_id)

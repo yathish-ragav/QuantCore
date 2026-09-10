@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+import json
 
 import pytest
 
@@ -7,6 +8,7 @@ from quantcore.services.research_experiment_service import (
     ResearchExperimentDefinition,
     ResearchExperimentDefinitionRegistry,
     ResearchExperimentArtifactDefinition,
+    ResearchExperimentArtifactProvenance,
     ResearchExperimentExecutionResult,
     ResearchExperimentRunResultView,
     ResearchExperimentRunStatus,
@@ -100,6 +102,22 @@ def test_run_input_fingerprint_changes_when_definition_inputs_change():
     first = definition(parameters={"bucket_count": 5})
     second = definition(parameters={"bucket_count": 10})
     assert first.run_input_fingerprint != second.run_input_fingerprint
+
+
+def test_definition_can_be_reconstructed_from_canonical_payload():
+    original = definition()
+    reconstructed = ResearchExperimentDefinition.from_canonical_payload(
+        original.canonical_payload
+    )
+    assert reconstructed.canonical_payload == original.canonical_payload
+    assert reconstructed.run_input_fingerprint == original.run_input_fingerprint
+
+
+def test_definition_reconstruction_rejects_invalid_snapshot():
+    with pytest.raises(InvalidInputError, match="snapshot"):
+        ResearchExperimentDefinition.from_canonical_payload(
+            {"experiment": {"key": "value-quality"}}
+        )
 
 
 def test_registry_rejects_duplicate_identity():
@@ -421,6 +439,83 @@ def test_create_and_get_artifact_persists_provenance(db_session):
     assert artifact.provenance["result"] == "run-result"
     assert artifact.artifact_fingerprint
     assert service.get_artifact("artifact-001") == artifact
+
+
+def test_artifact_provenance_is_derived_from_persisted_run(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="artifact-provenance")
+    artifact = service.create_artifact(
+        ResearchExperimentArtifactDefinition(
+            run_id="artifact-provenance",
+            artifact_type="factor_panel",
+            content_hash="a" * 64,
+            provenance={
+                "experiment_key": "caller-asserted-value",
+                "dataset": "caller-asserted-dataset",
+            },
+        ),
+        artifact_id="artifact-provenance-1",
+    )
+
+    provenance = service.get_artifact_provenance("artifact-provenance-1")
+
+    assert isinstance(provenance, ResearchExperimentArtifactProvenance)
+    assert provenance.run_id == "artifact-provenance"
+    assert provenance.definition.identity == ("value-quality", "1")
+    assert provenance.definition.dataset_identity == ("research-dataset", "1")
+    assert provenance.definition.observation_as_of == definition().observation_as_of
+    assert provenance.result_fingerprint is None
+    assert "caller-asserted-value" not in json.dumps(provenance.canonical_payload)
+    assert provenance.provenance_fingerprint
+
+
+def test_artifact_provenance_includes_persisted_result_fingerprint(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="artifact-result-provenance")
+    service.execute_run(
+        "artifact-result-provenance",
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={"value": 42},
+            metrics={"sharpe": 1.2},
+        ),
+    )
+    artifact = service.create_artifact(
+        ResearchExperimentArtifactDefinition(
+            run_id="artifact-result-provenance",
+            artifact_type="report",
+            content_hash="b" * 64,
+            provenance={"result_fingerprint": "caller-asserted"},
+        ),
+        artifact_id="artifact-result-provenance-1",
+    )
+
+    provenance = service.get_artifact_provenance("artifact-result-provenance-1")
+    result = service.get_result("artifact-result-provenance")
+
+    assert provenance.result_fingerprint == result.result_fingerprint
+    assert provenance.canonical_payload["result"]["result_fingerprint"] == result.result_fingerprint
+    assert provenance.provenance_fingerprint
+
+
+def test_artifact_provenance_detects_inconsistent_persisted_run_snapshot(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="artifact-corrupt-run")
+    service.create_artifact(
+        ResearchExperimentArtifactDefinition(
+            run_id="artifact-corrupt-run",
+            artifact_type="report",
+            content_hash="c" * 64,
+        ),
+        artifact_id="artifact-corrupt-1",
+    )
+
+    run = service.repository.get("artifact-corrupt-run")
+    run.run_input_fingerprint = "d" * 64
+    db_session.commit()
+
+    with pytest.raises(InvalidInputError, match="inconsistent definition snapshot"):
+        service.get_artifact_provenance("artifact-corrupt-1")
 
 
 def test_get_artifact_validates_artifact_id():
