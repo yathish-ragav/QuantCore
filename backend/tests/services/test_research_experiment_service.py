@@ -10,6 +10,8 @@ from quantcore.services.research_experiment_service import (
     ResearchExperimentArtifactDefinition,
     ResearchExperimentArtifactProvenance,
     ResearchExperimentExecutionResult,
+    ResearchExperimentComparison,
+    ResearchExperimentComparisonRun,
     ResearchExperimentRunQuery,
     ResearchExperimentRunSelection,
     ResearchExperimentRunResultView,
@@ -794,3 +796,164 @@ def test_artifact_has_no_update_boundary(db_session):
     )
     assert not hasattr(service, "update_artifact")
     assert artifact.artifact_id == "artifact-immutable-1"
+
+
+def test_comparison_contract_is_canonical_and_order_independent():
+    first = ResearchExperimentComparison(
+        selection_fingerprint="a" * 64,
+        experiment_key="value-quality",
+        definition_version="1",
+        runs=(
+            ResearchExperimentComparisonRun(
+                run_id="run-b",
+                experiment_key="value-quality",
+                definition_version="1",
+                run_input_fingerprint="b" * 64,
+                result_fingerprint="2" * 64,
+            ),
+            ResearchExperimentComparisonRun(
+                run_id="run-a",
+                experiment_key="value-quality",
+                definition_version="1",
+                run_input_fingerprint="a" * 64,
+                result_fingerprint="1" * 64,
+            ),
+        ),
+    )
+    second = ResearchExperimentComparison(
+        selection_fingerprint="a" * 64,
+        experiment_key="value-quality",
+        definition_version="1",
+        runs=tuple(reversed(first.runs)),
+    )
+
+    assert [run.run_id for run in first.runs] == ["run-a", "run-b"]
+    assert first.canonical_payload == second.canonical_payload
+    assert first.comparison_fingerprint == second.comparison_fingerprint
+
+
+def test_comparison_contract_requires_at_least_two_runs():
+    run = ResearchExperimentComparisonRun(
+        run_id="only-run",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="a" * 64,
+        result_fingerprint="b" * 64,
+    )
+    with pytest.raises(InvalidInputError, match="at least two runs"):
+        ResearchExperimentComparison(
+            selection_fingerprint="c" * 64,
+            experiment_key="value-quality",
+            definition_version="1",
+            runs=(run,),
+        )
+
+
+def test_comparison_contract_rejects_mixed_experiment_identity():
+    runs = (
+        ResearchExperimentComparisonRun(
+            run_id="run-a",
+            experiment_key="value-quality",
+            definition_version="1",
+            run_input_fingerprint="a" * 64,
+            result_fingerprint="b" * 64,
+        ),
+        ResearchExperimentComparisonRun(
+            run_id="run-b",
+            experiment_key="momentum",
+            definition_version="1",
+            run_input_fingerprint="c" * 64,
+            result_fingerprint="d" * 64,
+        ),
+    )
+    with pytest.raises(InvalidInputError, match="share the comparison experiment identity"):
+        ResearchExperimentComparison(
+            selection_fingerprint="e" * 64,
+            experiment_key="value-quality",
+            definition_version="1",
+            runs=runs,
+        )
+
+
+def test_compare_runs_resolves_persisted_results(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition(), run_id="compare-001")
+    second = service.create_run(definition(), run_id="compare-002")
+    service.execute_run(
+        first.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={"value": 1}, metrics={"sharpe": 1.1}
+        ),
+    )
+    service.execute_run(
+        second.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(
+            result_payload={"value": 2}, metrics={"sharpe": 1.3}
+        ),
+    )
+
+    comparison = service.compare_runs(
+        ResearchExperimentRunSelection(
+            run_ids=(second.run_id, first.run_id),
+            experiment_key="value-quality",
+            definition_version="1",
+        )
+    )
+
+    assert isinstance(comparison, ResearchExperimentComparison)
+    assert comparison.selection_fingerprint
+    assert comparison.comparison_fingerprint
+    assert [run.run_id for run in comparison.runs] == ["compare-001", "compare-002"]
+    assert all(run.result_fingerprint for run in comparison.runs)
+
+
+def test_compare_runs_rejects_missing_persisted_result(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition(), run_id="compare-missing-001")
+    second = service.create_run(definition(), run_id="compare-missing-002")
+    service.execute_run(
+        first.run_id,
+        definition(),
+        lambda _: ResearchExperimentExecutionResult(result_payload={"value": 1}),
+    )
+
+    with pytest.raises(ResourceNotFoundError, match="Experiment results not found"):
+        service.compare_runs(
+            ResearchExperimentRunSelection(
+                run_ids=(first.run_id, second.run_id),
+                experiment_key="value-quality",
+                definition_version="1",
+            )
+        )
+
+
+def test_compare_runs_rejects_mixed_persisted_experiment_identity(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition(), run_id="compare-mixed-001")
+    second = service.create_run(
+        definition(experiment_key="momentum"), run_id="compare-mixed-002"
+    )
+    for run_id, item_definition in (
+        (first.run_id, definition()),
+        (second.run_id, definition(experiment_key="momentum")),
+    ):
+        service.execute_run(
+            run_id,
+            item_definition,
+            lambda _: ResearchExperimentExecutionResult(result_payload={"ok": True}),
+        )
+
+    with pytest.raises(InvalidInputError, match="same experiment identity"):
+        service.compare_runs(
+            ResearchExperimentRunSelection(
+                run_ids=(first.run_id, second.run_id),
+            )
+        )
+
+
+def test_compare_runs_requires_selection_type(db_session):
+    service = ResearchExperimentService(db_session)
+    with pytest.raises(InvalidInputError, match="ResearchExperimentRunSelection"):
+        service.compare_runs(object())

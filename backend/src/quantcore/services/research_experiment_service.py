@@ -14,6 +14,7 @@ from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
     ResearchExperimentRun,
+    ResearchExperimentRunResult,
     ResearchExperimentRunStatus,
 )
 from quantcore.repositories.research_experiment_repository import ResearchExperimentRepository
@@ -813,6 +814,95 @@ class ResearchExperimentRunSelection:
 
 
 @dataclass(frozen=True)
+class ResearchExperimentComparisonRun:
+    """Immutable identity snapshot for one run participating in a comparison."""
+
+    run_id: str
+    experiment_key: str
+    definition_version: str
+    run_input_fingerprint: str
+    result_fingerprint: str
+
+    @property
+    def canonical_payload(self) -> dict[str, Any]:
+        return {
+            "run_id": self.run_id,
+            "experiment": {
+                "key": self.experiment_key,
+                "definition_version": self.definition_version,
+            },
+            "run_input_fingerprint": self.run_input_fingerprint,
+            "result_fingerprint": self.result_fingerprint,
+        }
+
+
+@dataclass(frozen=True)
+class ResearchExperimentComparison:
+    """Immutable identity contract for a multi-run experiment comparison."""
+
+    selection_fingerprint: str
+    experiment_key: str
+    definition_version: str
+    runs: tuple[ResearchExperimentComparisonRun, ...]
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.selection_fingerprint, str) or len(self.selection_fingerprint) != 64:
+            raise InvalidInputError("Comparison selection fingerprint must be a SHA-256 hexadecimal string.")
+        if any(char not in "0123456789abcdef" for char in self.selection_fingerprint):
+            raise InvalidInputError("Comparison selection fingerprint must be a SHA-256 hexadecimal string.")
+        experiment_key = ResearchExperimentRunQuery._normalize_optional_text(
+            self.experiment_key, "Experiment key", max_length=200
+        )
+        definition_version = ResearchExperimentRunQuery._normalize_optional_text(
+            self.definition_version, "Experiment definition version", max_length=50
+        )
+        if experiment_key is None or definition_version is None:
+            raise InvalidInputError("Comparison experiment identity must be complete.")
+        runs = tuple(self.runs)
+        if len(runs) < 2:
+            raise InvalidInputError("Experiment comparison must contain at least two runs.")
+        if any(not isinstance(run, ResearchExperimentComparisonRun) for run in runs):
+            raise InvalidInputError(
+                "Experiment comparison runs must contain ResearchExperimentComparisonRun values."
+            )
+        run_ids = tuple(run.run_id for run in runs)
+        if len(run_ids) != len(set(run_ids)):
+            raise InvalidInputError("Experiment comparison runs must not contain duplicates.")
+        if any(
+            run.experiment_key != experiment_key
+            or run.definition_version != definition_version
+            for run in runs
+        ):
+            raise InvalidInputError(
+                "Experiment comparison runs must share the comparison experiment identity."
+            )
+        object.__setattr__(self, "experiment_key", experiment_key)
+        object.__setattr__(self, "definition_version", definition_version)
+        object.__setattr__(self, "runs", tuple(sorted(runs, key=lambda run: run.run_id)))
+
+    @property
+    def canonical_payload(self) -> dict[str, Any]:
+        return {
+            "selection_fingerprint": self.selection_fingerprint,
+            "experiment": {
+                "key": self.experiment_key,
+                "definition_version": self.definition_version,
+            },
+            "runs": tuple(run.canonical_payload for run in self.runs),
+        }
+
+    @property
+    def comparison_fingerprint(self) -> str:
+        canonical = json.dumps(
+            self.canonical_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
 class ResearchExperimentRunResultView:
     """Stable read model for one persisted experiment result."""
 
@@ -975,6 +1065,54 @@ class ResearchExperimentService:
                 )
 
         return tuple(self._view(run) for run in runs)
+
+    def compare_runs(
+        self, selection: ResearchExperimentRunSelection
+    ) -> ResearchExperimentComparison:
+        """Resolve a run selection into a deterministic comparison identity contract."""
+        if not isinstance(selection, ResearchExperimentRunSelection):
+            raise InvalidInputError(
+                "Experiment comparison requires a ResearchExperimentRunSelection."
+            )
+        runs = self.select_runs(selection)
+        if len(runs) < 2:
+            raise InvalidInputError(
+                "Experiment comparison must contain at least two runs."
+            )
+
+        experiment_identity = {(run.experiment_key, run.definition_version) for run in runs}
+        if len(experiment_identity) != 1:
+            raise InvalidInputError(
+                "Experiment comparison runs must share the same experiment identity."
+            )
+        experiment_key, definition_version = next(iter(experiment_identity))
+
+        persisted_results = self.repository.get_results_by_run_ids(selection.run_ids)
+        results_by_run_id = {result.run_id: result for result in persisted_results}
+        missing_ids = [
+            run_id for run_id in selection.run_ids if run_id not in results_by_run_id
+        ]
+        if missing_ids:
+            raise ResourceNotFoundError(
+                "Experiment results not found for runs: " + ", ".join(missing_ids)
+            )
+
+        comparison_runs = tuple(
+            ResearchExperimentComparisonRun(
+                run_id=run.run_id,
+                experiment_key=run.experiment_key,
+                definition_version=run.definition_version,
+                run_input_fingerprint=run.run_input_fingerprint,
+                result_fingerprint=results_by_run_id[run.run_id].result_fingerprint,
+            )
+            for run in runs
+        )
+        return ResearchExperimentComparison(
+            selection_fingerprint=selection.selection_fingerprint,
+            experiment_key=experiment_key,
+            definition_version=definition_version,
+            runs=comparison_runs,
+        )
 
     def get_run(self, run_id: str) -> ResearchExperimentRunView:
         normalized_run_id = self._validate_run_id(run_id)

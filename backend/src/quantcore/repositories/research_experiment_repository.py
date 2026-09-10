@@ -142,6 +142,19 @@ class ResearchExperimentRepository:
             )
         )
 
+    def get_results_by_run_ids(
+        self, run_ids: tuple[str, ...]
+    ) -> list[ResearchExperimentRunResult]:
+        if not run_ids:
+            return []
+        return list(
+            self.db.scalars(
+                select(ResearchExperimentRunResult).where(
+                    ResearchExperimentRunResult.run_id.in_(run_ids)
+                )
+            ).all()
+        )
+
     def create_result(
         self,
         *,
