@@ -22,6 +22,7 @@ from quantcore.models.provenance import CompanyFieldProvenance
 from quantcore.models.ingestion import IngestionJob, IngestionRun, IngestionState
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
+    ResearchExperimentComparisonResultRecord,
     ResearchExperimentRun,
     ResearchExperimentRunResult,
 )

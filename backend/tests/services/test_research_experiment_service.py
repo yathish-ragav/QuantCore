@@ -159,6 +159,7 @@ def db_session():
     from quantcore.models.research_experiment import (
         ResearchExperimentRun,
         ResearchExperimentArtifact,
+        ResearchExperimentComparisonResultRecord,
         ResearchExperimentRunResult,
     )
 
@@ -166,6 +167,7 @@ def db_session():
     ResearchExperimentRun.__table__.create(engine)
     ResearchExperimentRunResult.__table__.create(engine)
     ResearchExperimentArtifact.__table__.create(engine)
+    ResearchExperimentComparisonResultRecord.__table__.create(engine)
     with Session(engine) as session:
         yield session
 
@@ -1141,6 +1143,131 @@ def test_comparison_result_rejects_mismatched_participants():
         )
 
 
+def test_validate_comparison_result_accepts_matching_comparison():
+    run_a = ResearchExperimentComparisonRun(
+        run_id="run-a",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="a" * 64,
+        result_fingerprint="b" * 64,
+    )
+    run_b = ResearchExperimentComparisonRun(
+        run_id="run-b",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="c" * 64,
+        result_fingerprint="d" * 64,
+    )
+    comparison = ResearchExperimentComparison(
+        selection_fingerprint="e" * 64,
+        experiment_key="value-quality",
+        definition_version="1",
+        runs=(run_a, run_b),
+    )
+    result = ResearchExperimentComparisonResult(
+        comparison_fingerprint=comparison.comparison_fingerprint,
+        metrics=(
+            ResearchExperimentComparisonMetric(
+                metric_name="sharpe",
+                values=(("run-a", 1.1), ("run-b", 1.3)),
+            ),
+        ),
+    )
+
+    assert ResearchExperimentService.validate_comparison_result(comparison, result) is result
+
+
+def test_validate_comparison_result_rejects_wrong_comparison_identity():
+    run_a = ResearchExperimentComparisonRun(
+        run_id="run-a",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="a" * 64,
+        result_fingerprint="b" * 64,
+    )
+    run_b = ResearchExperimentComparisonRun(
+        run_id="run-b",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="c" * 64,
+        result_fingerprint="d" * 64,
+    )
+    comparison = ResearchExperimentComparison(
+        selection_fingerprint="e" * 64,
+        experiment_key="value-quality",
+        definition_version="1",
+        runs=(run_a, run_b),
+    )
+    result = ResearchExperimentComparisonResult(
+        comparison_fingerprint="f" * 64,
+        metrics=(
+            ResearchExperimentComparisonMetric(
+                metric_name="sharpe",
+                values=(("run-a", 1.1), ("run-b", 1.3)),
+            ),
+        ),
+    )
+
+    with pytest.raises(InvalidInputError, match="does not match the supplied comparison identity"):
+        ResearchExperimentService.validate_comparison_result(comparison, result)
+
+
+def test_validate_comparison_result_rejects_wrong_participants():
+    run_a = ResearchExperimentComparisonRun(
+        run_id="run-a",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="a" * 64,
+        result_fingerprint="b" * 64,
+    )
+    run_b = ResearchExperimentComparisonRun(
+        run_id="run-b",
+        experiment_key="value-quality",
+        definition_version="1",
+        run_input_fingerprint="c" * 64,
+        result_fingerprint="d" * 64,
+    )
+    comparison = ResearchExperimentComparison(
+        selection_fingerprint="e" * 64,
+        experiment_key="value-quality",
+        definition_version="1",
+        runs=(run_a, run_b),
+    )
+    other_comparison = ResearchExperimentComparison(
+        selection_fingerprint="f" * 64,
+        experiment_key="value-quality",
+        definition_version="1",
+        runs=(
+            ResearchExperimentComparisonRun(
+                run_id="run-c",
+                experiment_key="value-quality",
+                definition_version="1",
+                run_input_fingerprint="1" * 64,
+                result_fingerprint="2" * 64,
+            ),
+            ResearchExperimentComparisonRun(
+                run_id="run-d",
+                experiment_key="value-quality",
+                definition_version="1",
+                run_input_fingerprint="3" * 64,
+                result_fingerprint="4" * 64,
+            ),
+        ),
+    )
+    result = ResearchExperimentComparisonResult(
+        comparison_fingerprint=other_comparison.comparison_fingerprint,
+        metrics=(
+            ResearchExperimentComparisonMetric(
+                metric_name="sharpe",
+                values=(("run-a", 1.0), ("run-b", 1.2)),
+            ),
+        ),
+    )
+
+    with pytest.raises(InvalidInputError, match="participants do not match"):
+        ResearchExperimentService.validate_comparison_result(other_comparison, result)
+
+
 def test_build_comparison_result_aligns_selected_metrics(db_session):
     service = ResearchExperimentService(db_session)
     first = service.create_run(definition(), run_id="metric-001")
@@ -1178,6 +1305,85 @@ def test_build_comparison_result_aligns_selected_metrics(db_session):
     assert [metric.metric_name for metric in result.metrics] == ["return", "sharpe"]
     assert result.metrics[0].values == (("metric-001", 0.1), ("metric-002", 0.2))
     assert result.metrics[1].values == (("metric-001", 1.1), ("metric-002", 1.3))
+
+
+def _persisted_comparison_and_result(service, prefix):
+    first = service.create_run(definition(), run_id=f"{prefix}-001")
+    second = service.create_run(definition(), run_id=f"{prefix}-002")
+
+    for run_id, value in ((first.run_id, 1.1), (second.run_id, 1.3)):
+        service.execute_run(
+            run_id,
+            definition(),
+            lambda _, value=value: ResearchExperimentExecutionResult(
+                result_payload={},
+                metrics={"sharpe": value},
+            ),
+        )
+
+    selection = ResearchExperimentRunSelection(
+        run_ids=(first.run_id, second.run_id),
+        experiment_key="value-quality",
+        definition_version="1",
+    )
+    comparison = service.compare_runs(selection)
+    result = service.build_comparison_result(selection, ("sharpe",))
+    return comparison, result
+
+
+def test_record_and_get_comparison_result_persist_snapshot(db_session):
+    service = ResearchExperimentService(db_session)
+    comparison, result = _persisted_comparison_and_result(service, "persist-comparison")
+
+    recorded = service.record_comparison_result(comparison, result)
+
+    assert recorded.comparison_fingerprint == comparison.comparison_fingerprint
+    assert recorded.selection_fingerprint == comparison.selection_fingerprint
+    assert recorded.experiment_key == "value-quality"
+    assert recorded.definition_version == "1"
+    assert recorded.result_fingerprint == result.result_fingerprint
+    assert json.loads(json.dumps(recorded.comparison_payload)) == json.loads(
+        json.dumps(comparison.canonical_payload)
+    )
+    assert json.loads(json.dumps(recorded.result_payload)) == json.loads(
+        json.dumps(result.canonical_payload)
+    )
+
+    loaded = service.get_comparison_result(result.result_fingerprint)
+    assert loaded == recorded
+
+
+def test_record_comparison_result_is_idempotent(db_session):
+    service = ResearchExperimentService(db_session)
+    comparison, result = _persisted_comparison_and_result(service, "idempotent-comparison")
+
+    first_recorded = service.record_comparison_result(comparison, result)
+    second_recorded = service.record_comparison_result(comparison, result)
+
+    assert second_recorded == first_recorded
+
+
+def test_get_comparison_result_rejects_corrupted_persisted_snapshot(db_session):
+    service = ResearchExperimentService(db_session)
+    comparison, result = _persisted_comparison_and_result(service, "corrupt-comparison")
+    service.record_comparison_result(comparison, result)
+
+    record = service.repository.get_comparison_result(result.result_fingerprint)
+    assert record is not None
+    corrupted_payload = dict(record.result_payload)
+    corrupted_payload["metrics"] = []
+    record.result_payload = corrupted_payload
+    db_session.commit()
+
+    with pytest.raises(InvalidInputError, match="inconsistent result fingerprint"):
+        service.get_comparison_result(result.result_fingerprint)
+
+
+def test_get_comparison_result_rejects_unknown_fingerprint(db_session):
+    service = ResearchExperimentService(db_session)
+
+    with pytest.raises(ResourceNotFoundError, match="Comparison result not found"):
+        service.get_comparison_result("a" * 64)
 
 
 def test_build_comparison_result_rejects_missing_metric(db_session):

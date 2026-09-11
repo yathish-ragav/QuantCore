@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
+    ResearchExperimentComparisonResultRecord,
     ResearchExperimentRun,
     ResearchExperimentRunResult,
     ResearchExperimentRunStatus,
@@ -168,6 +169,43 @@ class ResearchExperimentRepository:
             run_id=run_id,
             result_payload=result_payload,
             metrics=metrics,
+            result_fingerprint=result_fingerprint,
+            recorded_at=recorded_at,
+        )
+        self.db.add(result)
+        self.db.flush()
+        return result
+
+
+    def get_comparison_result(
+        self, result_fingerprint: str
+    ) -> ResearchExperimentComparisonResultRecord | None:
+        return self.db.scalar(
+            select(ResearchExperimentComparisonResultRecord).where(
+                ResearchExperimentComparisonResultRecord.result_fingerprint
+                == result_fingerprint
+            )
+        )
+
+    def create_comparison_result(
+        self,
+        *,
+        comparison_fingerprint: str,
+        selection_fingerprint: str,
+        experiment_key: str,
+        definition_version: str,
+        comparison_payload: dict,
+        result_payload: dict,
+        result_fingerprint: str,
+        recorded_at: datetime,
+    ) -> ResearchExperimentComparisonResultRecord:
+        result = ResearchExperimentComparisonResultRecord(
+            comparison_fingerprint=comparison_fingerprint,
+            selection_fingerprint=selection_fingerprint,
+            experiment_key=experiment_key,
+            definition_version=definition_version,
+            comparison_payload=comparison_payload,
+            result_payload=result_payload,
             result_fingerprint=result_fingerprint,
             recorded_at=recorded_at,
         )

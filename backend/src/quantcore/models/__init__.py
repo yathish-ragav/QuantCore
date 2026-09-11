@@ -26,6 +26,7 @@ from quantcore.models.macro_ingestion import MacroIngestionState
 from quantcore.models.research_observation import ResearchObservation
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
+    ResearchExperimentComparisonResultRecord,
     ResearchExperimentRun,
     ResearchExperimentRunResult,
     ResearchExperimentRunStatus,
@@ -60,6 +61,7 @@ __all__ = [
     "MacroIngestionState",
     "ResearchObservation",
     "ResearchExperimentArtifact",
+    "ResearchExperimentComparisonResultRecord",
     "ResearchExperimentRun",
     "ResearchExperimentRunStatus",
 ]

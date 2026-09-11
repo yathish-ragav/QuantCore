@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from hashlib import sha256
+import json
 from datetime import datetime, timezone
 from typing import Iterable
 
@@ -27,6 +29,48 @@ class ResearchHistoricalDataset:
 
     rows: tuple[ResearchHistoricalDatasetRow, ...]
     definition_identities: tuple[tuple[str, str], ...] | None
+
+    @property
+    def canonical_payload(self) -> dict:
+        """Return the canonical payload identifying this historical dataset."""
+        rows = tuple(
+            {
+                "symbol": row.symbol.strip().upper(),
+                "security_id": row.security_id,
+                "as_of": row.as_of.isoformat(),
+                "feature_vector_fingerprint": row.feature_vector.input_fingerprint,
+            }
+            for row in self.rows
+        )
+        identities = None
+        if self.definition_identities is not None:
+            identities = tuple(sorted(self.definition_identities))
+        return {
+            "definition_identities": identities,
+            "rows": tuple(
+                sorted(
+                    rows,
+                    key=lambda item: (
+                        item["as_of"],
+                        item["symbol"],
+                        item["security_id"],
+                        item["feature_vector_fingerprint"],
+                    ),
+                )
+            ),
+        }
+
+    @property
+    def dataset_fingerprint(self) -> str:
+        """Return a deterministic fingerprint of the complete selected dataset."""
+        canonical = json.dumps(
+            self.canonical_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class ResearchHistoricalAnalysisService:

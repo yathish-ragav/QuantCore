@@ -156,3 +156,78 @@ def test_build_historical_dataset_rejects_future_timestamp_before_reads():
         service.build_historical_dataset(["AAPL"], as_ofs=[future])
 
     service.dataset_service.build_feature_vector.assert_not_called()
+
+
+def test_historical_dataset_fingerprint_is_deterministic_and_binds_rows():
+    as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)
+    first_vector = make_vector("AAPL", 10, as_of)
+    second_vector = make_vector("MSFT", 20, as_of)
+    first = ResearchHistoricalDataset(
+        rows=(
+            ResearchHistoricalDatasetRow("AAPL", 10, as_of, first_vector),
+            ResearchHistoricalDatasetRow("MSFT", 20, as_of, second_vector),
+        ),
+        definition_identities=None,
+    )
+    second = ResearchHistoricalDataset(
+        rows=(
+            ResearchHistoricalDatasetRow("AAPL", 10, as_of, first_vector),
+            ResearchHistoricalDatasetRow("MSFT", 20, as_of, second_vector),
+        ),
+        definition_identities=None,
+    )
+
+    assert len(first.dataset_fingerprint) == 64
+    assert first.dataset_fingerprint == second.dataset_fingerprint
+
+    changed_vector = make_vector("MSFT", 21, as_of)
+    changed = ResearchHistoricalDataset(
+        rows=(
+            ResearchHistoricalDatasetRow("AAPL", 10, as_of, first_vector),
+            ResearchHistoricalDatasetRow("MSFT", 21, as_of, changed_vector),
+        ),
+        definition_identities=None,
+    )
+    assert changed.dataset_fingerprint != first.dataset_fingerprint
+
+
+def test_historical_dataset_fingerprint_binds_definition_schema():
+    as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)
+    vector = make_vector("AAPL", 10, as_of)
+    first = ResearchHistoricalDataset(
+        rows=(ResearchHistoricalDatasetRow("AAPL", 10, as_of, vector),),
+        definition_identities=(("net_margin", "1"),),
+    )
+    second = ResearchHistoricalDataset(
+        rows=(ResearchHistoricalDatasetRow("AAPL", 10, as_of, vector),),
+        definition_identities=(("net_margin", "2"),),
+    )
+
+    assert first.dataset_fingerprint != second.dataset_fingerprint
+
+def test_historical_dataset_fingerprint_is_independent_of_row_and_definition_order():
+    first_as_of = datetime(2026, 8, 19, 15, 30, tzinfo=timezone.utc)
+    second_as_of = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
+    first = ResearchHistoricalDataset(
+        rows=(
+            ResearchHistoricalDatasetRow(
+                symbol="MSFT",
+                security_id=20,
+                as_of=second_as_of,
+                feature_vector=make_vector("MSFT", 20, second_as_of),
+            ),
+            ResearchHistoricalDatasetRow(
+                symbol="AAPL",
+                security_id=10,
+                as_of=first_as_of,
+                feature_vector=make_vector("AAPL", 10, first_as_of),
+            ),
+        ),
+        definition_identities=(("z_metric", "1"), ("a_metric", "1")),
+    )
+    second = ResearchHistoricalDataset(
+        rows=tuple(reversed(first.rows)),
+        definition_identities=tuple(reversed(first.definition_identities)),
+    )
+
+    assert first.dataset_fingerprint == second.dataset_fingerprint

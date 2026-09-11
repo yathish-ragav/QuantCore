@@ -175,3 +175,88 @@ def test_build_feature_vector_rejects_future_observation_boundary():
             "AAPL",
             as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
         )
+
+
+def test_feature_vector_input_fingerprint_is_deterministic_and_content_bound():
+    as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)
+    service = make_service((make_observation("net_margin", as_of=as_of),))
+
+    first = service.build_feature_vector("AAPL", as_of=as_of)
+    second = service.build_feature_vector("AAPL", as_of=as_of)
+
+    assert len(first.input_fingerprint) == 64
+    assert first.input_fingerprint == second.input_fingerprint
+
+    changed = ResearchFeatureVector(
+        symbol=first.symbol,
+        security_id=first.security_id,
+        as_of=first.as_of,
+        features=(
+            ResearchFeature(
+                observation_key="net_margin",
+                definition_version="1",
+                observation_as_of=as_of,
+                value_numeric=0.99,
+                value_text=None,
+                unit="ratio",
+                input_fingerprint=first.features[0].input_fingerprint,
+                input_manifest=first.features[0].input_manifest,
+            ),
+        ),
+    )
+    assert changed.input_fingerprint != first.input_fingerprint
+
+
+def test_feature_vector_input_fingerprint_changes_when_pit_boundary_changes():
+    first = ResearchFeatureVector(
+        symbol="AAPL",
+        security_id=10,
+        as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
+        features=(),
+    )
+    second = ResearchFeatureVector(
+        symbol="AAPL",
+        security_id=10,
+        as_of=datetime(2026, 8, 21, tzinfo=timezone.utc),
+        features=(),
+    )
+
+    assert first.input_fingerprint != second.input_fingerprint
+
+def test_feature_vector_input_fingerprint_is_independent_of_feature_order():
+    as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)
+    first = ResearchFeatureVector(
+        symbol="AAPL",
+        security_id=10,
+        as_of=as_of,
+        features=(
+            ResearchFeature(
+                observation_key="z_metric",
+                definition_version="1",
+                observation_as_of=as_of,
+                value_numeric=2.0,
+                value_text=None,
+                unit="ratio",
+                input_fingerprint="a" * 64,
+                input_manifest={},
+            ),
+            ResearchFeature(
+                observation_key="a_metric",
+                definition_version="1",
+                observation_as_of=as_of,
+                value_numeric=1.0,
+                value_text=None,
+                unit="ratio",
+                input_fingerprint="b" * 64,
+                input_manifest={},
+            ),
+        ),
+    )
+    second = ResearchFeatureVector(
+        symbol=first.symbol,
+        security_id=first.security_id,
+        as_of=first.as_of,
+        features=tuple(reversed(first.features)),
+    )
+
+    assert first.input_fingerprint == second.input_fingerprint

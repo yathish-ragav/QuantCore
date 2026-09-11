@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
+    ResearchExperimentComparisonResultRecord,
     ResearchExperimentRun,
     ResearchExperimentRunResult,
     ResearchExperimentRunStatus,
@@ -1063,6 +1064,20 @@ class ResearchExperimentComparisonResult:
 
 
 @dataclass(frozen=True)
+class ResearchExperimentComparisonResultView:
+    """Stable read model for one persisted comparison-result snapshot."""
+
+    comparison_fingerprint: str
+    selection_fingerprint: str
+    experiment_key: str
+    definition_version: str
+    comparison_payload: dict
+    result_payload: dict
+    result_fingerprint: str
+    recorded_at: datetime
+
+
+@dataclass(frozen=True)
 class ResearchExperimentRunResultView:
     """Stable read model for one persisted experiment result."""
 
@@ -1105,6 +1120,106 @@ class ResearchExperimentService:
                 "Experiment validation requires a ResearchExperimentDefinition."
             )
         return definition
+
+    @staticmethod
+    def validate_comparison_result(
+        comparison: ResearchExperimentComparison,
+        result: ResearchExperimentComparisonResult,
+    ) -> ResearchExperimentComparisonResult:
+        """Validate that a comparison result belongs to the supplied comparison."""
+        if not isinstance(comparison, ResearchExperimentComparison):
+            raise InvalidInputError(
+                "Comparison result validation requires a ResearchExperimentComparison."
+            )
+        if not isinstance(result, ResearchExperimentComparisonResult):
+            raise InvalidInputError(
+                "Comparison result validation requires a ResearchExperimentComparisonResult."
+            )
+        if result.comparison_fingerprint != comparison.comparison_fingerprint:
+            raise InvalidInputError(
+                "Comparison result does not match the supplied comparison identity."
+            )
+
+        expected_run_ids = {run.run_id for run in comparison.runs}
+        result_run_ids = {run_id for run_id, _ in result.metrics[0].values}
+        if result_run_ids != expected_run_ids:
+            raise InvalidInputError(
+                "Comparison result participants do not match the supplied comparison."
+            )
+        return result
+
+    @staticmethod
+    def _comparison_result_view(
+        record: ResearchExperimentComparisonResultRecord,
+    ) -> ResearchExperimentComparisonResultView:
+        comparison_payload = record.comparison_payload
+        result_payload = record.result_payload
+        if not isinstance(comparison_payload, Mapping) or not isinstance(
+            result_payload, Mapping
+        ):
+            raise InvalidInputError(
+                "Persisted comparison result snapshots must contain mapping payloads."
+            )
+
+        if ResearchExperimentService._payload_fingerprint(comparison_payload) != (
+            record.comparison_fingerprint
+        ):
+            raise InvalidInputError(
+                "Persisted comparison result has an inconsistent comparison fingerprint."
+            )
+        if ResearchExperimentService._payload_fingerprint(result_payload) != (
+            record.result_fingerprint
+        ):
+            raise InvalidInputError(
+                "Persisted comparison result has an inconsistent result fingerprint."
+            )
+
+        experiment = comparison_payload.get("experiment")
+        if not isinstance(experiment, Mapping):
+            raise InvalidInputError(
+                "Persisted comparison result has an invalid experiment identity."
+            )
+        if comparison_payload.get("selection_fingerprint") != record.selection_fingerprint:
+            raise InvalidInputError(
+                "Persisted comparison result has an inconsistent selection fingerprint."
+            )
+        if experiment.get("key") != record.experiment_key or experiment.get(
+            "definition_version"
+        ) != record.definition_version:
+            raise InvalidInputError(
+                "Persisted comparison result has an inconsistent experiment identity."
+            )
+        if result_payload.get("comparison_fingerprint") != record.comparison_fingerprint:
+            raise InvalidInputError(
+                "Persisted comparison result is linked to a different comparison."
+            )
+
+        return ResearchExperimentComparisonResultView(
+            comparison_fingerprint=record.comparison_fingerprint,
+            selection_fingerprint=record.selection_fingerprint,
+            experiment_key=record.experiment_key,
+            definition_version=record.definition_version,
+            comparison_payload=dict(comparison_payload),
+            result_payload=dict(result_payload),
+            result_fingerprint=record.result_fingerprint,
+            recorded_at=record.recorded_at,
+        )
+
+    @staticmethod
+    def _payload_fingerprint(payload: Mapping[str, Any]) -> str:
+        return sha256(
+            ResearchExperimentService._canonical_json(payload).encode("utf-8")
+        ).hexdigest()
+
+    @staticmethod
+    def _canonical_json(payload: Mapping[str, Any]) -> str:
+        return json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
 
     @staticmethod
     def _validate_run_id(run_id: str) -> str:
@@ -1340,10 +1455,60 @@ class ResearchExperimentService:
                 )
             )
 
-        return ResearchExperimentComparisonResult(
+        result = ResearchExperimentComparisonResult(
             comparison_fingerprint=comparison.comparison_fingerprint,
             metrics=tuple(metrics),
         )
+        return self.validate_comparison_result(comparison, result)
+
+    def record_comparison_result(
+        self,
+        comparison: ResearchExperimentComparison,
+        result: ResearchExperimentComparisonResult,
+    ) -> ResearchExperimentComparisonResultView:
+        """Persist one immutable comparison-result snapshot idempotently."""
+        self.validate_comparison_result(comparison, result)
+
+        result_fingerprint = result.result_fingerprint
+        existing = self.repository.get_comparison_result(result_fingerprint)
+        if existing is not None:
+            return self._comparison_result_view(existing)
+
+        recorded_at = datetime.now(timezone.utc)
+        try:
+            persisted = self.repository.create_comparison_result(
+                comparison_fingerprint=comparison.comparison_fingerprint,
+                selection_fingerprint=comparison.selection_fingerprint,
+                experiment_key=comparison.experiment_key,
+                definition_version=comparison.definition_version,
+                comparison_payload=comparison.canonical_payload,
+                result_payload=result.canonical_payload,
+                result_fingerprint=result_fingerprint,
+                recorded_at=recorded_at,
+            )
+            self.db.commit()
+            return self._comparison_result_view(persisted)
+        except IntegrityError as exc:
+            self.db.rollback()
+            existing = self.repository.get_comparison_result(result_fingerprint)
+            if existing is not None:
+                return self._comparison_result_view(existing)
+            raise InvalidInputError(
+                "Comparison result could not be persisted."
+            ) from exc
+
+    def get_comparison_result(
+        self, result_fingerprint: str
+    ) -> ResearchExperimentComparisonResultView:
+        normalized_fingerprint = _validate_sha256_fingerprint(
+            result_fingerprint, "Comparison result fingerprint"
+        )
+        record = self.repository.get_comparison_result(normalized_fingerprint)
+        if record is None:
+            raise ResourceNotFoundError(
+                f"Comparison result not found: {normalized_fingerprint}"
+            )
+        return self._comparison_result_view(record)
 
     def get_run(self, run_id: str) -> ResearchExperimentRunView:
         normalized_run_id = self._validate_run_id(run_id)

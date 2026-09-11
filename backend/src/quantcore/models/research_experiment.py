@@ -146,6 +146,73 @@ class ResearchExperimentRunResult(Base):
     )
 
 
+class ResearchExperimentComparisonResultRecord(Base):
+    """Immutable persisted snapshot of one deterministic comparison result."""
+
+    __tablename__ = "research_experiment_comparison_results"
+
+    __table_args__ = (
+        Index(
+            "ix_research_experiment_comparison_results_comparison_recorded_id",
+            "comparison_fingerprint",
+            "recorded_at",
+            "id",
+        ),
+        Index(
+            "ix_research_experiment_comparison_results_selection_fingerprint",
+            "selection_fingerprint",
+        ),
+        UniqueConstraint(
+            "result_fingerprint",
+            name="uq_research_experiment_comparison_results_result_fingerprint",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+
+    comparison_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        index=True,
+    )
+
+    selection_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+    )
+
+    experiment_key: Mapped[str] = mapped_column(
+        String(200),
+        nullable=False,
+    )
+
+    definition_version: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+    )
+
+    comparison_payload: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+    )
+
+    result_payload: Mapped[dict] = mapped_column(
+        JSON,
+        nullable=False,
+    )
+
+    result_fingerprint: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+    )
+
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+    )
+
+
 class ResearchExperimentArtifact(Base):
     """Immutable descriptor and provenance record for one experiment artifact."""
 

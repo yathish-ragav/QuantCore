@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from hashlib import sha256
+import json
 from datetime import datetime, timezone
 from typing import Iterable
 
@@ -30,6 +32,51 @@ class ResearchFeatureVector:
     security_id: int
     as_of: datetime
     features: tuple[ResearchFeature, ...]
+
+    @property
+    def canonical_payload(self) -> dict:
+        """Return the canonical payload identifying the selected PIT inputs."""
+        features = tuple(
+            {
+                "observation_key": feature.observation_key.strip(),
+                "definition_version": feature.definition_version.strip(),
+                "observation_as_of": feature.observation_as_of.isoformat(),
+                "value_numeric": feature.value_numeric,
+                "value_text": feature.value_text,
+                "unit": feature.unit,
+                "input_fingerprint": feature.input_fingerprint,
+                "input_manifest": feature.input_manifest,
+            }
+            for feature in self.features
+        )
+        return {
+            "symbol": self.symbol.strip().upper(),
+            "security_id": self.security_id,
+            "as_of": self.as_of.isoformat(),
+            "features": tuple(
+                sorted(
+                    features,
+                    key=lambda item: (
+                        item["observation_key"],
+                        item["definition_version"],
+                        item["observation_as_of"],
+                        item["input_fingerprint"],
+                    ),
+                )
+            ),
+        }
+
+    @property
+    def input_fingerprint(self) -> str:
+        """Return a deterministic fingerprint of the selected PIT inputs."""
+        canonical = json.dumps(
+            self.canonical_payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class ResearchDatasetService:
