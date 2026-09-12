@@ -69,6 +69,18 @@ class ResearchExperimentRun(Base):
         index=True,
     )
 
+    dataset_fingerprint: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+    )
+
+    execution_input_fingerprint: Mapped[str | None] = mapped_column(
+        String(64),
+        nullable=True,
+        index=True,
+    )
+
     definition_payload: Mapped[dict] = mapped_column(
         JSON,
         nullable=False,

@@ -19,6 +19,7 @@ from quantcore.models.research_experiment import (
     ResearchExperimentRunStatus,
 )
 from quantcore.repositories.research_experiment_repository import ResearchExperimentRepository
+from quantcore.services.research_historical_analysis_service import ResearchHistoricalDataset
 
 
 def _validate_identifier(value: str, name: str) -> str:
@@ -612,6 +613,8 @@ class ResearchExperimentArtifactProvenance:
     run_id: str
     definition: ResearchExperimentDefinition
     result_fingerprint: str | None = None
+    dataset_fingerprint: str | None = None
+    execution_input_fingerprint: str | None = None
 
     @property
     def canonical_payload(self) -> dict[str, Any]:
@@ -626,6 +629,8 @@ class ResearchExperimentArtifactProvenance:
                 "run_id": self.run_id,
                 "definition": self.definition.canonical_payload,
                 "run_input_fingerprint": self.definition.run_input_fingerprint,
+                "dataset_fingerprint": self.dataset_fingerprint,
+                "execution_input_fingerprint": self.execution_input_fingerprint,
             },
             "result": {
                 "result_fingerprint": self.result_fingerprint,
@@ -1089,6 +1094,59 @@ class ResearchExperimentRunResultView:
 
 
 @dataclass(frozen=True)
+class ResearchExperimentExecutionContext:
+    """Immutable execution inputs binding a definition to one concrete dataset snapshot."""
+
+    definition: ResearchExperimentDefinition
+    dataset: ResearchHistoricalDataset
+
+    def __post_init__(self) -> None:
+        definition = ResearchExperimentService.validate_definition(self.definition)
+        if not isinstance(self.dataset, ResearchHistoricalDataset):
+            raise InvalidInputError(
+                "Experiment execution requires a ResearchHistoricalDataset."
+            )
+        if not self.dataset.rows:
+            raise InvalidInputError(
+                "Experiment execution dataset must contain at least one row."
+            )
+        if self.dataset.dataset_identity is None:
+            raise InvalidInputError(
+                "Experiment execution dataset must declare a dataset identity."
+            )
+        if self.dataset.dataset_identity != definition.dataset_identity:
+            raise InvalidInputError(
+                "Experiment execution dataset identity does not match the definition."
+            )
+        for row in self.dataset.rows:
+            if row.as_of > definition.observation_as_of:
+                raise InvalidInputError(
+                    "Experiment execution dataset contains data after the definition "
+                    "observation-as-of boundary."
+                )
+        object.__setattr__(self, "definition", definition)
+
+    @property
+    def dataset_fingerprint(self) -> str:
+        return self.dataset.dataset_fingerprint
+
+    @property
+    def execution_input_fingerprint(self) -> str:
+        payload = {
+            "definition_fingerprint": self.definition.run_input_fingerprint,
+            "dataset_fingerprint": self.dataset_fingerprint,
+        }
+        canonical = json.dumps(
+            payload,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        )
+        return sha256(canonical.encode("utf-8")).hexdigest()
+
+
+@dataclass(frozen=True)
 class ResearchExperimentRunView:
     """Stable read model for one persisted experiment run."""
 
@@ -1096,6 +1154,8 @@ class ResearchExperimentRunView:
     experiment_key: str
     definition_version: str
     run_input_fingerprint: str
+    dataset_fingerprint: str | None
+    execution_input_fingerprint: str | None
     definition_payload: dict
     status: ResearchExperimentRunStatus
     submitted_at: datetime
@@ -1236,6 +1296,8 @@ class ResearchExperimentService:
             experiment_key=run.experiment_key,
             definition_version=run.definition_version,
             run_input_fingerprint=run.run_input_fingerprint,
+            dataset_fingerprint=run.dataset_fingerprint,
+            execution_input_fingerprint=run.execution_input_fingerprint,
             definition_payload=run.definition_payload,
             status=run.status,
             submitted_at=run.submitted_at,
@@ -1264,6 +1326,8 @@ class ResearchExperimentService:
                 experiment_key=definition.experiment_key,
                 definition_version=definition.definition_version,
                 run_input_fingerprint=definition.run_input_fingerprint,
+                dataset_fingerprint=None,
+                execution_input_fingerprint=None,
                 definition_payload=definition.canonical_payload,
                 submitted_at=submitted_at,
             )
@@ -1273,6 +1337,40 @@ class ResearchExperimentService:
             self.db.rollback()
             raise InvalidInputError(
                 f"Experiment run id '{normalized_run_id}' already exists."
+            ) from exc
+
+    def create_run_with_dataset(
+        self,
+        definition: ResearchExperimentDefinition,
+        dataset: ResearchHistoricalDataset,
+        *,
+        run_id: str | None = None,
+    ) -> ResearchExperimentRunView:
+        """Persist a queued run with an authoritative concrete dataset snapshot identity."""
+        context = ResearchExperimentExecutionContext(definition, dataset)
+        normalized_run_id = (
+            ResearchExperimentRun.new_run_id()
+            if run_id is None
+            else self._validate_run_id(run_id)
+        )
+        submitted_at = datetime.now(timezone.utc)
+        try:
+            run = self.repository.create(
+                run_id=normalized_run_id,
+                experiment_key=context.definition.experiment_key,
+                definition_version=context.definition.definition_version,
+                run_input_fingerprint=context.definition.run_input_fingerprint,
+                dataset_fingerprint=context.dataset_fingerprint,
+                execution_input_fingerprint=context.execution_input_fingerprint,
+                definition_payload=context.definition.canonical_payload,
+                submitted_at=submitted_at,
+            )
+            self.db.commit()
+            return self._view(run)
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise InvalidInputError(
+                f"Experiment run id '{normalized_run_id}' already exists or execution inputs already exist."
             ) from exc
 
     def list_runs(
@@ -1697,6 +1795,8 @@ class ResearchExperimentService:
             result_fingerprint=(
                 result.result_fingerprint if result is not None else None
             ),
+            dataset_fingerprint=run.dataset_fingerprint,
+            execution_input_fingerprint=run.execution_input_fingerprint,
         )
 
     def get_result(self, run_id: str) -> ResearchExperimentRunResultView:
@@ -1717,19 +1817,25 @@ class ResearchExperimentService:
     def execute_run(
         self,
         run_id: str,
-        definition: ResearchExperimentDefinition,
+        execution_context: ResearchExperimentExecutionContext,
         executor: Callable[
-            [ResearchExperimentDefinition], ResearchExperimentExecutionResult
+            [ResearchExperimentExecutionContext], ResearchExperimentExecutionResult
         ],
     ) -> ResearchExperimentRunResultView:
-        """Execute one queued run and persist exactly one validated result.
+        """Execute one dataset-bound queued run and persist exactly one result.
 
-        The executor is deliberately supplied by the caller: this boundary owns
-        lifecycle/result persistence, not experiment-specific orchestration.
+        The execution context is the authoritative bridge between the persisted
+        experiment definition and the concrete PIT dataset snapshot. The
+        executor receives that same context, so it cannot silently execute
+        against a different dataset.
         """
+        if not isinstance(execution_context, ResearchExperimentExecutionContext):
+            raise InvalidInputError(
+                "Experiment execution requires a ResearchExperimentExecutionContext."
+            )
         if not callable(executor):
             raise InvalidInputError("Experiment executor must be callable.")
-        definition = self.validate_definition(definition)
+
         normalized_run_id = self._validate_run_id(run_id)
         run = self.repository.get(normalized_run_id)
         if run is None:
@@ -1740,19 +1846,35 @@ class ResearchExperimentService:
             raise InvalidInputError(
                 f"Experiment run {normalized_run_id} is not queued."
             )
+        if run.dataset_fingerprint is None or run.execution_input_fingerprint is None:
+            raise InvalidInputError(
+                "Experiment run has no authoritative concrete dataset binding."
+            )
         if (
-            run.experiment_key != definition.experiment_key
-            or run.definition_version != definition.definition_version
-            or run.run_input_fingerprint != definition.run_input_fingerprint
+            run.experiment_key != execution_context.definition.experiment_key
+            or run.definition_version != execution_context.definition.definition_version
+            or run.run_input_fingerprint
+            != execution_context.definition.run_input_fingerprint
         ):
             raise InvalidInputError(
-                "Experiment definition does not match the persisted run inputs."
+                "Experiment execution definition does not match the persisted run inputs."
+            )
+        if run.dataset_fingerprint != execution_context.dataset_fingerprint:
+            raise InvalidInputError(
+                "Experiment execution dataset does not match the persisted dataset snapshot."
+            )
+        if (
+            run.execution_input_fingerprint
+            != execution_context.execution_input_fingerprint
+        ):
+            raise InvalidInputError(
+                "Experiment execution inputs do not match the persisted execution identity."
             )
 
         self.start_run(normalized_run_id)
 
         try:
-            execution_result = executor(definition)
+            execution_result = executor(execution_context)
             if not isinstance(execution_result, ResearchExperimentExecutionResult):
                 raise InvalidInputError(
                     "Experiment executor must return ResearchExperimentExecutionResult."
@@ -1771,7 +1893,10 @@ class ResearchExperimentService:
                 recorded_at=recorded_at,
             )
             current = self.repository.get(normalized_run_id)
-            if current is None or current.status is not ResearchExperimentRunStatus.RUNNING:
+            if (
+                current is None
+                or current.status is not ResearchExperimentRunStatus.RUNNING
+            ):
                 self.db.rollback()
                 raise InvalidInputError(
                     f"Experiment run {normalized_run_id} changed state concurrently."

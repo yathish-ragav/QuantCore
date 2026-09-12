@@ -84,6 +84,8 @@ class ResearchExperimentRepository:
         experiment_key: str,
         definition_version: str,
         run_input_fingerprint: str,
+        dataset_fingerprint: str | None,
+        execution_input_fingerprint: str | None,
         definition_payload: dict,
         submitted_at: datetime,
     ) -> ResearchExperimentRun:
@@ -92,6 +94,8 @@ class ResearchExperimentRepository:
             experiment_key=experiment_key,
             definition_version=definition_version,
             run_input_fingerprint=run_input_fingerprint,
+            dataset_fingerprint=dataset_fingerprint,
+            execution_input_fingerprint=execution_input_fingerprint,
             definition_payload=definition_payload,
             status=ResearchExperimentRunStatus.QUEUED,
             submitted_at=submitted_at,

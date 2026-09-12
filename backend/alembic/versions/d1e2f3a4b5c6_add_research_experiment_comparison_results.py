@@ -41,7 +41,7 @@ def upgrade() -> None:
         unique=False,
     )
     op.create_index(
-        "ix_research_experiment_comparison_results_comparison_recorded_id",
+        "ix_research_exp_cmp_results_cmp_recorded_id",
         "research_experiment_comparison_results",
         ["comparison_fingerprint", "recorded_at", "id"],
         unique=False,
@@ -60,7 +60,7 @@ def downgrade() -> None:
         table_name="research_experiment_comparison_results",
     )
     op.drop_index(
-        "ix_research_experiment_comparison_results_comparison_recorded_id",
+        "ix_research_exp_cmp_results_cmp_recorded_id",
         table_name="research_experiment_comparison_results",
     )
     op.drop_index(

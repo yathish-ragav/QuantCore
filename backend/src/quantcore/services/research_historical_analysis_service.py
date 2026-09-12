@@ -29,6 +29,27 @@ class ResearchHistoricalDataset:
 
     rows: tuple[ResearchHistoricalDatasetRow, ...]
     definition_identities: tuple[tuple[str, str], ...] | None
+    dataset_identity: tuple[str, str] | None = None
+
+    def __post_init__(self) -> None:
+        if self.dataset_identity is None:
+            return
+        if (
+            not isinstance(self.dataset_identity, tuple)
+            or len(self.dataset_identity) != 2
+            or not all(
+                isinstance(value, str) and value.strip()
+                for value in self.dataset_identity
+            )
+        ):
+            raise InvalidInputError(
+                "Dataset identity must be a (key, definition_version) tuple."
+            )
+        object.__setattr__(
+            self,
+            "dataset_identity",
+            tuple(value.strip() for value in self.dataset_identity),
+        )
 
     @property
     def canonical_payload(self) -> dict:
@@ -45,7 +66,7 @@ class ResearchHistoricalDataset:
         identities = None
         if self.definition_identities is not None:
             identities = tuple(sorted(self.definition_identities))
-        return {
+        payload = {
             "definition_identities": identities,
             "rows": tuple(
                 sorted(
@@ -59,6 +80,11 @@ class ResearchHistoricalDataset:
                 )
             ),
         }
+        # Preserve the existing fingerprint for legacy datasets that do not
+        # declare a logical dataset identity.
+        if self.dataset_identity is not None:
+            payload["dataset_identity"] = self.dataset_identity
+        return payload
 
     @property
     def dataset_fingerprint(self) -> str:
@@ -172,6 +198,7 @@ class ResearchHistoricalAnalysisService:
         *,
         as_ofs: Iterable[datetime],
         definition_identities: Iterable[tuple[str, str]] | None = None,
+        dataset_identity: tuple[str, str] | None = None,
     ) -> ResearchHistoricalDataset:
         """Build a deterministic historical panel from PIT feature-vector reads.
 
@@ -185,6 +212,22 @@ class ResearchHistoricalAnalysisService:
         normalized_identities = self._normalize_definition_identities(
             definition_identities
         )
+        normalized_dataset_identity = None
+        if dataset_identity is not None:
+            if (
+                not isinstance(dataset_identity, tuple)
+                or len(dataset_identity) != 2
+                or not all(
+                    isinstance(value, str) and value.strip()
+                    for value in dataset_identity
+                )
+            ):
+                raise InvalidInputError(
+                    "Dataset identity must be a (key, definition_version) tuple."
+                )
+            normalized_dataset_identity = tuple(
+                value.strip() for value in dataset_identity
+            )
 
         rows: list[ResearchHistoricalDatasetRow] = []
         for as_of in sorted(normalized_as_ofs):
@@ -206,4 +249,5 @@ class ResearchHistoricalAnalysisService:
         return ResearchHistoricalDataset(
             rows=tuple(rows),
             definition_identities=normalized_identities,
+            dataset_identity=normalized_dataset_identity,
         )
