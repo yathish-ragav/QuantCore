@@ -1,13 +1,31 @@
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
+import pytest
+
 from fastapi.testclient import TestClient
 
+from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.models.research_experiment import ResearchExperimentRunStatus
 
 
 client = TestClient(app)
+
+
+def authenticated_principal() -> AuthenticatedPrincipal:
+    return AuthenticatedPrincipal(
+        subject="test-user",
+        issuer="https://issuer.example",
+        claims={"sub": "test-user"},
+    )
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_research_api():
+    app.dependency_overrides[get_current_principal] = authenticated_principal
+    yield
+    app.dependency_overrides.pop(get_current_principal, None)
 
 
 def make_run(*, status=ResearchExperimentRunStatus.COMPLETED):
@@ -196,3 +214,14 @@ def test_research_experiment_routes_are_in_openapi():
     assert "/api/v1/research/experiments/artifacts/{artifact_id}" in paths
     assert "/api/v1/research/experiments/artifacts/{artifact_id}/provenance" in paths
     assert "/api/v1/research/experiments/comparison-results/{result_fingerprint}" in paths
+
+
+def test_research_experiment_routes_require_authentication():
+    app.dependency_overrides.pop(get_current_principal, None)
+    try:
+        response = client.get("/api/v1/research/experiments/runs")
+    finally:
+        app.dependency_overrides[get_current_principal] = authenticated_principal
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTHENTICATION_REQUIRED"

@@ -21,6 +21,14 @@ class Settings(BaseSettings):
     macro_data_provider: str = "fred"
     SQL_ECHO: bool = False
 
+    # Generic OIDC resource-server settings. Authentication is fail-closed
+    # when these are not configured; no local token format is accepted.
+    AUTH_ISSUER: str = ""
+    AUTH_AUDIENCE: str = ""
+    AUTH_JWKS_URL: str = ""
+    AUTH_ALGORITHMS: str = "RS256"
+    AUTH_JWKS_CACHE_SECONDS: int = 300
+
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
         extra="ignore",

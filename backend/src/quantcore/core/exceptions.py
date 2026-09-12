@@ -20,6 +20,27 @@ class InvalidInputError(QuantCoreError, ValueError):
     code = "INVALID_INPUT"
 
 
+class AuthenticationError(QuantCoreError):
+    """The caller did not present a valid authenticated identity."""
+
+    status_code = 401
+    code = "AUTHENTICATION_REQUIRED"
+
+
+class AuthenticationConfigurationError(QuantCoreError):
+    """The application cannot authenticate callers because OIDC is misconfigured."""
+
+    status_code = 503
+    code = "AUTHENTICATION_CONFIGURATION_ERROR"
+
+
+class AuthenticationProviderError(QuantCoreError):
+    """The configured identity provider cannot currently verify signing keys."""
+
+    status_code = 503
+    code = "AUTHENTICATION_PROVIDER_UNAVAILABLE"
+
+
 class IngestionJobClaimConflictError(QuantCoreError):
     """Another worker won the atomic claim for an ingestion job."""
 

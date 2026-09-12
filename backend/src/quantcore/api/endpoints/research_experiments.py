@@ -2,6 +2,8 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from quantcore.api.auth import get_current_principal
+
 from quantcore.api.dependencies import get_research_experiment_service
 from quantcore.models.research_experiment import ResearchExperimentRunStatus
 from quantcore.schemas.research_experiments import (
@@ -20,6 +22,7 @@ from quantcore.services.research_experiment_service import (
 router = APIRouter(
     prefix="/api/v1/research/experiments",
     tags=["Research Experiments"],
+    dependencies=[Depends(get_current_principal)],
 )
 
 
@@ -106,7 +109,7 @@ def list_research_experiment_runs(
     query = ResearchExperimentRunQuery(
         experiment_key=experiment_key,
         definition_version=definition_version,
-        statuses=tuple(status) if status else None,
+        statuses=tuple(status) if status else (),
         submitted_after=submitted_after,
         submitted_before=submitted_before,
         limit=limit,
