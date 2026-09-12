@@ -17,7 +17,7 @@ def authenticated_principal() -> AuthenticatedPrincipal:
     return AuthenticatedPrincipal(
         subject="test-user",
         issuer="https://issuer.example",
-        claims={"sub": "test-user"},
+        claims={"sub": "test-user", "scope": "research:read"},
     )
 
 
@@ -203,6 +203,35 @@ def test_get_comparison_result_returns_persisted_snapshot():
     assert response.status_code == 200
     assert response.json()["comparison_fingerprint"] == "1" * 64
     service.get_comparison_result.assert_called_once_with("3" * 64)
+
+
+def test_research_experiment_routes_reject_authenticated_principal_without_scope():
+    def unauthorized_principal() -> AuthenticatedPrincipal:
+        return AuthenticatedPrincipal(
+            subject="test-user",
+            issuer="https://issuer.example",
+            claims={"sub": "test-user"},
+        )
+
+    app.dependency_overrides[get_current_principal] = unauthorized_principal
+    try:
+        response = client.get("/api/v1/research/experiments/runs")
+    finally:
+        app.dependency_overrides[get_current_principal] = authenticated_principal
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
+
+
+def test_research_experiment_routes_require_research_read_scope():
+    with patch("quantcore.api.dependencies.ResearchExperimentService") as factory:
+        service = Mock()
+        service.list_runs.return_value = []
+        factory.return_value = service
+
+        response = client.get("/api/v1/research/experiments/runs")
+
+    assert response.status_code == 200
 
 
 def test_research_experiment_routes_are_in_openapi():

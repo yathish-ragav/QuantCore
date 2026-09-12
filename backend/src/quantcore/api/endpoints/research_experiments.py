@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
-from quantcore.api.auth import get_current_principal
+from quantcore.api.authorization import RESEARCH_READ_SCOPE, require_scopes
 
 from quantcore.api.dependencies import get_research_experiment_service
 from quantcore.models.research_experiment import ResearchExperimentRunStatus
@@ -22,7 +22,7 @@ from quantcore.services.research_experiment_service import (
 router = APIRouter(
     prefix="/api/v1/research/experiments",
     tags=["Research Experiments"],
-    dependencies=[Depends(get_current_principal)],
+    dependencies=[Depends(require_scopes(RESEARCH_READ_SCOPE))],
 )
 
 

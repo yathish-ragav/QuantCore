@@ -41,6 +41,13 @@ class AuthenticationProviderError(QuantCoreError):
     code = "AUTHENTICATION_PROVIDER_UNAVAILABLE"
 
 
+class AuthorizationError(QuantCoreError):
+    """The authenticated caller lacks permission for the requested operation."""
+
+    status_code = 403
+    code = "FORBIDDEN"
+
+
 class IngestionJobClaimConflictError(QuantCoreError):
     """Another worker won the atomic claim for an ingestion job."""
 
