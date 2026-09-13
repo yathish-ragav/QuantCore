@@ -31,6 +31,9 @@ from quantcore.services.research_factor_panel_service import (
 from quantcore.services.research_factor_cross_sectional_service import (
     ResearchFactorCrossSectionalService,
 )
+from quantcore.services.research_factor_evaluation_service import (
+    ResearchFactorEvaluationService,
+)
 from quantcore.services.research_factor_return_service import ResearchFactorReturnService
 from quantcore.services.research_factor_return_methodology_service import ResearchFactorReturnMethodologyService
 
@@ -159,6 +162,11 @@ def get_research_factor_panel_service(
 def get_research_factor_cross_sectional_service() -> ResearchFactorCrossSectionalService:
     """Return the deterministic cross-sectional factor ranking service."""
     return ResearchFactorCrossSectionalService()
+
+
+def get_research_factor_evaluation_service() -> ResearchFactorEvaluationService:
+    """Return the deterministic factor evaluation service."""
+    return ResearchFactorEvaluationService()
 
 
 def get_research_factor_return_service() -> ResearchFactorReturnService:
