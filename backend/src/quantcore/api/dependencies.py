@@ -28,6 +28,10 @@ from quantcore.services.research_factor_computation_service import (
 from quantcore.services.research_factor_panel_service import (
     ResearchFactorPanelService,
 )
+from quantcore.services.research_factor_cross_sectional_service import (
+    ResearchFactorCrossSectionalService,
+)
+from quantcore.services.research_factor_return_service import ResearchFactorReturnService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -149,3 +153,13 @@ def get_research_factor_panel_service(
 ) -> ResearchFactorPanelService:
     """Return the configured research factor panel service."""
     return ResearchFactorPanelService(computation_service)
+
+
+def get_research_factor_cross_sectional_service() -> ResearchFactorCrossSectionalService:
+    """Return the deterministic cross-sectional factor ranking service."""
+    return ResearchFactorCrossSectionalService()
+
+
+def get_research_factor_return_service() -> ResearchFactorReturnService:
+    """Return the deterministic forward-return alignment service."""
+    return ResearchFactorReturnService()
