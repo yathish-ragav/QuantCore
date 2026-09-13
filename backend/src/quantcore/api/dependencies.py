@@ -20,6 +20,7 @@ from quantcore.services.corporate_action_service import CorporateActionService
 from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrchestrator
 from quantcore.services.research_observation_service import ResearchObservationService
 from quantcore.services.research_experiment_service import ResearchExperimentService
+from quantcore.services.research_dataset_service import ResearchDatasetService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -110,3 +111,9 @@ def get_research_experiment_service(
     db: DbSession,
 ) -> ResearchExperimentService:
     return ResearchExperimentService(db)
+
+
+def get_research_dataset_service(
+    db: DbSession,
+) -> ResearchDatasetService:
+    return ResearchDatasetService(db)

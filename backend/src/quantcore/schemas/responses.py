@@ -272,3 +272,22 @@ class ResearchObservationResponse(BaseModel):
     input_manifest: dict
     input_fingerprint: str
     created_at: datetime
+
+
+class ResearchFeatureResponse(BaseModel):
+    observation_key: str
+    definition_version: str
+    observation_as_of: datetime
+    value_numeric: float | None = None
+    value_text: str | None = None
+    unit: str | None = None
+    input_manifest: dict
+    input_fingerprint: str
+
+
+class ResearchFeatureVectorResponse(BaseModel):
+    symbol: str
+    security_id: int
+    as_of: datetime
+    input_fingerprint: str
+    features: list[ResearchFeatureResponse]
