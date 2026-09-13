@@ -1,12 +1,29 @@
 from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
+from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 
 
 client = TestClient(app)
+
+
+def authenticated_principal() -> AuthenticatedPrincipal:
+    return AuthenticatedPrincipal(
+        subject="test-user",
+        issuer="https://issuer.example",
+        claims={"sub": "test-user", "scope": "research:read"},
+    )
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_research_observation_api():
+    app.dependency_overrides[get_current_principal] = authenticated_principal
+    yield
+    app.dependency_overrides.pop(get_current_principal, None)
 
 
 def make_observation(
@@ -82,6 +99,27 @@ def test_get_latest_research_observations_uses_latest_pit_read():
         "AAPL",
         as_of=datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc),
     )
+
+
+def test_research_observation_routes_reject_authenticated_principal_without_scope():
+    def unauthorized_principal() -> AuthenticatedPrincipal:
+        return AuthenticatedPrincipal(
+            subject="test-user",
+            issuer="https://issuer.example",
+            claims={"sub": "test-user"},
+        )
+
+    app.dependency_overrides[get_current_principal] = unauthorized_principal
+    try:
+        response = client.get(
+            "/research-observations/AAPL",
+            params={"as_of": "2026-08-20T15:30:00Z"},
+        )
+    finally:
+        app.dependency_overrides[get_current_principal] = authenticated_principal
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
 def test_research_observation_read_requires_as_of():

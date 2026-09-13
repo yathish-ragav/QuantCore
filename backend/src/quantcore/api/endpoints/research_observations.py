@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from quantcore.api.authorization import RESEARCH_READ_SCOPE, require_scopes
 from quantcore.api.dependencies import get_research_observation_service
 from quantcore.schemas.responses import ResearchObservationResponse
 from quantcore.services.research_observation_service import ResearchObservationService
@@ -10,6 +11,7 @@ from quantcore.services.research_observation_service import ResearchObservationS
 router = APIRouter(
     prefix="/research-observations",
     tags=["Research Observations"],
+    dependencies=[Depends(require_scopes(RESEARCH_READ_SCOPE))],
 )
 
 
