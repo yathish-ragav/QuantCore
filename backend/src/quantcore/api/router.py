@@ -30,6 +30,7 @@ from quantcore.api.endpoints.research_experiments import router as research_expe
 from quantcore.api.endpoints.research_features import router as research_features_router
 from quantcore.api.endpoints.research_datasets import router as research_datasets_router
 from quantcore.api.endpoints.research_factors import router as research_factors_router
+from quantcore.api.endpoints.research_factor_panels import router as research_factor_panels_router
 
 router = APIRouter()
 
@@ -114,6 +115,10 @@ router.include_router(
     research_datasets_router,
 )
 
+
+router.include_router(
+    research_factor_panels_router,
+)
 
 router.include_router(
     research_factors_router,

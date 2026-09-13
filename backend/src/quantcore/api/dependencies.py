@@ -25,6 +25,9 @@ from quantcore.services.research_historical_analysis_service import ResearchHist
 from quantcore.services.research_factor_computation_service import (
     ResearchFactorComputationService,
 )
+from quantcore.services.research_factor_panel_service import (
+    ResearchFactorPanelService,
+)
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -137,3 +140,12 @@ def get_research_factor_computation_service() -> ResearchFactorComputationServic
     can replace this dependency with the production registry.
     """
     return ResearchFactorComputationService((), ())
+
+
+def get_research_factor_panel_service(
+    computation_service: ResearchFactorComputationService = Depends(
+        get_research_factor_computation_service
+    ),
+) -> ResearchFactorPanelService:
+    """Return the configured research factor panel service."""
+    return ResearchFactorPanelService(computation_service)
