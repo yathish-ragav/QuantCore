@@ -22,6 +22,9 @@ from quantcore.services.research_observation_service import ResearchObservationS
 from quantcore.services.research_experiment_service import ResearchExperimentService
 from quantcore.services.research_dataset_service import ResearchDatasetService
 from quantcore.services.research_historical_analysis_service import ResearchHistoricalAnalysisService
+from quantcore.services.research_factor_computation_service import (
+    ResearchFactorComputationService,
+)
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -124,3 +127,13 @@ def get_research_historical_analysis_service(
     db: DbSession,
 ) -> ResearchHistoricalAnalysisService:
     return ResearchHistoricalAnalysisService(db)
+
+
+def get_research_factor_computation_service() -> ResearchFactorComputationService:
+    """Return the configured research factor computation service.
+
+    Factor definitions and calculators are application-owned registrations and
+    are intentionally not persisted by this dependency. The composition root
+    can replace this dependency with the production registry.
+    """
+    return ResearchFactorComputationService((), ())
