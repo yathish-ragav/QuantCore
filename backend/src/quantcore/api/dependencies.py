@@ -21,6 +21,7 @@ from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrches
 from quantcore.services.research_observation_service import ResearchObservationService
 from quantcore.services.research_experiment_service import ResearchExperimentService
 from quantcore.services.research_dataset_service import ResearchDatasetService
+from quantcore.services.research_historical_analysis_service import ResearchHistoricalAnalysisService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -117,3 +118,9 @@ def get_research_dataset_service(
     db: DbSession,
 ) -> ResearchDatasetService:
     return ResearchDatasetService(db)
+
+
+def get_research_historical_analysis_service(
+    db: DbSession,
+) -> ResearchHistoricalAnalysisService:
+    return ResearchHistoricalAnalysisService(db)

@@ -28,6 +28,7 @@ from quantcore.api.endpoints.macro import router as macro_router
 from quantcore.api.endpoints.research_observations import router as research_observations_router
 from quantcore.api.endpoints.research_experiments import router as research_experiments_router
 from quantcore.api.endpoints.research_features import router as research_features_router
+from quantcore.api.endpoints.research_datasets import router as research_datasets_router
 
 router = APIRouter()
 
@@ -106,4 +107,8 @@ router.include_router(
 
 router.include_router(
     research_features_router,
+)
+
+router.include_router(
+    research_datasets_router,
 )
