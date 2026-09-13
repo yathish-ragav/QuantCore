@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.models.research_experiment import ResearchExperimentRunStatus
+from quantcore.core.resource_identity import ResourceOwner
 
 
 client = TestClient(app)
@@ -121,6 +122,9 @@ def test_list_runs_exposes_versioned_research_contract_and_filters():
     assert query.definition_version == "1"
     assert query.statuses == (ResearchExperimentRunStatus.COMPLETED,)
     assert query.limit == 10
+    assert service.list_runs.call_args.kwargs["owner"].key == (
+        "https://issuer.example", "test-user"
+    )
 
 
 def test_list_runs_rejects_invalid_limit_at_api_boundary():
@@ -144,7 +148,9 @@ def test_get_run_returns_stable_run_contract():
 
     assert response.status_code == 200
     assert response.json()["execution_input_fingerprint"] == "c" * 64
-    service.get_run.assert_called_once_with("run-001")
+    service.get_run.assert_called_once_with(
+        "run-001", owner=ResourceOwner("https://issuer.example", "test-user")
+    )
 
 
 def test_get_result_returns_stable_result_contract():
@@ -157,7 +163,9 @@ def test_get_result_returns_stable_result_contract():
 
     assert response.status_code == 200
     assert response.json()["result_fingerprint"] == "d" * 64
-    service.get_result.assert_called_once_with("run-001")
+    service.get_result.assert_called_once_with(
+        "run-001", owner=ResourceOwner("https://issuer.example", "test-user")
+    )
 
 
 def test_list_artifacts_returns_declared_provenance_separately():
@@ -170,7 +178,9 @@ def test_list_artifacts_returns_declared_provenance_separately():
 
     assert response.status_code == 200
     assert response.json()[0]["declared_provenance"] == {"declared_by": "executor"}
-    service.list_artifacts.assert_called_once_with("run-001")
+    service.list_artifacts.assert_called_once_with(
+        "run-001", owner=ResourceOwner("https://issuer.example", "test-user")
+    )
 
 
 def test_get_artifact_provenance_exposes_authoritative_lineage():
@@ -202,7 +212,9 @@ def test_get_comparison_result_returns_persisted_snapshot():
 
     assert response.status_code == 200
     assert response.json()["comparison_fingerprint"] == "1" * 64
-    service.get_comparison_result.assert_called_once_with("3" * 64)
+    service.get_comparison_result.assert_called_once_with(
+        "3" * 64, owner=ResourceOwner("https://issuer.example", "test-user")
+    )
 
 
 def test_research_experiment_routes_reject_authenticated_principal_without_scope():

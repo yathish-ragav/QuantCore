@@ -42,6 +42,13 @@ class ResearchExperimentRun(Base):
             "submitted_at",
             "id",
         ),
+        Index(
+            "ix_research_experiment_runs_owner_submitted_id",
+            "owner_issuer",
+            "owner_subject",
+            "submitted_at",
+            "id",
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -79,6 +86,16 @@ class ResearchExperimentRun(Base):
         String(64),
         nullable=True,
         index=True,
+    )
+
+    owner_issuer: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    owner_subject: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
     )
 
     definition_payload: Mapped[dict] = mapped_column(
@@ -175,8 +192,17 @@ class ResearchExperimentComparisonResultRecord(Base):
             "selection_fingerprint",
         ),
         UniqueConstraint(
+            "owner_issuer",
+            "owner_subject",
             "result_fingerprint",
-            name="uq_research_experiment_comparison_results_result_fingerprint",
+            name="uq_research_experiment_comparison_results_owner_result_fingerprint",
+        ),
+        Index(
+            "ix_research_experiment_comparison_results_owner_recorded_id",
+            "owner_issuer",
+            "owner_subject",
+            "recorded_at",
+            "id",
         ),
     )
 
@@ -216,6 +242,16 @@ class ResearchExperimentComparisonResultRecord(Base):
     result_fingerprint: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
+    )
+
+    owner_issuer: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    owner_subject: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
     )
 
     recorded_at: Mapped[datetime] = mapped_column(

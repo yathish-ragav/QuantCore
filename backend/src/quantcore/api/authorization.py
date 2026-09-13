@@ -4,6 +4,7 @@ from fastapi import Depends
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.core.exceptions import AuthorizationError
+from quantcore.core.resource_identity import ResourceOwner
 
 
 RESEARCH_READ_SCOPE = "research:read"
@@ -37,3 +38,10 @@ def require_scopes(*required_scopes: str) -> Callable:
         return principal
 
     return dependency
+
+
+def get_current_resource_owner(
+    principal: AuthenticatedPrincipal = Depends(get_current_principal),
+) -> ResourceOwner:
+    """Return the stable ownership identity for the authenticated caller."""
+    return ResourceOwner(issuer=principal.issuer, subject=principal.subject)

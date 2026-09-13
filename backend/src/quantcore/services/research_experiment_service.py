@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
+from quantcore.core.resource_identity import ResourceOwner
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
     ResearchExperimentComparisonResultRecord,
@@ -1311,6 +1312,7 @@ class ResearchExperimentService:
         definition: ResearchExperimentDefinition,
         *,
         run_id: str | None = None,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentRunView:
         """Persist one queued run against an immutable definition snapshot."""
         definition = self.validate_definition(definition)
@@ -1330,6 +1332,7 @@ class ResearchExperimentService:
                 execution_input_fingerprint=None,
                 definition_payload=definition.canonical_payload,
                 submitted_at=submitted_at,
+                owner=owner,
             )
             self.db.commit()
             return self._view(run)
@@ -1345,6 +1348,7 @@ class ResearchExperimentService:
         dataset: ResearchHistoricalDataset,
         *,
         run_id: str | None = None,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentRunView:
         """Persist a queued run with an authoritative concrete dataset snapshot identity."""
         context = ResearchExperimentExecutionContext(definition, dataset)
@@ -1364,6 +1368,7 @@ class ResearchExperimentService:
                 execution_input_fingerprint=context.execution_input_fingerprint,
                 definition_payload=context.definition.canonical_payload,
                 submitted_at=submitted_at,
+                owner=owner,
             )
             self.db.commit()
             return self._view(run)
@@ -1376,6 +1381,8 @@ class ResearchExperimentService:
     def list_runs(
         self,
         query: ResearchExperimentRunQuery | None = None,
+        *,
+        owner: ResourceOwner | None = None,
     ) -> tuple[ResearchExperimentRunView, ...]:
         """Return a bounded, deterministically ordered set of matching runs."""
         if query is None:
@@ -1393,11 +1400,15 @@ class ResearchExperimentService:
                 submitted_after=query.submitted_after,
                 submitted_before=query.submitted_before,
                 limit=query.limit,
+                owner=owner,
             )
         )
 
     def select_runs(
-        self, selection: ResearchExperimentRunSelection
+        self,
+        selection: ResearchExperimentRunSelection,
+        *,
+        owner: ResourceOwner | None = None,
     ) -> tuple[ResearchExperimentRunView, ...]:
         """Resolve a validated run selection against persisted experiment runs."""
         if not isinstance(selection, ResearchExperimentRunSelection):
@@ -1405,7 +1416,7 @@ class ResearchExperimentService:
                 "Experiment run selection requires a ResearchExperimentRunSelection."
             )
 
-        runs = self.repository.get_by_run_ids(selection.run_ids)
+        runs = self.repository.get_by_run_ids(selection.run_ids, owner=owner)
         found_ids = {run.run_id for run in runs}
         missing_ids = [run_id for run_id in selection.run_ids if run_id not in found_ids]
         if missing_ids:
@@ -1440,14 +1451,17 @@ class ResearchExperimentService:
         return tuple(self._view(run) for run in runs)
 
     def compare_runs(
-        self, selection: ResearchExperimentRunSelection
+        self,
+        selection: ResearchExperimentRunSelection,
+        *,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentComparison:
         """Resolve a run selection into a deterministic comparison identity contract."""
         if not isinstance(selection, ResearchExperimentRunSelection):
             raise InvalidInputError(
                 "Experiment comparison requires a ResearchExperimentRunSelection."
             )
-        runs = self.select_runs(selection)
+        runs = self.select_runs(selection, owner=owner)
         if len(runs) < 2:
             raise InvalidInputError(
                 "Experiment comparison must contain at least two runs."
@@ -1563,12 +1577,16 @@ class ResearchExperimentService:
         self,
         comparison: ResearchExperimentComparison,
         result: ResearchExperimentComparisonResult,
+        *,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentComparisonResultView:
         """Persist one immutable comparison-result snapshot idempotently."""
         self.validate_comparison_result(comparison, result)
 
         result_fingerprint = result.result_fingerprint
-        existing = self.repository.get_comparison_result(result_fingerprint)
+        existing = self.repository.get_comparison_result(
+            result_fingerprint, owner=owner
+        )
         if existing is not None:
             return self._comparison_result_view(existing)
 
@@ -1583,12 +1601,15 @@ class ResearchExperimentService:
                 result_payload=result.canonical_payload,
                 result_fingerprint=result_fingerprint,
                 recorded_at=recorded_at,
+                owner=owner,
             )
             self.db.commit()
             return self._comparison_result_view(persisted)
         except IntegrityError as exc:
             self.db.rollback()
-            existing = self.repository.get_comparison_result(result_fingerprint)
+            existing = self.repository.get_comparison_result(
+                result_fingerprint, owner=owner
+            )
             if existing is not None:
                 return self._comparison_result_view(existing)
             raise InvalidInputError(
@@ -1596,21 +1617,28 @@ class ResearchExperimentService:
             ) from exc
 
     def get_comparison_result(
-        self, result_fingerprint: str
+        self,
+        result_fingerprint: str,
+        *,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentComparisonResultView:
         normalized_fingerprint = _validate_sha256_fingerprint(
             result_fingerprint, "Comparison result fingerprint"
         )
-        record = self.repository.get_comparison_result(normalized_fingerprint)
+        record = self.repository.get_comparison_result(
+            normalized_fingerprint, owner=owner
+        )
         if record is None:
             raise ResourceNotFoundError(
                 f"Comparison result not found: {normalized_fingerprint}"
             )
         return self._comparison_result_view(record)
 
-    def get_run(self, run_id: str) -> ResearchExperimentRunView:
+    def get_run(
+        self, run_id: str, *, owner: ResourceOwner | None = None
+    ) -> ResearchExperimentRunView:
         normalized_run_id = self._validate_run_id(run_id)
-        run = self.repository.get(normalized_run_id)
+        run = self.repository.get(normalized_run_id, owner=owner)
         if run is None:
             raise ResourceNotFoundError(
                 f"Experiment run not found: {normalized_run_id}"
@@ -1729,9 +1757,14 @@ class ResearchExperimentService:
                 f"Experiment artifact id '{normalized_artifact_id}' already exists."
             ) from exc
 
-    def list_artifacts(self, run_id: str) -> tuple[ResearchExperimentArtifactView, ...]:
+    def list_artifacts(
+        self,
+        run_id: str,
+        *,
+        owner: ResourceOwner | None = None,
+    ) -> tuple[ResearchExperimentArtifactView, ...]:
         normalized_run_id = self._validate_run_id(run_id)
-        if self.repository.get(normalized_run_id) is None:
+        if self.repository.get(normalized_run_id, owner=owner) is None:
             raise ResourceNotFoundError(
                 f"Experiment run not found: {normalized_run_id}"
             )
@@ -1740,10 +1773,15 @@ class ResearchExperimentService:
             for artifact in self.repository.list_artifacts(normalized_run_id)
         )
 
-    def get_artifact(self, artifact_id: str) -> ResearchExperimentArtifactView:
+    def get_artifact(
+        self,
+        artifact_id: str,
+        *,
+        owner: ResourceOwner | None = None,
+    ) -> ResearchExperimentArtifactView:
         normalized_artifact_id = self._validate_artifact_id(artifact_id)
         artifact = self.repository.get_artifact(normalized_artifact_id)
-        if artifact is None:
+        if artifact is None or self.repository.get(artifact.run_id, owner=owner) is None:
             raise ResourceNotFoundError(
                 f"Experiment artifact not found: {normalized_artifact_id}"
             )
@@ -1752,6 +1790,8 @@ class ResearchExperimentService:
     def get_artifact_provenance(
         self,
         artifact_id: str,
+        *,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentArtifactProvenance:
         """Return authoritative provenance derived from persisted run and result state.
 
@@ -1766,10 +1806,10 @@ class ResearchExperimentService:
                 f"Experiment artifact not found: {normalized_artifact_id}"
             )
 
-        run = self.repository.get(artifact.run_id)
+        run = self.repository.get(artifact.run_id, owner=owner)
         if run is None:
-            raise InvalidInputError(
-                f"Experiment artifact {normalized_artifact_id} references a missing run."
+            raise ResourceNotFoundError(
+                f"Experiment artifact not found: {normalized_artifact_id}"
             )
 
         definition = ResearchExperimentDefinition.from_canonical_payload(
@@ -1799,8 +1839,14 @@ class ResearchExperimentService:
             execution_input_fingerprint=run.execution_input_fingerprint,
         )
 
-    def get_result(self, run_id: str) -> ResearchExperimentRunResultView:
+    def get_result(
+        self, run_id: str, *, owner: ResourceOwner | None = None
+    ) -> ResearchExperimentRunResultView:
         normalized_run_id = self._validate_run_id(run_id)
+        if self.repository.get(normalized_run_id, owner=owner) is None:
+            raise ResourceNotFoundError(
+                f"Experiment run not found: {normalized_run_id}"
+            )
         result = self.repository.get_result(normalized_run_id)
         if result is None:
             raise ResourceNotFoundError(

@@ -2,7 +2,12 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
-from quantcore.api.authorization import RESEARCH_READ_SCOPE, require_scopes
+from quantcore.api.authorization import (
+    RESEARCH_READ_SCOPE,
+    get_current_resource_owner,
+    require_scopes,
+)
+from quantcore.core.resource_identity import ResourceOwner
 
 from quantcore.api.dependencies import get_research_experiment_service
 from quantcore.models.research_experiment import ResearchExperimentRunStatus
@@ -104,6 +109,7 @@ def list_research_experiment_runs(
     submitted_after: datetime | None = Query(default=None),
     submitted_before: datetime | None = Query(default=None),
     limit: int = Query(default=100, ge=1, le=100),
+    owner: ResourceOwner = Depends(get_current_resource_owner),
     service: ResearchExperimentService = Depends(get_research_experiment_service),
 ):
     query = ResearchExperimentRunQuery(
@@ -114,7 +120,10 @@ def list_research_experiment_runs(
         submitted_before=submitted_before,
         limit=limit,
     )
-    return [_to_run_response(view) for view in service.list_runs(query)]
+    return [
+        _to_run_response(view)
+        for view in service.list_runs(query, owner=owner)
+    ]
 
 
 @router.get(
@@ -123,9 +132,10 @@ def list_research_experiment_runs(
 )
 def get_research_experiment_run(
     run_id: str,
+    owner: ResourceOwner = Depends(get_current_resource_owner),
     service: ResearchExperimentService = Depends(get_research_experiment_service),
 ):
-    return _to_run_response(service.get_run(run_id))
+    return _to_run_response(service.get_run(run_id, owner=owner))
 
 
 @router.get(
@@ -134,9 +144,10 @@ def get_research_experiment_run(
 )
 def get_research_experiment_result(
     run_id: str,
+    owner: ResourceOwner = Depends(get_current_resource_owner),
     service: ResearchExperimentService = Depends(get_research_experiment_service),
 ):
-    return _to_result_response(service.get_result(run_id))
+    return _to_result_response(service.get_result(run_id, owner=owner))
 
 
 @router.get(
@@ -145,9 +156,13 @@ def get_research_experiment_result(
 )
 def list_research_experiment_artifacts(
     run_id: str,
+    owner: ResourceOwner = Depends(get_current_resource_owner),
     service: ResearchExperimentService = Depends(get_research_experiment_service),
 ):
-    return [_to_artifact_response(view) for view in service.list_artifacts(run_id)]
+    return [
+        _to_artifact_response(view)
+        for view in service.list_artifacts(run_id, owner=owner)
+    ]
 
 
 @router.get(
@@ -156,9 +171,10 @@ def list_research_experiment_artifacts(
 )
 def get_research_experiment_artifact(
     artifact_id: str,
+    owner: ResourceOwner = Depends(get_current_resource_owner),
     service: ResearchExperimentService = Depends(get_research_experiment_service),
 ):
-    return _to_artifact_response(service.get_artifact(artifact_id))
+    return _to_artifact_response(service.get_artifact(artifact_id, owner=owner))
 
 
 @router.get(
@@ -167,9 +183,12 @@ def get_research_experiment_artifact(
 )
 def get_research_experiment_artifact_provenance(
     artifact_id: str,
+    owner: ResourceOwner = Depends(get_current_resource_owner),
     service: ResearchExperimentService = Depends(get_research_experiment_service),
 ):
-    return _to_provenance_response(service.get_artifact_provenance(artifact_id))
+    return _to_provenance_response(
+        service.get_artifact_provenance(artifact_id, owner=owner)
+    )
 
 
 @router.get(
@@ -178,8 +197,9 @@ def get_research_experiment_artifact_provenance(
 )
 def get_research_experiment_comparison_result(
     result_fingerprint: str,
+    owner: ResourceOwner = Depends(get_current_resource_owner),
     service: ResearchExperimentService = Depends(get_research_experiment_service),
 ):
     return _to_comparison_result_response(
-        service.get_comparison_result(result_fingerprint)
+        service.get_comparison_result(result_fingerprint, owner=owner)
     )

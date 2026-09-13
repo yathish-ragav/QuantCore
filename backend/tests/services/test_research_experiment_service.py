@@ -4,6 +4,10 @@ import json
 import pytest
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
+from sqlalchemy import select
+
+from quantcore.core.resource_identity import ResourceOwner
+from quantcore.models.research_experiment import ResearchExperimentComparisonResultRecord
 from quantcore.services.research_experiment_service import (
     ResearchExperimentDefinition,
     ResearchExperimentDefinitionRegistry,
@@ -175,6 +179,32 @@ def test_service_accepts_only_valid_definitions():
     with pytest.raises(InvalidInputError):
         ResearchExperimentService.validate_definition(object())
 
+
+
+
+def owner(subject="user-123", issuer="https://issuer.example"):
+    return ResourceOwner(issuer=issuer, subject=subject)
+
+
+def test_owned_runs_are_isolated_by_resource_owner(db_session):
+    service = ResearchExperimentService(db_session)
+    first = service.create_run(definition(), run_id="owner-a", owner=owner("user-a"))
+    service.create_run(definition(), run_id="owner-b", owner=owner("user-b"))
+
+    assert service.get_run("owner-a", owner=owner("user-a")) == first
+    with pytest.raises(ResourceNotFoundError):
+        service.get_run("owner-b", owner=owner("user-a"))
+
+    visible = service.list_runs(owner=owner("user-a"))
+    assert [item.run_id for item in visible] == ["owner-a"]
+
+
+def test_legacy_unowned_runs_are_not_visible_to_owned_queries(db_session):
+    service = ResearchExperimentService(db_session)
+    service.create_run(definition(), run_id="legacy-unowned")
+    assert service.list_runs(owner=owner("user-a")) == ()
+    with pytest.raises(ResourceNotFoundError):
+        service.get_run("legacy-unowned", owner=owner("user-a"))
 
 @pytest.fixture
 def db_session():
@@ -798,6 +828,26 @@ def test_artifact_provenance_is_derived_from_persisted_run(db_session):
     assert provenance.result_fingerprint is None
     assert "caller-asserted-value" not in json.dumps(provenance.canonical_payload)
     assert provenance.provenance_fingerprint
+
+
+def test_artifact_provenance_hides_cross_owner_resource_existence(db_session):
+    service = ResearchExperimentService(db_session)
+    owner = ResourceOwner("https://issuer.example", "owner-a")
+    other_owner = ResourceOwner("https://issuer.example", "owner-b")
+    service.create_run(definition(), run_id="artifact-owner-provenance", owner=owner)
+    service.create_artifact(
+        ResearchExperimentArtifactDefinition(
+            run_id="artifact-owner-provenance",
+            artifact_type="report",
+            content_hash="a" * 64,
+        ),
+        artifact_id="artifact-owner-provenance-1",
+    )
+
+    with pytest.raises(ResourceNotFoundError, match="Experiment artifact not found"):
+        service.get_artifact_provenance(
+            "artifact-owner-provenance-1", owner=other_owner
+        )
 
 
 def test_artifact_provenance_includes_persisted_result_fingerprint(db_session):
@@ -1458,6 +1508,37 @@ def test_record_and_get_comparison_result_persist_snapshot(db_session):
 
     loaded = service.get_comparison_result(result.result_fingerprint)
     assert loaded == recorded
+
+
+def test_record_comparison_result_allows_same_fingerprint_for_different_owners(
+    db_session,
+):
+    service = ResearchExperimentService(db_session)
+    comparison, result = _persisted_comparison_and_result(
+        service, "owner-scoped-comparison"
+    )
+    owner_a = ResourceOwner("https://issuer.example", "owner-a")
+    owner_b = ResourceOwner("https://issuer.example", "owner-b")
+
+    first = service.record_comparison_result(
+        comparison, result, owner=owner_a
+    )
+    second = service.record_comparison_result(
+        comparison, result, owner=owner_b
+    )
+
+    assert first.result_fingerprint == second.result_fingerprint
+    records = service.db.scalars(
+        select(ResearchExperimentComparisonResultRecord).where(
+            ResearchExperimentComparisonResultRecord.result_fingerprint
+            == result.result_fingerprint
+        )
+    ).all()
+    assert len(records) == 2
+    assert {(record.owner_issuer, record.owner_subject) for record in records} == {
+        (owner_a.issuer, owner_a.subject),
+        (owner_b.issuer, owner_b.subject),
+    }
 
 
 def test_record_comparison_result_is_idempotent(db_session):

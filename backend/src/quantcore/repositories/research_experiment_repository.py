@@ -3,6 +3,7 @@ from datetime import datetime
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
+from quantcore.core.resource_identity import ResourceOwner
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
     ResearchExperimentComparisonResultRecord,
@@ -18,20 +19,36 @@ class ResearchExperimentRepository:
     def __init__(self, db: Session):
         self.db = db
 
-    def get(self, run_id: str) -> ResearchExperimentRun | None:
-        return self.db.scalar(
-            select(ResearchExperimentRun).where(
-                ResearchExperimentRun.run_id == run_id
-            )
+    def get(
+        self, run_id: str, *, owner: ResourceOwner | None = None
+    ) -> ResearchExperimentRun | None:
+        stmt = select(ResearchExperimentRun).where(
+            ResearchExperimentRun.run_id == run_id
         )
+        if owner is not None:
+            stmt = stmt.where(
+                ResearchExperimentRun.owner_issuer == owner.issuer,
+                ResearchExperimentRun.owner_subject == owner.subject,
+            )
+        return self.db.scalar(stmt)
 
-    def get_by_run_ids(self, run_ids: tuple[str, ...]) -> list[ResearchExperimentRun]:
+    def get_by_run_ids(
+        self,
+        run_ids: tuple[str, ...],
+        *,
+        owner: ResourceOwner | None = None,
+    ) -> list[ResearchExperimentRun]:
         if not run_ids:
             return []
+        stmt = select(ResearchExperimentRun).where(ResearchExperimentRun.run_id.in_(run_ids))
+        if owner is not None:
+            stmt = stmt.where(
+                ResearchExperimentRun.owner_issuer == owner.issuer,
+                ResearchExperimentRun.owner_subject == owner.subject,
+            )
         return list(
             self.db.scalars(
-                select(ResearchExperimentRun)
-                .where(ResearchExperimentRun.run_id.in_(run_ids))
+                stmt
                 .order_by(
                     ResearchExperimentRun.submitted_at.desc(),
                     ResearchExperimentRun.id.desc(),
@@ -48,6 +65,7 @@ class ResearchExperimentRepository:
         submitted_after: datetime | None = None,
         submitted_before: datetime | None = None,
         limit: int = 100,
+        owner: ResourceOwner | None = None,
     ) -> list[ResearchExperimentRun]:
         if limit < 1:
             raise ValueError("limit must be at least one")
@@ -67,6 +85,11 @@ class ResearchExperimentRepository:
             stmt = stmt.where(ResearchExperimentRun.submitted_at >= submitted_after)
         if submitted_before is not None:
             stmt = stmt.where(ResearchExperimentRun.submitted_at <= submitted_before)
+        if owner is not None:
+            stmt = stmt.where(
+                ResearchExperimentRun.owner_issuer == owner.issuer,
+                ResearchExperimentRun.owner_subject == owner.subject,
+            )
 
         stmt = (
             stmt.order_by(
@@ -88,6 +111,7 @@ class ResearchExperimentRepository:
         execution_input_fingerprint: str | None,
         definition_payload: dict,
         submitted_at: datetime,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentRun:
         run = ResearchExperimentRun(
             run_id=run_id,
@@ -96,6 +120,8 @@ class ResearchExperimentRepository:
             run_input_fingerprint=run_input_fingerprint,
             dataset_fingerprint=dataset_fingerprint,
             execution_input_fingerprint=execution_input_fingerprint,
+            owner_issuer=owner.issuer if owner is not None else None,
+            owner_subject=owner.subject if owner is not None else None,
             definition_payload=definition_payload,
             status=ResearchExperimentRunStatus.QUEUED,
             submitted_at=submitted_at,
@@ -182,14 +208,20 @@ class ResearchExperimentRepository:
 
 
     def get_comparison_result(
-        self, result_fingerprint: str
+        self,
+        result_fingerprint: str,
+        *,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentComparisonResultRecord | None:
-        return self.db.scalar(
-            select(ResearchExperimentComparisonResultRecord).where(
-                ResearchExperimentComparisonResultRecord.result_fingerprint
-                == result_fingerprint
-            )
+        stmt = select(ResearchExperimentComparisonResultRecord).where(
+            ResearchExperimentComparisonResultRecord.result_fingerprint == result_fingerprint
         )
+        if owner is not None:
+            stmt = stmt.where(
+                ResearchExperimentComparisonResultRecord.owner_issuer == owner.issuer,
+                ResearchExperimentComparisonResultRecord.owner_subject == owner.subject,
+            )
+        return self.db.scalar(stmt)
 
     def create_comparison_result(
         self,
@@ -202,6 +234,7 @@ class ResearchExperimentRepository:
         result_payload: dict,
         result_fingerprint: str,
         recorded_at: datetime,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentComparisonResultRecord:
         result = ResearchExperimentComparisonResultRecord(
             comparison_fingerprint=comparison_fingerprint,
@@ -211,6 +244,8 @@ class ResearchExperimentRepository:
             comparison_payload=comparison_payload,
             result_payload=result_payload,
             result_fingerprint=result_fingerprint,
+            owner_issuer=owner.issuer if owner is not None else None,
+            owner_subject=owner.subject if owner is not None else None,
             recorded_at=recorded_at,
         )
         self.db.add(result)
