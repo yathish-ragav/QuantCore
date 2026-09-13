@@ -37,6 +37,7 @@ from quantcore.services.research_factor_evaluation_service import (
 from quantcore.services.research_factor_return_service import ResearchFactorReturnService
 from quantcore.services.research_factor_return_methodology_service import ResearchFactorReturnMethodologyService
 from quantcore.services.research_signal_service import ResearchSignalService
+from quantcore.services.research_strategy_service import ResearchStrategyService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -173,6 +174,11 @@ def get_research_factor_evaluation_service() -> ResearchFactorEvaluationService:
 def get_research_signal_service() -> ResearchSignalService:
     """Return the deterministic research signal construction service."""
     return ResearchSignalService()
+
+
+def get_research_strategy_service() -> ResearchStrategyService:
+    """Return the deterministic research strategy validation service."""
+    return ResearchStrategyService()
 
 
 def get_research_factor_return_service() -> ResearchFactorReturnService:
