@@ -36,6 +36,7 @@ from quantcore.services.research_factor_evaluation_service import (
 )
 from quantcore.services.research_factor_return_service import ResearchFactorReturnService
 from quantcore.services.research_factor_return_methodology_service import ResearchFactorReturnMethodologyService
+from quantcore.services.research_signal_service import ResearchSignalService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -167,6 +168,11 @@ def get_research_factor_cross_sectional_service() -> ResearchFactorCrossSectiona
 def get_research_factor_evaluation_service() -> ResearchFactorEvaluationService:
     """Return the deterministic factor evaluation service."""
     return ResearchFactorEvaluationService()
+
+
+def get_research_signal_service() -> ResearchSignalService:
+    """Return the deterministic research signal construction service."""
+    return ResearchSignalService()
 
 
 def get_research_factor_return_service() -> ResearchFactorReturnService:
