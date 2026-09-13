@@ -32,6 +32,7 @@ from quantcore.services.research_factor_cross_sectional_service import (
     ResearchFactorCrossSectionalService,
 )
 from quantcore.services.research_factor_return_service import ResearchFactorReturnService
+from quantcore.services.research_factor_return_methodology_service import ResearchFactorReturnMethodologyService
 
 
 DbSession = Annotated[Session, Depends(get_db)]
@@ -163,3 +164,9 @@ def get_research_factor_cross_sectional_service() -> ResearchFactorCrossSectiona
 def get_research_factor_return_service() -> ResearchFactorReturnService:
     """Return the deterministic forward-return alignment service."""
     return ResearchFactorReturnService()
+
+
+
+def get_research_factor_return_methodology_service() -> ResearchFactorReturnMethodologyService:
+    """Return the deterministic factor-return methodology service."""
+    return ResearchFactorReturnMethodologyService()
