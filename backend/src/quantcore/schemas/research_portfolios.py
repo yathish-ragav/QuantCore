@@ -235,3 +235,37 @@ class ResearchPortfolioRebalanceResponse(BaseModel):
     turnover: float
     status: str
     actions: list[ResearchPortfolioRebalanceActionResponse]
+
+
+class ResearchPortfolioTransactionCostRequest(ResearchPortfolioRebalanceRequest):
+    """Bounded request for deterministic proportional transaction-cost analysis."""
+
+    cost_key: str = Field(min_length=1, max_length=100)
+    cost_definition_version: str = Field(min_length=1, max_length=100)
+    one_way_cost_bps: float = Field(ge=0.0)
+    cost_description: str | None = Field(default=None, max_length=500)
+
+
+class ResearchPortfolioTransactionCostResponse(BaseModel):
+    """Stable API projection of deterministic transaction-cost analysis."""
+
+    cost_key: str
+    cost_definition_version: str
+    rebalance_key: str
+    rebalance_definition_version: str
+    strategy_key: str
+    strategy_definition_version: str
+    signal_identity: tuple[str, str]
+    frequency: ResearchRebalanceFrequency
+    current_as_of: datetime
+    as_of: datetime
+    current_dataset_fingerprint: str
+    current_dataset_identity: tuple[str, str] | None
+    target_dataset_fingerprint: str
+    target_dataset_identity: tuple[str, str] | None
+    signal_construction: str
+    turnover: float
+    one_way_cost_bps: float
+    cost_fraction: float
+    cost_bps: float
+    status: str

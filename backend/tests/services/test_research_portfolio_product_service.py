@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
+from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_factor_cross_sectional_service import (
     ResearchFactorCrossSectionalService,
 )
@@ -17,11 +18,13 @@ from quantcore.services.research_rebalance_service import (
 from quantcore.services.research_portfolio_product_service import (
     ResearchPortfolioProductResult,
     ResearchPortfolioProductService,
+    ResearchPortfolioRebalanceProductResult,
 )
 from quantcore.services.research_signal_service import (
     ResearchSignalDefinition,
     ResearchSignalPanel,
 )
+from quantcore.services.research_transaction_cost_service import ResearchTransactionCostDefinition
 from quantcore.services.research_strategy_service import (
     ResearchStrategyDefinition,
     ResearchStrategyDirection,
@@ -421,3 +424,77 @@ def test_construct_with_rebalance_constructs_current_and_target_states():
         rebalance_definition,
         target_as_of,
     )
+
+
+def test_construct_with_transaction_cost_composes_rebalance_and_cost_service():
+    portfolio_service = ResearchPortfolioProductService(
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+    )
+
+    rebalance_result = ResearchPortfolioRebalanceProductResult(
+        current=Mock(),
+        target=Mock(),
+        rebalance=Mock(),
+    )
+    portfolio_service.construct_with_rebalance = Mock(return_value=rebalance_result)
+
+    cost_service = Mock()
+    cost_result = Mock()
+    cost_service.calculate.return_value = cost_result
+    portfolio_service._transaction_cost_service = cost_service
+
+    transaction_cost_definition = Mock(spec=ResearchTransactionCostDefinition)
+    result = portfolio_service.construct_with_transaction_cost(
+        symbols=["AAA"],
+        as_ofs=(AS_OF,),
+        current_as_of=AS_OF,
+        target_as_of=AS_OF,
+        definition_identities=None,
+        dataset_identity=None,
+        signal=signal(),
+        factors=(("quality", "1", 1.0, True),),
+        strategy=strategy(),
+        rebalance_definition=Mock(spec=ResearchRebalanceDefinition),
+        transaction_cost_definition=transaction_cost_definition,
+    )
+
+    assert result.current is rebalance_result.current
+    assert result.target is rebalance_result.target
+    assert result.rebalance is rebalance_result.rebalance
+    assert result.transaction_cost is cost_result
+    portfolio_service.construct_with_rebalance.assert_called_once()
+    cost_service.calculate.assert_called_once_with(
+        rebalance_result.rebalance,
+        transaction_cost_definition,
+    )
+
+
+def test_construct_with_transaction_cost_rejects_invalid_cost_definition():
+    portfolio_service = ResearchPortfolioProductService(
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+    )
+
+    with pytest.raises(InvalidInputError, match="ResearchTransactionCostDefinition"):
+        portfolio_service.construct_with_transaction_cost(
+            symbols=["AAA"],
+            as_ofs=(AS_OF,),
+            current_as_of=AS_OF,
+            target_as_of=AS_OF,
+            definition_identities=None,
+            dataset_identity=None,
+            signal=signal(),
+            factors=(("quality", "1", 1.0, True),),
+            strategy=strategy(),
+            rebalance_definition=Mock(spec=ResearchRebalanceDefinition),
+            transaction_cost_definition=Mock(),
+        )

@@ -27,6 +27,11 @@ from quantcore.services.research_rebalance_service import (
     ResearchRebalanceDefinition,
     ResearchRebalanceService,
 )
+from quantcore.services.research_transaction_cost_service import (
+    ResearchTransactionCostDefinition,
+    ResearchTransactionCostResult,
+    ResearchTransactionCostService,
+)
 from quantcore.services.research_portfolio_constraint_service import (
     ResearchPortfolioConstraintDefinition,
     ResearchPortfolioConstraintResult,
@@ -85,6 +90,16 @@ class ResearchPortfolioRebalanceProductResult:
     rebalance: ResearchRebalance
 
 
+@dataclass(frozen=True)
+class ResearchPortfolioTransactionCostProductResult:
+    """Two deterministic portfolio states, transition, and transaction cost."""
+
+    current: ResearchPortfolioProductResult
+    target: ResearchPortfolioProductResult
+    rebalance: ResearchRebalance
+    transaction_cost: ResearchTransactionCostResult
+
+
 class ResearchPortfolioProductService:
     """Compose research signal and strategy contracts into a target portfolio.
 
@@ -105,6 +120,7 @@ class ResearchPortfolioProductService:
         factor_risk_service: ResearchPortfolioFactorRiskService | None = None,
         constraint_service: ResearchPortfolioConstraintService | None = None,
         rebalance_service: ResearchRebalanceService | None = None,
+        transaction_cost_service: ResearchTransactionCostService | None = None,
     ) -> None:
         self._historical_service = historical_service
         self._panel_service = panel_service
@@ -116,6 +132,7 @@ class ResearchPortfolioProductService:
         self._factor_risk_service = factor_risk_service or ResearchPortfolioFactorRiskService()
         self._constraint_service = constraint_service or ResearchPortfolioConstraintService()
         self._rebalance_service = rebalance_service or ResearchRebalanceService()
+        self._transaction_cost_service = transaction_cost_service or ResearchTransactionCostService()
 
     def _construct_with_ranked_panels(
         self,
@@ -362,4 +379,48 @@ class ResearchPortfolioProductService:
             current=current,
             target=target,
             rebalance=rebalance,
+        )
+
+    def construct_with_transaction_cost(
+        self,
+        *,
+        symbols: list[str] | tuple[str, ...],
+        as_ofs: list[datetime] | tuple[datetime, ...],
+        current_as_of: datetime,
+        target_as_of: datetime,
+        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        dataset_identity: tuple[str, str] | None,
+        signal: ResearchSignalDefinition,
+        factors: list[tuple[str, str, float, bool]]
+        | tuple[tuple[str, str, float, bool], ...],
+        strategy: ResearchStrategyDefinition,
+        rebalance_definition: ResearchRebalanceDefinition,
+        transaction_cost_definition: ResearchTransactionCostDefinition,
+    ) -> ResearchPortfolioTransactionCostProductResult:
+        """Construct two portfolio states, calculate their transition, then cost it."""
+        if not isinstance(transaction_cost_definition, ResearchTransactionCostDefinition):
+            raise InvalidInputError(
+                "Portfolio transaction cost analysis requires a ResearchTransactionCostDefinition."
+            )
+        result = self.construct_with_rebalance(
+            symbols=symbols,
+            as_ofs=as_ofs,
+            current_as_of=current_as_of,
+            target_as_of=target_as_of,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+            signal=signal,
+            factors=factors,
+            strategy=strategy,
+            rebalance_definition=rebalance_definition,
+        )
+        transaction_cost = self._transaction_cost_service.calculate(
+            result.rebalance,
+            transaction_cost_definition,
+        )
+        return ResearchPortfolioTransactionCostProductResult(
+            current=result.current,
+            target=result.target,
+            rebalance=result.rebalance,
+            transaction_cost=transaction_cost,
         )

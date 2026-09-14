@@ -43,6 +43,7 @@ from quantcore.services.research_portfolio_risk_service import ResearchPortfolio
 from quantcore.services.research_portfolio_factor_risk_service import ResearchPortfolioFactorRiskService
 from quantcore.services.research_portfolio_constraint_service import ResearchPortfolioConstraintService
 from quantcore.services.research_rebalance_service import ResearchRebalanceService
+from quantcore.services.research_transaction_cost_service import ResearchTransactionCostService
 from quantcore.services.research_strategy_service import ResearchStrategyService
 
 
@@ -209,6 +210,7 @@ def get_research_portfolio_product_service(
         ResearchPortfolioFactorRiskService(),
         ResearchPortfolioConstraintService(),
         ResearchRebalanceService(),
+        ResearchTransactionCostService(),
     )
 
 
