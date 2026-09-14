@@ -203,7 +203,71 @@ def test_construct_with_risk_composes_existing_risk_service():
 
     assert result.portfolio is portfolio_result
     assert result.risk is risk_snapshot
+
     portfolio_service.construct.assert_called_once()
+
     risk_service.snapshot.assert_called_once_with(
         portfolio_result.portfolio,
+    )
+
+
+def test_construct_with_factor_risk_composes_existing_factor_risk_service():
+    portfolio_service = ResearchPortfolioProductService(
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+    )
+
+    portfolio_result = ResearchPortfolioProductResult(
+        portfolio=Mock(),
+        dataset_fingerprint="dataset-fp",
+        dataset_identity=("dataset", "1"),
+        signal_construction="WEIGHTED_NORMALIZED_RANK_AVERAGE",
+    )
+
+    ranked_panels = {
+        ("quality", "1"): Mock(),
+    }
+
+    portfolio_service._construct_with_ranked_panels = Mock(
+        return_value=(portfolio_result, ranked_panels),
+    )
+
+    factor_risk_service = Mock()
+    factor_risk_snapshot = Mock(strategy_key="quality_long")
+    factor_risk_service.snapshot.return_value = factor_risk_snapshot
+
+    portfolio_service._factor_risk_service = factor_risk_service
+
+    result = portfolio_service.construct_with_factor_risk(
+        symbols=["AAA"],
+        as_ofs=[AS_OF],
+        target_as_of=AS_OF,
+        definition_identities=None,
+        dataset_identity=("dataset", "1"),
+        signal=signal(),
+        factors=(("quality", "1", 1.0, True),),
+        strategy=strategy(),
+    )
+
+    assert result.portfolio is portfolio_result
+    assert result.factor_risk is factor_risk_snapshot
+
+    portfolio_service._construct_with_ranked_panels.assert_called_once_with(
+        symbols=["AAA"],
+        as_ofs=[AS_OF],
+        target_as_of=AS_OF,
+        definition_identities=None,
+        dataset_identity=("dataset", "1"),
+        signal=signal(),
+        factors=(("quality", "1", 1.0, True),),
+        strategy=strategy(),
+    )
+
+    factor_risk_service.snapshot.assert_called_once_with(
+        portfolio_result.portfolio,
+        ranked_panels,
     )

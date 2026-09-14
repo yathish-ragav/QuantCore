@@ -4,6 +4,7 @@ from datetime import datetime
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_factor_cross_sectional_service import (
     ResearchFactorCrossSectionalService,
+    ResearchFactorRankedPanel,
 )
 from quantcore.services.research_factor_panel_service import ResearchFactorPanelService
 from quantcore.services.research_historical_analysis_service import (
@@ -12,6 +13,10 @@ from quantcore.services.research_historical_analysis_service import (
 from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolio,
     ResearchPortfolioConstructionService,
+)
+from quantcore.services.research_portfolio_factor_risk_service import (
+    ResearchPortfolioFactorRiskService,
+    ResearchPortfolioFactorRiskSnapshot,
 )
 from quantcore.services.research_portfolio_risk_service import (
     ResearchPortfolioRiskService,
@@ -45,6 +50,14 @@ class ResearchPortfolioRiskProductResult:
     risk: ResearchPortfolioRiskSnapshot
 
 
+@dataclass(frozen=True)
+class ResearchPortfolioFactorRiskProductResult:
+    """Portfolio plus deterministic rank-based factor exposures."""
+
+    portfolio: ResearchPortfolioProductResult
+    factor_risk: ResearchPortfolioFactorRiskSnapshot
+
+
 class ResearchPortfolioProductService:
     """Compose research signal and strategy contracts into a target portfolio.
 
@@ -62,6 +75,7 @@ class ResearchPortfolioProductService:
         strategy_service: ResearchStrategyService,
         portfolio_service: ResearchPortfolioConstructionService,
         risk_service: ResearchPortfolioRiskService | None = None,
+        factor_risk_service: ResearchPortfolioFactorRiskService | None = None,
     ) -> None:
         self._historical_service = historical_service
         self._panel_service = panel_service
@@ -70,8 +84,9 @@ class ResearchPortfolioProductService:
         self._strategy_service = strategy_service
         self._portfolio_service = portfolio_service
         self._risk_service = risk_service or ResearchPortfolioRiskService()
+        self._factor_risk_service = factor_risk_service or ResearchPortfolioFactorRiskService()
 
-    def construct(
+    def _construct_with_ranked_panels(
         self,
         *,
         symbols: list[str] | tuple[str, ...],
@@ -83,7 +98,7 @@ class ResearchPortfolioProductService:
         factors: list[tuple[str, str, float, bool]]
         | tuple[tuple[str, str, float, bool], ...],
         strategy: ResearchStrategyDefinition,
-    ) -> ResearchPortfolioProductResult:
+    ) -> tuple[ResearchPortfolioProductResult, dict[tuple[str, str], ResearchFactorRankedPanel]]:
         if not isinstance(target_as_of, datetime) or target_as_of.tzinfo is None:
             raise InvalidInputError("Portfolio target_as_of must be timezone-aware.")
         if any(not isinstance(value, datetime) or value.tzinfo is None for value in as_ofs):
@@ -108,7 +123,7 @@ class ResearchPortfolioProductService:
             dataset_identity=dataset_identity,
         )
 
-        panels_by_factor = {}
+        panels_by_factor: dict[tuple[str, str], ResearchFactorRankedPanel] = {}
         for factor_key, definition_version, _weight, higher_is_better in factors:
             identity = (factor_key.strip(), definition_version.strip())
             if identity not in signal.factor_identities:
@@ -131,12 +146,40 @@ class ResearchPortfolioProductService:
             composite_signal,
             target_as_of,
         )
-        return ResearchPortfolioProductResult(
-            portfolio=portfolio,
-            dataset_fingerprint=dataset.dataset_fingerprint,
-            dataset_identity=dataset.dataset_identity,
-            signal_construction=composite_signal.construction,
+        return (
+            ResearchPortfolioProductResult(
+                portfolio=portfolio,
+                dataset_fingerprint=dataset.dataset_fingerprint,
+                dataset_identity=dataset.dataset_identity,
+                signal_construction=composite_signal.construction,
+            ),
+            panels_by_factor,
         )
+
+    def construct(
+        self,
+        *,
+        symbols: list[str] | tuple[str, ...],
+        as_ofs: list[datetime] | tuple[datetime, ...],
+        target_as_of: datetime,
+        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        dataset_identity: tuple[str, str] | None,
+        signal: ResearchSignalDefinition,
+        factors: list[tuple[str, str, float, bool]]
+        | tuple[tuple[str, str, float, bool], ...],
+        strategy: ResearchStrategyDefinition,
+    ) -> ResearchPortfolioProductResult:
+        result, _panels_by_factor = self._construct_with_ranked_panels(
+            symbols=symbols,
+            as_ofs=as_ofs,
+            target_as_of=target_as_of,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+            signal=signal,
+            factors=factors,
+            strategy=strategy,
+        )
+        return result
 
     def construct_with_risk(
         self,
@@ -165,4 +208,36 @@ class ResearchPortfolioProductService:
         return ResearchPortfolioRiskProductResult(
             portfolio=portfolio_result,
             risk=risk,
+        )
+
+    def construct_with_factor_risk(
+        self,
+        *,
+        symbols: list[str] | tuple[str, ...],
+        as_ofs: list[datetime] | tuple[datetime, ...],
+        target_as_of: datetime,
+        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        dataset_identity: tuple[str, str] | None,
+        signal: ResearchSignalDefinition,
+        factors: list[tuple[str, str, float, bool]]
+        | tuple[tuple[str, str, float, bool], ...],
+        strategy: ResearchStrategyDefinition,
+    ) -> ResearchPortfolioFactorRiskProductResult:
+        portfolio_result, panels_by_factor = self._construct_with_ranked_panels(
+            symbols=symbols,
+            as_ofs=as_ofs,
+            target_as_of=target_as_of,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+            signal=signal,
+            factors=factors,
+            strategy=strategy,
+        )
+        factor_risk = self._factor_risk_service.snapshot(
+            portfolio_result.portfolio,
+            panels_by_factor,
+        )
+        return ResearchPortfolioFactorRiskProductResult(
+            portfolio=portfolio_result,
+            factor_risk=factor_risk,
         )

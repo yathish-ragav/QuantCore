@@ -103,3 +103,31 @@ class ResearchPortfolioRiskResponse(BaseModel):
     dataset_fingerprint: str
     dataset_identity: tuple[str, str] | None
     signal_construction: str
+
+
+class ResearchPortfolioFactorExposureResponse(BaseModel):
+    """One deterministic rank-based factor exposure for a target portfolio."""
+
+    factor_identity: tuple[str, str]
+    as_of: datetime
+    position_count: int
+    factor_observation_count: int
+    exposure: float
+    long_exposure: float
+    short_exposure: float
+    gross_factor_exposure: float
+    gross_normalized_exposure: float
+
+
+class ResearchPortfolioFactorRiskResponse(BaseModel):
+    """Stable API projection of rank-based factor exposures."""
+
+    strategy_key: str
+    strategy_definition_version: str
+    signal_identity: tuple[str, str]
+    as_of: datetime
+    position_count: int
+    factor_exposures: list[ResearchPortfolioFactorExposureResponse]
+    dataset_fingerprint: str
+    dataset_identity: tuple[str, str] | None
+    signal_construction: str
