@@ -131,3 +131,47 @@ class ResearchPortfolioFactorRiskResponse(BaseModel):
     dataset_fingerprint: str
     dataset_identity: tuple[str, str] | None
     signal_construction: str
+
+
+
+class ResearchPortfolioConstraintRequest(ResearchPortfolioRequest):
+    """Bounded request for validating a constructed research portfolio against explicit constraints."""
+
+    constraint_key: str = Field(min_length=1, max_length=100)
+    constraint_definition_version: str = Field(min_length=1, max_length=100)
+    max_position_weight: float | None = None
+    max_gross_exposure: float | None = None
+    min_net_exposure: float | None = None
+    max_net_exposure: float | None = None
+    max_long_exposure: float | None = None
+    max_short_exposure: float | None = None
+    constraint_description: str | None = Field(default=None, max_length=500)
+
+
+class ResearchPortfolioConstraintViolationResponse(BaseModel):
+    """Stable API projection of one portfolio constraint violation."""
+
+    constraint: str
+    observed_value: float
+    limit: float
+
+
+class ResearchPortfolioConstraintResponse(BaseModel):
+    """Stable API projection of deterministic portfolio constraint validation."""
+
+    constraint_key: str
+    constraint_definition_version: str
+    strategy_key: str
+    strategy_definition_version: str
+    signal_identity: tuple[str, str]
+    as_of: datetime
+    dataset_fingerprint: str
+    dataset_identity: tuple[str, str] | None
+    signal_construction: str
+    status: str
+    violations: list[ResearchPortfolioConstraintViolationResponse]
+    observed_max_position_weight: float
+    observed_gross_exposure: float
+    observed_net_exposure: float
+    observed_long_exposure: float
+    observed_short_exposure: float

@@ -271,3 +271,47 @@ def test_construct_with_factor_risk_composes_existing_factor_risk_service():
         portfolio_result.portfolio,
         ranked_panels,
     )
+
+
+def test_construct_with_constraints_composes_existing_constraint_service():
+    portfolio_service = ResearchPortfolioProductService(
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+    )
+    portfolio_result = ResearchPortfolioProductResult(
+        portfolio=Mock(),
+        dataset_fingerprint="dataset-fp",
+        dataset_identity=("dataset", "1"),
+        signal_construction="WEIGHTED_NORMALIZED_RANK_AVERAGE",
+    )
+    portfolio_service.construct = Mock(return_value=portfolio_result)
+
+    constraint_definition = Mock()
+    constraint_result = Mock()
+    constraint_service = Mock()
+    constraint_service.validate.return_value = constraint_result
+    portfolio_service._constraint_service = constraint_service
+
+    result = portfolio_service.construct_with_constraints(
+        symbols=["AAA"],
+        as_ofs=[AS_OF],
+        target_as_of=AS_OF,
+        definition_identities=None,
+        dataset_identity=("dataset", "1"),
+        signal=signal(),
+        factors=(("quality", "1", 1.0, True),),
+        strategy=strategy(),
+        constraint_definition=constraint_definition,
+    )
+
+    assert result.portfolio is portfolio_result
+    assert result.constraint is constraint_result
+    portfolio_service.construct.assert_called_once()
+    constraint_service.validate.assert_called_once_with(
+        portfolio_result.portfolio,
+        constraint_definition,
+    )

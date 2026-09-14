@@ -22,6 +22,11 @@ from quantcore.services.research_portfolio_risk_service import (
     ResearchPortfolioRiskService,
     ResearchPortfolioRiskSnapshot,
 )
+from quantcore.services.research_portfolio_constraint_service import (
+    ResearchPortfolioConstraintDefinition,
+    ResearchPortfolioConstraintResult,
+    ResearchPortfolioConstraintService,
+)
 from quantcore.services.research_signal_service import (
     ResearchSignalDefinition,
     ResearchSignalService,
@@ -58,6 +63,14 @@ class ResearchPortfolioFactorRiskProductResult:
     factor_risk: ResearchPortfolioFactorRiskSnapshot
 
 
+@dataclass(frozen=True)
+class ResearchPortfolioConstraintProductResult:
+    """Portfolio plus deterministic constraint validation."""
+
+    portfolio: ResearchPortfolioProductResult
+    constraint: ResearchPortfolioConstraintResult
+
+
 class ResearchPortfolioProductService:
     """Compose research signal and strategy contracts into a target portfolio.
 
@@ -76,6 +89,7 @@ class ResearchPortfolioProductService:
         portfolio_service: ResearchPortfolioConstructionService,
         risk_service: ResearchPortfolioRiskService | None = None,
         factor_risk_service: ResearchPortfolioFactorRiskService | None = None,
+        constraint_service: ResearchPortfolioConstraintService | None = None,
     ) -> None:
         self._historical_service = historical_service
         self._panel_service = panel_service
@@ -85,6 +99,7 @@ class ResearchPortfolioProductService:
         self._portfolio_service = portfolio_service
         self._risk_service = risk_service or ResearchPortfolioRiskService()
         self._factor_risk_service = factor_risk_service or ResearchPortfolioFactorRiskService()
+        self._constraint_service = constraint_service or ResearchPortfolioConstraintService()
 
     def _construct_with_ranked_panels(
         self,
@@ -208,6 +223,39 @@ class ResearchPortfolioProductService:
         return ResearchPortfolioRiskProductResult(
             portfolio=portfolio_result,
             risk=risk,
+        )
+
+    def construct_with_constraints(
+        self,
+        *,
+        symbols: list[str] | tuple[str, ...],
+        as_ofs: list[datetime] | tuple[datetime, ...],
+        target_as_of: datetime,
+        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        dataset_identity: tuple[str, str] | None,
+        signal: ResearchSignalDefinition,
+        factors: list[tuple[str, str, float, bool]]
+        | tuple[tuple[str, str, float, bool], ...],
+        strategy: ResearchStrategyDefinition,
+        constraint_definition: ResearchPortfolioConstraintDefinition,
+    ) -> ResearchPortfolioConstraintProductResult:
+        portfolio_result = self.construct(
+            symbols=symbols,
+            as_ofs=as_ofs,
+            target_as_of=target_as_of,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+            signal=signal,
+            factors=factors,
+            strategy=strategy,
+        )
+        constraint = self._constraint_service.validate(
+            portfolio_result.portfolio,
+            constraint_definition,
+        )
+        return ResearchPortfolioConstraintProductResult(
+            portfolio=portfolio_result,
+            constraint=constraint,
         )
 
     def construct_with_factor_risk(
