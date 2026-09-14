@@ -37,6 +37,8 @@ from quantcore.services.research_factor_evaluation_service import (
 from quantcore.services.research_factor_return_service import ResearchFactorReturnService
 from quantcore.services.research_factor_return_methodology_service import ResearchFactorReturnMethodologyService
 from quantcore.services.research_signal_service import ResearchSignalService
+from quantcore.services.research_portfolio_construction_service import ResearchPortfolioConstructionService
+from quantcore.services.research_portfolio_product_service import ResearchPortfolioProductService
 from quantcore.services.research_strategy_service import ResearchStrategyService
 
 
@@ -179,6 +181,27 @@ def get_research_signal_service() -> ResearchSignalService:
 def get_research_strategy_service() -> ResearchStrategyService:
     """Return the deterministic research strategy validation service."""
     return ResearchStrategyService()
+
+
+def get_research_portfolio_product_service(
+    historical_service: ResearchHistoricalAnalysisService = Depends(
+        get_research_historical_analysis_service
+    ),
+    panel_service: ResearchFactorPanelService = Depends(get_research_factor_panel_service),
+    cross_sectional_service: ResearchFactorCrossSectionalService = Depends(
+        get_research_factor_cross_sectional_service
+    ),
+    signal_service: ResearchSignalService = Depends(get_research_signal_service),
+    strategy_service: ResearchStrategyService = Depends(get_research_strategy_service),
+) -> ResearchPortfolioProductService:
+    return ResearchPortfolioProductService(
+        historical_service,
+        panel_service,
+        cross_sectional_service,
+        signal_service,
+        strategy_service,
+        ResearchPortfolioConstructionService(),
+    )
 
 
 def get_research_factor_return_service() -> ResearchFactorReturnService:

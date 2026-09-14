@@ -1,0 +1,78 @@
+from datetime import datetime
+
+from pydantic import BaseModel, Field, model_validator
+
+from quantcore.schemas.research_signals import ResearchSignalFactorRequest
+from quantcore.services.research_portfolio_construction_service import (
+    ResearchPortfolioConstructionStatus,
+    ResearchPortfolioPositionSide,
+)
+from quantcore.services.research_strategy_service import ResearchStrategyDirection
+
+
+class ResearchPortfolioStrategyRequest(BaseModel):
+    """Declarative strategy contract used for one portfolio construction."""
+
+    strategy_key: str = Field(min_length=1, max_length=100)
+    definition_version: str = Field(min_length=1, max_length=100)
+    signal_identity: tuple[str, str]
+    direction: ResearchStrategyDirection
+    long_threshold: float | None = None
+    short_threshold: float | None = None
+    description: str | None = Field(default=None, max_length=500)
+
+
+class ResearchPortfolioRequest(BaseModel):
+    """Bounded request for deterministic target portfolio construction."""
+
+    symbols: list[str] = Field(min_length=1, max_length=100)
+    as_ofs: list[datetime] = Field(min_length=1, max_length=50)
+    target_as_of: datetime
+    definition_identities: list[tuple[str, str]] | None = Field(
+        default=None, min_length=1, max_length=32
+    )
+    dataset_identity: tuple[str, str] | None = None
+    signal_key: str = Field(min_length=1, max_length=100)
+    signal_definition_version: str = Field(min_length=1, max_length=100)
+    signal_description: str | None = Field(default=None, max_length=500)
+    factors: list[ResearchSignalFactorRequest] = Field(min_length=1, max_length=16)
+    strategy: ResearchPortfolioStrategyRequest
+
+    @model_validator(mode="after")
+    def validate_target_as_of(self):
+        if any(value.tzinfo is None for value in self.as_ofs) or self.target_as_of.tzinfo is None:
+            raise ValueError("as_ofs and target_as_of must be timezone-aware")
+        if self.target_as_of not in self.as_ofs:
+            raise ValueError("target_as_of must be one of the requested as_ofs")
+        return self
+
+
+class ResearchPortfolioPositionResponse(BaseModel):
+    """One deterministic target portfolio position."""
+
+    symbol: str
+    security_id: int
+    as_of: datetime
+    signal_score: float
+    side: ResearchPortfolioPositionSide
+    target_weight: float
+
+
+class ResearchPortfolioResponse(BaseModel):
+    """Stable API projection of a deterministic target research portfolio."""
+
+    strategy_key: str
+    strategy_definition_version: str
+    signal_identity: tuple[str, str]
+    as_of: datetime
+    status: ResearchPortfolioConstructionStatus
+    construction: str
+    eligible_count: int
+    long_count: int
+    short_count: int
+    gross_exposure: float
+    net_exposure: float
+    dataset_fingerprint: str
+    dataset_identity: tuple[str, str] | None
+    signal_construction: str
+    positions: list[ResearchPortfolioPositionResponse]

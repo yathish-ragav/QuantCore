@@ -108,6 +108,8 @@ __all__ = [
     "ResearchPortfolioConstraintStatus",
     "ResearchPortfolioConstraintViolation",
     "ResearchPortfolioConstructionStatus",
+    "ResearchPortfolioProductResult",
+    "ResearchPortfolioProductService",
     "IngestionExecutionService",
     "IngestionScheduleService",
     "IngestionScheduleView",
@@ -178,6 +180,11 @@ from .research_strategy_service import (
     ResearchStrategyDefinitionRegistry,
     ResearchStrategyDirection,
     ResearchStrategyService,
+)
+
+from .research_portfolio_product_service import (
+    ResearchPortfolioProductResult,
+    ResearchPortfolioProductService,
 )
 
 from .research_portfolio_risk_service import (
