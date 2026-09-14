@@ -34,6 +34,15 @@ class Price:
         self.adjusted_close = adjusted_close if adjusted_close is not None else close
 
 
+class RevisedPrice:
+    def __init__(self, date, close, known_at, revision_number=1, adjusted_close=None):
+        self.date = date
+        self.close = close
+        self.adjusted_close = adjusted_close if adjusted_close is not None else close
+        self.known_at = known_at
+        self.revision_number = revision_number
+
+
 def strategy(direction=ResearchStrategyDirection.LONG_SHORT):
     return ResearchStrategyDefinition(
         strategy_key="quality", definition_version="1",
@@ -84,6 +93,78 @@ def prices(*values):
 
 def run(targets, history):
     return ResearchBacktestService().run(definition(), targets, history, constraint(), rebalance(), costs())
+
+
+def test_attribution_uses_latest_price_revision_known_at_period_boundary():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0), direction=ResearchStrategyDirection.LONG_ONLY),
+        target(AS_OF_2, row(1, 0.9, AS_OF_2), direction=ResearchStrategyDirection.LONG_ONLY),
+    ]
+    start_date = AS_OF_0 + timedelta(hours=1)
+    end_date = AS_OF_2 + timedelta(hours=1)
+    first_revision = RevisedPrice(start_date, 100, AS_OF_0 - timedelta(hours=1), 1)
+    later_revision = RevisedPrice(start_date, 50, AS_OF_1, 2)
+    end_price = RevisedPrice(end_date, 120, AS_OF_2, 1)
+    bt = run(targets, {1: [first_revision, later_revision, end_price]})
+
+    result = ResearchBacktestAttributionService().attribute(
+        bt, tuple(targets[:-1]), {1: (first_revision, later_revision, end_price)}
+    )
+
+    assert result.periods[0].gross_return == pytest.approx(0.20)
+    assert result.periods[0].position_contributions[0].security_return == pytest.approx(0.20)
+
+
+def test_attribution_skips_price_revision_not_known_at_period_boundary():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0), direction=ResearchStrategyDirection.LONG_ONLY),
+        target(AS_OF_2, row(1, 0.9, AS_OF_2), direction=ResearchStrategyDirection.LONG_ONLY),
+    ]
+    unavailable_date = AS_OF_0 + timedelta(hours=1)
+    available_date = AS_OF_0 + timedelta(hours=2)
+    end_date = AS_OF_2 + timedelta(hours=1)
+    unavailable = RevisedPrice(unavailable_date, 100, AS_OF_1, 1)
+    available = RevisedPrice(available_date, 105, AS_OF_0, 1)
+    end_price = RevisedPrice(end_date, 120, AS_OF_2, 1)
+    bt = run(targets, {1: [unavailable, available, end_price]})
+
+    result = ResearchBacktestAttributionService().attribute(
+        bt, tuple(targets[:-1]), {1: (unavailable, available, end_price)}
+    )
+
+    assert result.periods[0].gross_return == pytest.approx(120 / 105 - 1.0)
+
+
+def test_attribution_rejects_duplicate_pit_revisions():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0), direction=ResearchStrategyDirection.LONG_ONLY),
+        target(AS_OF_2, row(1, 0.9, AS_OF_2), direction=ResearchStrategyDirection.LONG_ONLY),
+    ]
+    date = AS_OF_0 + timedelta(hours=1)
+    revision = RevisedPrice(date, 100, AS_OF_0, 1)
+    duplicate = RevisedPrice(date, 100, AS_OF_0, 1)
+    end_price = RevisedPrice(AS_OF_2 + timedelta(hours=1), 120, AS_OF_2, 1)
+    bt = run(targets, {1: [revision, end_price]})
+
+    with pytest.raises(InvalidInputError, match="duplicate revisions"):
+        ResearchBacktestAttributionService().attribute(
+            bt, tuple(targets[:-1]), {1: (revision, duplicate, end_price)}
+        )
+
+
+def test_attribution_rejects_naive_pit_known_at():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0), direction=ResearchStrategyDirection.LONG_ONLY),
+        target(AS_OF_2, row(1, 0.9, AS_OF_2), direction=ResearchStrategyDirection.LONG_ONLY),
+    ]
+    price = RevisedPrice(AS_OF_0 + timedelta(hours=1), 100, AS_OF_0.replace(tzinfo=None), 1)
+    end_price = RevisedPrice(AS_OF_2 + timedelta(hours=1), 120, AS_OF_2, 1)
+    bt = run(targets, {1: [Price(AS_OF_0 + timedelta(hours=1), 100), Price(AS_OF_2 + timedelta(hours=1), 120)]})
+
+    with pytest.raises(InvalidInputError, match="known_at"):
+        ResearchBacktestAttributionService().attribute(
+            bt, tuple(targets[:-1]), {1: (price, end_price)}
+        )
 
 
 def test_attribution_reconciles_position_contributions_to_gross_return():
