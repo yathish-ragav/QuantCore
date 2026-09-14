@@ -1474,7 +1474,9 @@ class ResearchExperimentService:
             )
         experiment_key, definition_version = next(iter(experiment_identity))
 
-        persisted_results = self.repository.get_results_by_run_ids(selection.run_ids)
+        persisted_results = self.repository.get_results_by_run_ids(
+            selection.run_ids, owner=owner
+        )
         results_by_run_id = {result.run_id: result for result in persisted_results}
         missing_ids = [
             run_id for run_id in selection.run_ids if run_id not in results_by_run_id
@@ -1505,9 +1507,11 @@ class ResearchExperimentService:
         self,
         selection: ResearchExperimentRunSelection,
         metric_names: Iterable[str],
+        *,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentComparisonResult:
         """Build a deterministic aligned numeric metric result for selected runs."""
-        comparison = self.compare_runs(selection)
+        comparison = self.compare_runs(selection, owner=owner)
 
         if isinstance(metric_names, (str, bytes)):
             raise InvalidInputError("Comparison metric names must be an iterable of names.")
@@ -1539,7 +1543,9 @@ class ResearchExperimentService:
             seen_names.add(normalized)
             normalized_metric_names.append(normalized)
 
-        persisted_results = self.repository.get_results_by_run_ids(selection.run_ids)
+        persisted_results = self.repository.get_results_by_run_ids(
+            selection.run_ids, owner=owner
+        )
         results_by_run_id = {result.run_id: result for result in persisted_results}
 
         metrics: list[ResearchExperimentComparisonMetric] = []
@@ -1645,33 +1651,49 @@ class ResearchExperimentService:
             )
         return self._view(run)
 
-    def start_run(self, run_id: str) -> dict[str, object]:
+    def start_run(
+        self, run_id: str, *, owner: ResourceOwner | None = None
+    ) -> dict[str, object]:
         return self._transition(
             run_id,
+            owner=owner,
             expected_statuses=(ResearchExperimentRunStatus.QUEUED,),
             status=ResearchExperimentRunStatus.RUNNING,
         )
 
-    def complete_run(self, run_id: str) -> dict[str, object]:
+    def complete_run(
+        self, run_id: str, *, owner: ResourceOwner | None = None
+    ) -> dict[str, object]:
         return self._transition(
             run_id,
+            owner=owner,
             expected_statuses=(ResearchExperimentRunStatus.RUNNING,),
             status=ResearchExperimentRunStatus.COMPLETED,
         )
 
-    def fail_run(self, run_id: str, *, error_summary: str) -> dict[str, object]:
+    def fail_run(
+        self,
+        run_id: str,
+        *,
+        error_summary: str,
+        owner: ResourceOwner | None = None,
+    ) -> dict[str, object]:
         if not isinstance(error_summary, str) or not error_summary.strip():
             raise InvalidInputError("Experiment run error summary must be a non-empty string.")
         return self._transition(
             run_id,
+            owner=owner,
             expected_statuses=(ResearchExperimentRunStatus.RUNNING,),
             status=ResearchExperimentRunStatus.FAILED,
             error_summary=error_summary,
         )
 
-    def cancel_run(self, run_id: str) -> dict[str, object]:
+    def cancel_run(
+        self, run_id: str, *, owner: ResourceOwner | None = None
+    ) -> dict[str, object]:
         return self._transition(
             run_id,
+            owner=owner,
             expected_statuses=(
                 ResearchExperimentRunStatus.QUEUED,
                 ResearchExperimentRunStatus.RUNNING,
@@ -1709,6 +1731,7 @@ class ResearchExperimentService:
         artifact: ResearchExperimentArtifactDefinition,
         *,
         artifact_id: str | None = None,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentArtifactView:
         """Persist one immutable artifact descriptor against an existing run."""
         artifact = self.validate_artifact(artifact)
@@ -1718,7 +1741,7 @@ class ResearchExperimentService:
             else self._validate_artifact_id(artifact_id)
         )
         run_id = self._validate_run_id(artifact.run_id)
-        if self.repository.get(run_id) is None:
+        if self.repository.get(run_id, owner=owner) is None:
             raise ResourceNotFoundError(f"Experiment run not found: {run_id}")
         if self.repository.get_artifact(normalized_artifact_id) is not None:
             raise InvalidInputError(
@@ -1867,6 +1890,8 @@ class ResearchExperimentService:
         executor: Callable[
             [ResearchExperimentExecutionContext], ResearchExperimentExecutionResult
         ],
+        *,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentRunResultView:
         """Execute one dataset-bound queued run and persist exactly one result.
 
@@ -1883,7 +1908,7 @@ class ResearchExperimentService:
             raise InvalidInputError("Experiment executor must be callable.")
 
         normalized_run_id = self._validate_run_id(run_id)
-        run = self.repository.get(normalized_run_id)
+        run = self.repository.get(normalized_run_id, owner=owner)
         if run is None:
             raise ResourceNotFoundError(
                 f"Experiment run not found: {normalized_run_id}"
@@ -1917,7 +1942,7 @@ class ResearchExperimentService:
                 "Experiment execution inputs do not match the persisted execution identity."
             )
 
-        self.start_run(normalized_run_id)
+        self.start_run(normalized_run_id, owner=owner)
 
         try:
             execution_result = executor(execution_context)
@@ -1938,7 +1963,7 @@ class ResearchExperimentService:
                 result_fingerprint=execution_result.result_fingerprint,
                 recorded_at=recorded_at,
             )
-            current = self.repository.get(normalized_run_id)
+            current = self.repository.get(normalized_run_id, owner=owner)
             if (
                 current is None
                 or current.status is not ResearchExperimentRunStatus.RUNNING
@@ -1968,7 +1993,7 @@ class ResearchExperimentService:
             )
         except Exception as exc:
             self.db.rollback()
-            current = self.repository.get(normalized_run_id)
+            current = self.repository.get(normalized_run_id, owner=owner)
             if (
                 current is not None
                 and current.status is ResearchExperimentRunStatus.RUNNING
@@ -1992,9 +2017,10 @@ class ResearchExperimentService:
         expected_statuses: tuple[ResearchExperimentRunStatus, ...],
         status: ResearchExperimentRunStatus,
         error_summary: str | None = None,
+        owner: ResourceOwner | None = None,
     ) -> ResearchExperimentRunView:
         normalized_run_id = self._validate_run_id(run_id)
-        run = self.repository.get(normalized_run_id)
+        run = self.repository.get(normalized_run_id, owner=owner)
         if run is None:
             raise ResourceNotFoundError(
                 f"Experiment run not found: {normalized_run_id}"

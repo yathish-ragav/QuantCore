@@ -699,6 +699,80 @@ def test_execute_run_result_is_reloaded_from_persistence(db_session):
     assert reloaded.metrics == {"accuracy": 0.91}
 
 
+def test_execute_run_hides_cross_owner_run(db_session):
+    service = ResearchExperimentService(db_session)
+    owner_a = ResourceOwner("https://issuer.example", "owner-a")
+    owner_b = ResourceOwner("https://issuer.example", "owner-b")
+    service.create_run_with_dataset(
+        definition(), run_id="execute-owner", owner=owner_a, dataset=make_dataset()
+    )
+
+    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+        service.execute_run(
+            "execute-owner",
+            execution_context(),
+            lambda _: ResearchExperimentExecutionResult(result_payload={"ok": True}),
+            owner=owner_b,
+        )
+
+    assert service.get_run("execute-owner", owner=owner_a).status is ResearchExperimentRunStatus.QUEUED
+
+
+def test_run_lifecycle_hides_cross_owner_run(db_session):
+    service = ResearchExperimentService(db_session)
+    owner_a = ResourceOwner("https://issuer.example", "owner-a")
+    owner_b = ResourceOwner("https://issuer.example", "owner-b")
+    service.create_run(definition(), run_id="lifecycle-owner", owner=owner_a)
+
+    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+        service.start_run("lifecycle-owner", owner=owner_b)
+    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+        service.cancel_run("lifecycle-owner", owner=owner_b)
+
+    assert service.get_run("lifecycle-owner", owner=owner_a).status is ResearchExperimentRunStatus.QUEUED
+
+
+def test_create_artifact_hides_cross_owner_run(db_session):
+    service = ResearchExperimentService(db_session)
+    owner_a = ResourceOwner("https://issuer.example", "owner-a")
+    owner_b = ResourceOwner("https://issuer.example", "owner-b")
+    service.create_run(definition(), run_id="artifact-create-owner", owner=owner_a)
+    artifact = ResearchExperimentArtifactDefinition(
+        run_id="artifact-create-owner",
+        artifact_type="report",
+        content_hash="a" * 64,
+    )
+
+    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+        service.create_artifact(artifact, artifact_id="artifact-create-owner-1", owner=owner_b)
+
+
+def test_build_comparison_result_is_owner_scoped(db_session):
+    service = ResearchExperimentService(db_session)
+    owner_a = ResourceOwner("https://issuer.example", "owner-a")
+    owner_b = ResourceOwner("https://issuer.example", "owner-b")
+    first = service.create_run_with_dataset(definition(), make_dataset(), run_id="comparison-owner-a", owner=owner_a)
+    second = service.create_run_with_dataset(definition(), make_dataset(), run_id="comparison-owner-b", owner=owner_b)
+
+    for run_id, owner in ((first.run_id, owner_a), (second.run_id, owner_b)):
+        service.execute_run(
+            run_id,
+            execution_context(),
+            lambda _: ResearchExperimentExecutionResult(
+                result_payload={"value": 1}, metrics={"sharpe": 1.0}
+            ),
+            owner=owner,
+        )
+
+    selection = ResearchExperimentRunSelection(
+        run_ids=(first.run_id, second.run_id),
+        experiment_key="value-quality",
+        definition_version="1",
+    )
+    with pytest.raises(ResourceNotFoundError, match="Experiment runs not found"):
+        service.build_comparison_result(selection, ["sharpe"], owner=owner_a)
+
+
 def test_artifact_definition_is_canonical_and_fingerprinted():
     first = ResearchExperimentArtifactDefinition(
         run_id="run-001",

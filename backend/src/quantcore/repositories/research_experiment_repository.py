@@ -174,17 +174,25 @@ class ResearchExperimentRepository:
         )
 
     def get_results_by_run_ids(
-        self, run_ids: tuple[str, ...]
+        self,
+        run_ids: tuple[str, ...],
+        *,
+        owner: ResourceOwner | None = None,
     ) -> list[ResearchExperimentRunResult]:
         if not run_ids:
             return []
-        return list(
-            self.db.scalars(
-                select(ResearchExperimentRunResult).where(
-                    ResearchExperimentRunResult.run_id.in_(run_ids)
-                )
-            ).all()
+        stmt = select(ResearchExperimentRunResult).where(
+            ResearchExperimentRunResult.run_id.in_(run_ids)
         )
+        if owner is not None:
+            stmt = stmt.join(
+                ResearchExperimentRun,
+                ResearchExperimentRun.run_id == ResearchExperimentRunResult.run_id,
+            ).where(
+                ResearchExperimentRun.owner_issuer == owner.issuer,
+                ResearchExperimentRun.owner_subject == owner.subject,
+            )
+        return list(self.db.scalars(stmt).all())
 
     def create_result(
         self,
