@@ -13,6 +13,10 @@ from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolio,
     ResearchPortfolioConstructionService,
 )
+from quantcore.services.research_portfolio_risk_service import (
+    ResearchPortfolioRiskService,
+    ResearchPortfolioRiskSnapshot,
+)
 from quantcore.services.research_signal_service import (
     ResearchSignalDefinition,
     ResearchSignalService,
@@ -33,6 +37,14 @@ class ResearchPortfolioProductResult:
     signal_construction: str
 
 
+@dataclass(frozen=True)
+class ResearchPortfolioRiskProductResult:
+    """Portfolio plus its deterministic descriptive risk snapshot."""
+
+    portfolio: ResearchPortfolioProductResult
+    risk: ResearchPortfolioRiskSnapshot
+
+
 class ResearchPortfolioProductService:
     """Compose research signal and strategy contracts into a target portfolio.
 
@@ -49,6 +61,7 @@ class ResearchPortfolioProductService:
         signal_service: ResearchSignalService,
         strategy_service: ResearchStrategyService,
         portfolio_service: ResearchPortfolioConstructionService,
+        risk_service: ResearchPortfolioRiskService | None = None,
     ) -> None:
         self._historical_service = historical_service
         self._panel_service = panel_service
@@ -56,6 +69,7 @@ class ResearchPortfolioProductService:
         self._signal_service = signal_service
         self._strategy_service = strategy_service
         self._portfolio_service = portfolio_service
+        self._risk_service = risk_service or ResearchPortfolioRiskService()
 
     def construct(
         self,
@@ -122,4 +136,33 @@ class ResearchPortfolioProductService:
             dataset_fingerprint=dataset.dataset_fingerprint,
             dataset_identity=dataset.dataset_identity,
             signal_construction=composite_signal.construction,
+        )
+
+    def construct_with_risk(
+        self,
+        *,
+        symbols: list[str] | tuple[str, ...],
+        as_ofs: list[datetime] | tuple[datetime, ...],
+        target_as_of: datetime,
+        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        dataset_identity: tuple[str, str] | None,
+        signal: ResearchSignalDefinition,
+        factors: list[tuple[str, str, float, bool]]
+        | tuple[tuple[str, str, float, bool], ...],
+        strategy: ResearchStrategyDefinition,
+    ) -> ResearchPortfolioRiskProductResult:
+        portfolio_result = self.construct(
+            symbols=symbols,
+            as_ofs=as_ofs,
+            target_as_of=target_as_of,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+            signal=signal,
+            factors=factors,
+            strategy=strategy,
+        )
+        risk = self._risk_service.snapshot(portfolio_result.portfolio)
+        return ResearchPortfolioRiskProductResult(
+            portfolio=portfolio_result,
+            risk=risk,
         )

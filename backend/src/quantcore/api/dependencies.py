@@ -39,6 +39,7 @@ from quantcore.services.research_factor_return_methodology_service import Resear
 from quantcore.services.research_signal_service import ResearchSignalService
 from quantcore.services.research_portfolio_construction_service import ResearchPortfolioConstructionService
 from quantcore.services.research_portfolio_product_service import ResearchPortfolioProductService
+from quantcore.services.research_portfolio_risk_service import ResearchPortfolioRiskService
 from quantcore.services.research_strategy_service import ResearchStrategyService
 
 
@@ -201,6 +202,7 @@ def get_research_portfolio_product_service(
         signal_service,
         strategy_service,
         ResearchPortfolioConstructionService(),
+        ResearchPortfolioRiskService(),
     )
 
 

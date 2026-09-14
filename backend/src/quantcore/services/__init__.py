@@ -110,6 +110,7 @@ __all__ = [
     "ResearchPortfolioConstructionStatus",
     "ResearchPortfolioProductResult",
     "ResearchPortfolioProductService",
+    "ResearchPortfolioRiskProductResult",
     "IngestionExecutionService",
     "IngestionScheduleService",
     "IngestionScheduleView",
@@ -185,6 +186,7 @@ from .research_strategy_service import (
 from .research_portfolio_product_service import (
     ResearchPortfolioProductResult,
     ResearchPortfolioProductService,
+    ResearchPortfolioRiskProductResult,
 )
 
 from .research_portfolio_risk_service import (

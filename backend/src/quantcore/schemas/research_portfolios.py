@@ -76,3 +76,30 @@ class ResearchPortfolioResponse(BaseModel):
     dataset_identity: tuple[str, str] | None
     signal_construction: str
     positions: list[ResearchPortfolioPositionResponse]
+
+
+class ResearchPortfolioRiskResponse(BaseModel):
+    """Stable API projection of descriptive risk for a target portfolio."""
+
+    strategy_key: str
+    strategy_definition_version: str
+    signal_identity: tuple[str, str]
+    as_of: datetime
+    position_count: int
+    long_count: int
+    short_count: int
+    gross_exposure: float
+    net_exposure: float
+    long_exposure: float
+    short_exposure: float
+    max_abs_position_weight: float
+    net_to_gross_exposure: float
+    hhi: float
+    effective_position_count: float
+    long_hhi: float
+    long_effective_position_count: float
+    short_hhi: float
+    short_effective_position_count: float
+    dataset_fingerprint: str
+    dataset_identity: tuple[str, str] | None
+    signal_construction: str

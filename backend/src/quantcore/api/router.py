@@ -37,6 +37,7 @@ from quantcore.api.endpoints.research_factor_evaluations import router as resear
 from quantcore.api.endpoints.research_signals import router as research_signals_router
 from quantcore.api.endpoints.research_strategies import router as research_strategies_router
 from quantcore.api.endpoints.research_portfolios import router as research_portfolios_router
+from quantcore.api.endpoints.research_portfolio_risk import router as research_portfolio_risk_router
 
 router = APIRouter()
 
@@ -152,4 +153,8 @@ router.include_router(
 
 router.include_router(
     research_portfolios_router,
+)
+
+router.include_router(
+    research_portfolio_risk_router,
 )
