@@ -42,6 +42,7 @@ from quantcore.api.endpoints.research_portfolio_factor_risk import router as res
 from quantcore.api.endpoints.research_portfolio_constraints import router as research_portfolio_constraints_router
 from quantcore.api.endpoints.research_portfolio_rebalance import router as research_portfolio_rebalance_router
 from quantcore.api.endpoints.research_portfolio_transaction_cost import router as research_portfolio_transaction_cost_router
+from quantcore.api.endpoints.research_backtests import router as research_backtests_router
 
 router = APIRouter()
 
@@ -177,4 +178,8 @@ router.include_router(
 
 router.include_router(
     research_portfolio_transaction_cost_router,
+)
+
+router.include_router(
+    research_backtests_router,
 )

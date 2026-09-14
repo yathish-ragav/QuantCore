@@ -34,6 +34,27 @@ class PriceObservationRevisionRepository:
         )
         return list(self.db.scalars(stmt).all())
 
+    def get_revisions_for_security_known_as_of(
+        self,
+        security_id: int,
+        as_of: datetime,
+    ) -> list[PriceObservationRevision]:
+        """Return every immutable price revision known by the requested timestamp."""
+        stmt = (
+            select(PriceObservationRevision)
+            .join(Price, Price.id == PriceObservationRevision.price_id)
+            .where(
+                Price.security_id == security_id,
+                PriceObservationRevision.known_at <= as_of,
+            )
+            .order_by(
+                PriceObservationRevision.date,
+                PriceObservationRevision.known_at,
+                PriceObservationRevision.revision_number,
+            )
+        )
+        return list(self.db.scalars(stmt).all())
+
     def get_latest_for_security_as_of(
         self,
         security_id: int,

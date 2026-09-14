@@ -204,6 +204,76 @@ class ResearchPortfolioProductService:
             panels_by_factor,
         )
 
+    def construct_sequence(
+        self,
+        *,
+        symbols: list[str] | tuple[str, ...],
+        as_ofs: list[datetime] | tuple[datetime, ...],
+        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        dataset_identity: tuple[str, str] | None,
+        signal: ResearchSignalDefinition,
+        factors: list[tuple[str, str, float, bool]]
+        | tuple[tuple[str, str, float, bool], ...],
+        strategy: ResearchStrategyDefinition,
+    ) -> tuple[ResearchPortfolioProductResult, ...]:
+        """Construct multiple target portfolios from one shared deterministic signal build."""
+        if not as_ofs:
+            raise InvalidInputError("Portfolio as_ofs must not be empty.")
+        if any(not isinstance(value, datetime) or value.tzinfo is None for value in as_ofs):
+            raise InvalidInputError("Portfolio signal as_ofs must be timezone-aware.")
+        if tuple(as_ofs) != tuple(sorted(as_ofs)):
+            raise InvalidInputError("Portfolio signal as_ofs must be supplied in ascending order.")
+        if len(set(as_ofs)) != len(as_ofs):
+            raise InvalidInputError("Portfolio signal as_ofs must not contain duplicates.")
+
+        validated_strategy = self._strategy_service.validate_definition(strategy)
+        if validated_strategy.signal_identity != signal.identity:
+            raise InvalidInputError(
+                "Portfolio strategy signal identity must match the requested signal definition."
+            )
+
+        dataset = self._historical_service.build_historical_dataset(
+            symbols,
+            as_ofs=as_ofs,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+        )
+
+        panels_by_factor: dict[tuple[str, str], ResearchFactorRankedPanel] = {}
+        for factor_key, definition_version, _weight, higher_is_better in factors:
+            identity = (factor_key.strip(), definition_version.strip())
+            if identity not in signal.factor_identities:
+                raise InvalidInputError(
+                    "Portfolio signal factors must exactly match the signal definition identities."
+                )
+            panel = self._panel_service.build_factor_panel(
+                dataset,
+                factor_key=identity[0],
+                definition_version=identity[1],
+            )
+            panels_by_factor[identity] = self._cross_sectional_service.rank_factor_panel(
+                panel,
+                higher_is_better=higher_is_better,
+            )
+
+        composite_signal = self._signal_service.construct_signal(signal, panels_by_factor)
+        results: list[ResearchPortfolioProductResult] = []
+        for target_as_of in as_ofs:
+            portfolio = self._portfolio_service.construct(
+                validated_strategy,
+                composite_signal,
+                target_as_of,
+            )
+            results.append(
+                ResearchPortfolioProductResult(
+                    portfolio=portfolio,
+                    dataset_fingerprint=dataset.dataset_fingerprint,
+                    dataset_identity=dataset.dataset_identity,
+                    signal_construction=composite_signal.construction,
+                )
+            )
+        return tuple(results)
+
     def construct(
         self,
         *,

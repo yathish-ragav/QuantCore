@@ -41,3 +41,14 @@ def test_get_latest_for_security_as_of_returns_pit_revisions():
 
     assert repo.get_latest_for_security_as_of(10, as_of) == revisions
     db.scalars.return_value.all.assert_called_once()
+
+
+def test_get_revisions_for_security_known_as_of_returns_all_known_revisions():
+    db = Mock()
+    revisions = [Mock(), Mock(), Mock()]
+    db.scalars.return_value.all.return_value = revisions
+    repo = PriceObservationRevisionRepository(db)
+    as_of = datetime(2026, 1, 8, tzinfo=timezone.utc)
+
+    assert repo.get_revisions_for_security_known_as_of(10, as_of) == revisions
+    db.scalars.return_value.all.assert_called_once()

@@ -236,6 +236,23 @@ class PriceService:
             security.id
         )
 
+    def get_price_revision_history_known_as_of(
+        self,
+        symbol: str,
+        as_of: datetime,
+    ):
+        """Return all price revisions known by ``as_of`` for PIT backtest valuation."""
+        security = self.get_security(symbol)
+        if not isinstance(as_of, datetime):
+            raise InvalidInputError("Price revision as_of must be a datetime.")
+        if as_of.tzinfo is None:
+            as_of = as_of.replace(tzinfo=timezone.utc)
+
+        return self.revision_repo.get_revisions_for_security_known_as_of(
+            security.id,
+            as_of,
+        )
+
     def get_price_history_as_of(
         self,
         symbol: str,

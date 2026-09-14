@@ -498,3 +498,56 @@ def test_construct_with_transaction_cost_rejects_invalid_cost_definition():
             rebalance_definition=Mock(spec=ResearchRebalanceDefinition),
             transaction_cost_definition=Mock(),
         )
+
+
+def test_construct_sequence_reuses_shared_dataset_and_factor_signal_build():
+    historical = Mock()
+    dataset = Mock(dataset_fingerprint="dataset-fp", dataset_identity=("dataset", "1"))
+    historical.build_historical_dataset.return_value = dataset
+
+    panel = Mock()
+    panel.build_factor_panel.return_value = "raw-panel"
+    cross_sectional = Mock()
+    ranked = Mock()
+    cross_sectional.rank_factor_panel.return_value = ranked
+
+    signal_service = Mock()
+    composite = Mock(construction="WEIGHTED_NORMALIZED_RANK_AVERAGE")
+    signal_service.construct_signal.return_value = composite
+
+    strategy_service = Mock()
+    strategy_service.validate_definition.return_value = strategy()
+
+    first = Mock(as_of=AS_OF)
+    second_as_of = datetime(2026, 8, 21, 15, 30, tzinfo=timezone.utc)
+    second = Mock(as_of=second_as_of)
+    portfolio_service = Mock()
+    portfolio_service.construct.side_effect = [first, second]
+
+    service = ResearchPortfolioProductService(
+        historical,
+        panel,
+        cross_sectional,
+        signal_service,
+        strategy_service,
+        portfolio_service,
+    )
+
+    results = service.construct_sequence(
+        symbols=["AAA"],
+        as_ofs=(AS_OF, second_as_of),
+        definition_identities=None,
+        dataset_identity=("dataset", "1"),
+        signal=signal(),
+        factors=(("quality", "1", 1.0, True),),
+        strategy=strategy(),
+    )
+
+    assert [result.portfolio for result in results] == [first, second]
+    assert all(result.dataset_fingerprint == "dataset-fp" for result in results)
+    assert historical.build_historical_dataset.call_count == 1
+    assert panel.build_factor_panel.call_count == 1
+    assert cross_sectional.rank_factor_panel.call_count == 1
+    assert signal_service.construct_signal.call_count == 1
+    assert strategy_service.validate_definition.call_count == 1
+    assert portfolio_service.construct.call_count == 2

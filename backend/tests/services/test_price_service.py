@@ -698,3 +698,22 @@ def test_get_price_history_security_not_found():
 
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
+
+def test_get_price_revision_history_known_as_of_uses_all_revision_repository():
+    service, db = make_service()
+    security = make_security()
+    revisions = [Mock(), Mock()]
+    as_of = datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc)
+
+    service.security_repo.get_by_symbol.return_value = security
+    service.revision_repo.get_revisions_for_security_known_as_of.return_value = revisions
+
+    result = service.get_price_revision_history_known_as_of("AAPL", as_of)
+
+    assert result == revisions
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
+    service.revision_repo.get_revisions_for_security_known_as_of.assert_called_once_with(
+        10, as_of
+    )
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
