@@ -11,6 +11,7 @@ from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolio,
     ResearchPortfolioConstructionStatus,
 )
+from quantcore.services.research_portfolio_stress_service import ResearchStressScenarioDefinition
 from quantcore.services.research_rebalance_service import (
     ResearchRebalanceDefinition,
     ResearchRebalanceFrequency,
@@ -497,6 +498,66 @@ def test_construct_with_transaction_cost_rejects_invalid_cost_definition():
             strategy=strategy(),
             rebalance_definition=Mock(spec=ResearchRebalanceDefinition),
             transaction_cost_definition=Mock(),
+        )
+
+
+
+def test_construct_with_stress_composes_portfolio_and_stress_service():
+    service = ResearchPortfolioProductService(
+        Mock(), Mock(), Mock(), Mock(), Mock(), Mock(),
+    )
+    portfolio_result = Mock(spec=ResearchPortfolioProductResult)
+    portfolio = Mock(spec=ResearchPortfolio)
+    portfolio_result.portfolio = portfolio
+    service.construct = Mock(return_value=portfolio_result)
+
+    stress_service = Mock()
+    stress_result = Mock()
+    stress_service.apply.return_value = stress_result
+    service._stress_service = stress_service
+
+    scenario = ResearchStressScenarioDefinition(
+        scenario_key="selloff",
+        definition_version="1",
+        shocks_by_security={1: -0.10},
+    )
+    result = service.construct_with_stress(
+        symbols=["AAA"],
+        as_ofs=(AS_OF,),
+        target_as_of=AS_OF,
+        definition_identities=None,
+        dataset_identity=None,
+        signal=signal(),
+        factors=(("quality", "1", 1.0, True),),
+        strategy=strategy(),
+        scenario=scenario,
+        portfolio_value=100_000.0,
+    )
+
+    assert result.portfolio is portfolio_result
+    assert result.stress is stress_result
+    service.construct.assert_called_once()
+    stress_service.apply.assert_called_once_with(
+        portfolio, scenario, portfolio_value=100_000.0,
+    )
+
+
+def test_construct_with_stress_rejects_invalid_scenario_definition():
+    service = ResearchPortfolioProductService(
+        Mock(), Mock(), Mock(), Mock(), Mock(), Mock(),
+    )
+
+    with pytest.raises(InvalidInputError, match="ResearchStressScenarioDefinition"):
+        service.construct_with_stress(
+            symbols=["AAA"],
+            as_ofs=(AS_OF,),
+            target_as_of=AS_OF,
+            definition_identities=None,
+            dataset_identity=None,
+            signal=signal(),
+            factors=(("quality", "1", 1.0, True),),
+            strategy=strategy(),
+            scenario=Mock(),
         )
 
 

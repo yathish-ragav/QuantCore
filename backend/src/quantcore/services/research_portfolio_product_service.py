@@ -22,6 +22,11 @@ from quantcore.services.research_portfolio_risk_service import (
     ResearchPortfolioRiskService,
     ResearchPortfolioRiskSnapshot,
 )
+from quantcore.services.research_portfolio_stress_service import (
+    ResearchPortfolioStressResult,
+    ResearchPortfolioStressService,
+    ResearchStressScenarioDefinition,
+)
 from quantcore.services.research_rebalance_service import (
     ResearchRebalance,
     ResearchRebalanceDefinition,
@@ -82,6 +87,14 @@ class ResearchPortfolioConstraintProductResult:
 
 
 @dataclass(frozen=True)
+class ResearchPortfolioStressProductResult:
+    """Portfolio plus deterministic hypothetical stress analysis."""
+
+    portfolio: ResearchPortfolioProductResult
+    stress: ResearchPortfolioStressResult
+
+
+@dataclass(frozen=True)
 class ResearchPortfolioRebalanceProductResult:
     """Two deterministic portfolio states plus their weight transition."""
 
@@ -121,6 +134,7 @@ class ResearchPortfolioProductService:
         constraint_service: ResearchPortfolioConstraintService | None = None,
         rebalance_service: ResearchRebalanceService | None = None,
         transaction_cost_service: ResearchTransactionCostService | None = None,
+        stress_service: ResearchPortfolioStressService | None = None,
     ) -> None:
         self._historical_service = historical_service
         self._panel_service = panel_service
@@ -133,6 +147,7 @@ class ResearchPortfolioProductService:
         self._constraint_service = constraint_service or ResearchPortfolioConstraintService()
         self._rebalance_service = rebalance_service or ResearchRebalanceService()
         self._transaction_cost_service = transaction_cost_service or ResearchTransactionCostService()
+        self._stress_service = stress_service or ResearchPortfolioStressService()
 
     def _construct_with_ranked_panels(
         self,
@@ -391,6 +406,46 @@ class ResearchPortfolioProductService:
         return ResearchPortfolioFactorRiskProductResult(
             portfolio=portfolio_result,
             factor_risk=factor_risk,
+        )
+
+    def construct_with_stress(
+        self,
+        *,
+        symbols: list[str] | tuple[str, ...],
+        as_ofs: list[datetime] | tuple[datetime, ...],
+        target_as_of: datetime,
+        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        dataset_identity: tuple[str, str] | None,
+        signal: ResearchSignalDefinition,
+        factors: list[tuple[str, str, float, bool]]
+        | tuple[tuple[str, str, float, bool], ...],
+        strategy: ResearchStrategyDefinition,
+        scenario: ResearchStressScenarioDefinition,
+        portfolio_value: float | None = None,
+    ) -> ResearchPortfolioStressProductResult:
+        """Construct one target portfolio and apply an explicit hypothetical stress scenario."""
+        if not isinstance(scenario, ResearchStressScenarioDefinition):
+            raise InvalidInputError(
+                "Portfolio stress analysis requires a ResearchStressScenarioDefinition."
+            )
+        portfolio_result = self.construct(
+            symbols=symbols,
+            as_ofs=as_ofs,
+            target_as_of=target_as_of,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+            signal=signal,
+            factors=factors,
+            strategy=strategy,
+        )
+        stress = self._stress_service.apply(
+            portfolio_result.portfolio,
+            scenario,
+            portfolio_value=portfolio_value,
+        )
+        return ResearchPortfolioStressProductResult(
+            portfolio=portfolio_result,
+            stress=stress,
         )
 
     def construct_with_rebalance(

@@ -269,3 +269,47 @@ class ResearchPortfolioTransactionCostResponse(BaseModel):
     cost_fraction: float
     cost_bps: float
     status: str
+
+
+class ResearchPortfolioStressRequest(ResearchPortfolioRequest):
+    """Bounded request for deterministic hypothetical portfolio stress analysis."""
+
+    scenario_key: str = Field(min_length=1, max_length=100)
+    scenario_definition_version: str = Field(min_length=1, max_length=100)
+    shocks_by_security: dict[int, float] = Field(default_factory=dict)
+    default_shock: float | None = None
+    scenario_description: str | None = Field(default=None, max_length=500)
+    portfolio_value: float | None = Field(default=None, gt=0.0)
+
+
+class ResearchPortfolioStressImpactResponse(BaseModel):
+    """One deterministic hypothetical stress contribution."""
+
+    security_id: int
+    symbol: str
+    target_weight: float
+    shock: float
+    contribution: float
+
+
+class ResearchPortfolioStressResponse(BaseModel):
+    """Stable API projection of deterministic hypothetical portfolio stress analysis."""
+
+    scenario_key: str
+    scenario_definition_version: str
+    strategy_key: str
+    strategy_definition_version: str
+    signal_identity: tuple[str, str]
+    as_of: datetime
+    position_count: int
+    shocked_position_count: int
+    portfolio_return: float
+    portfolio_value: float | None
+    pnl_amount: float | None
+    stressed_value: float | None
+    best_position_contribution: float
+    worst_position_contribution: float
+    dataset_fingerprint: str
+    dataset_identity: tuple[str, str] | None
+    signal_construction: str
+    impacts: list[ResearchPortfolioStressImpactResponse]

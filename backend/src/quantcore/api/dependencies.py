@@ -39,6 +39,7 @@ from quantcore.services.research_factor_return_methodology_service import Resear
 from quantcore.services.research_signal_service import ResearchSignalService
 from quantcore.services.research_portfolio_construction_service import ResearchPortfolioConstructionService
 from quantcore.services.research_portfolio_product_service import ResearchPortfolioProductService
+from quantcore.services.research_portfolio_stress_service import ResearchPortfolioStressService
 from quantcore.services.research_backtest_performance_product_service import ResearchBacktestPerformanceProductService
 from quantcore.services.research_backtest_attribution_product_service import ResearchBacktestAttributionProductService
 from quantcore.services.research_backtest_attribution_service import ResearchBacktestAttributionService
@@ -217,6 +218,7 @@ def get_research_portfolio_product_service(
         ResearchPortfolioConstraintService(),
         ResearchRebalanceService(),
         ResearchTransactionCostService(),
+        ResearchPortfolioStressService(),
     )
 
 
