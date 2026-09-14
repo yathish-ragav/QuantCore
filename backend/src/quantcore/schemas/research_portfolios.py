@@ -7,6 +7,10 @@ from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolioConstructionStatus,
     ResearchPortfolioPositionSide,
 )
+from quantcore.services.research_rebalance_service import (
+    ResearchRebalanceActionType,
+    ResearchRebalanceFrequency,
+)
 from quantcore.services.research_strategy_service import ResearchStrategyDirection
 
 
@@ -175,3 +179,59 @@ class ResearchPortfolioConstraintResponse(BaseModel):
     observed_net_exposure: float
     observed_long_exposure: float
     observed_short_exposure: float
+
+
+class ResearchPortfolioRebalanceRequest(ResearchPortfolioRequest):
+    """Bounded request for deterministic portfolio transition analysis."""
+
+    current_as_of: datetime
+    rebalance_key: str = Field(min_length=1, max_length=100)
+    rebalance_definition_version: str = Field(min_length=1, max_length=100)
+    frequency: ResearchRebalanceFrequency
+    rebalance_description: str | None = Field(default=None, max_length=500)
+
+    @model_validator(mode="after")
+    def validate_rebalance_points(self):
+        if self.current_as_of.tzinfo is None:
+            raise ValueError("current_as_of must be timezone-aware")
+        if self.current_as_of >= self.target_as_of:
+            raise ValueError("current_as_of must precede target_as_of")
+        if self.current_as_of not in self.as_ofs:
+            raise ValueError("current_as_of must be one of the requested as_ofs")
+        return self
+
+
+class ResearchPortfolioRebalanceActionResponse(BaseModel):
+    """One deterministic target-weight transition."""
+
+    symbol: str
+    security_id: int
+    current_weight: float
+    target_weight: float
+    weight_delta: float
+    action: ResearchRebalanceActionType
+
+
+class ResearchPortfolioRebalanceResponse(BaseModel):
+    """Stable API projection of deterministic portfolio rebalance analysis."""
+
+    rebalance_key: str
+    rebalance_definition_version: str
+    strategy_key: str
+    strategy_definition_version: str
+    signal_identity: tuple[str, str]
+    frequency: ResearchRebalanceFrequency
+    current_as_of: datetime
+    as_of: datetime
+    current_dataset_fingerprint: str
+    current_dataset_identity: tuple[str, str] | None
+    target_dataset_fingerprint: str
+    target_dataset_identity: tuple[str, str] | None
+    signal_construction: str
+    current_gross_exposure: float
+    current_net_exposure: float
+    target_gross_exposure: float
+    target_net_exposure: float
+    turnover: float
+    status: str
+    actions: list[ResearchPortfolioRebalanceActionResponse]

@@ -189,6 +189,7 @@ from .research_portfolio_product_service import (
     ResearchPortfolioRiskProductResult,
     ResearchPortfolioFactorRiskProductResult,
     ResearchPortfolioConstraintProductResult,
+    ResearchPortfolioRebalanceProductResult,
 )
 
 from .research_portfolio_risk_service import (

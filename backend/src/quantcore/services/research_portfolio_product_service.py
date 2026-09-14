@@ -22,6 +22,11 @@ from quantcore.services.research_portfolio_risk_service import (
     ResearchPortfolioRiskService,
     ResearchPortfolioRiskSnapshot,
 )
+from quantcore.services.research_rebalance_service import (
+    ResearchRebalance,
+    ResearchRebalanceDefinition,
+    ResearchRebalanceService,
+)
 from quantcore.services.research_portfolio_constraint_service import (
     ResearchPortfolioConstraintDefinition,
     ResearchPortfolioConstraintResult,
@@ -71,6 +76,15 @@ class ResearchPortfolioConstraintProductResult:
     constraint: ResearchPortfolioConstraintResult
 
 
+@dataclass(frozen=True)
+class ResearchPortfolioRebalanceProductResult:
+    """Two deterministic portfolio states plus their weight transition."""
+
+    current: ResearchPortfolioProductResult
+    target: ResearchPortfolioProductResult
+    rebalance: ResearchRebalance
+
+
 class ResearchPortfolioProductService:
     """Compose research signal and strategy contracts into a target portfolio.
 
@@ -90,6 +104,7 @@ class ResearchPortfolioProductService:
         risk_service: ResearchPortfolioRiskService | None = None,
         factor_risk_service: ResearchPortfolioFactorRiskService | None = None,
         constraint_service: ResearchPortfolioConstraintService | None = None,
+        rebalance_service: ResearchRebalanceService | None = None,
     ) -> None:
         self._historical_service = historical_service
         self._panel_service = panel_service
@@ -100,6 +115,7 @@ class ResearchPortfolioProductService:
         self._risk_service = risk_service or ResearchPortfolioRiskService()
         self._factor_risk_service = factor_risk_service or ResearchPortfolioFactorRiskService()
         self._constraint_service = constraint_service or ResearchPortfolioConstraintService()
+        self._rebalance_service = rebalance_service or ResearchRebalanceService()
 
     def _construct_with_ranked_panels(
         self,
@@ -288,4 +304,62 @@ class ResearchPortfolioProductService:
         return ResearchPortfolioFactorRiskProductResult(
             portfolio=portfolio_result,
             factor_risk=factor_risk,
+        )
+
+    def construct_with_rebalance(
+        self,
+        *,
+        symbols: list[str] | tuple[str, ...],
+        as_ofs: list[datetime] | tuple[datetime, ...],
+        current_as_of: datetime,
+        target_as_of: datetime,
+        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        dataset_identity: tuple[str, str] | None,
+        signal: ResearchSignalDefinition,
+        factors: list[tuple[str, str, float, bool]]
+        | tuple[tuple[str, str, float, bool], ...],
+        strategy: ResearchStrategyDefinition,
+        rebalance_definition: ResearchRebalanceDefinition,
+    ) -> ResearchPortfolioRebalanceProductResult:
+        """Construct two deterministic portfolio states and calculate their transition."""
+        if not isinstance(current_as_of, datetime) or current_as_of.tzinfo is None:
+            raise InvalidInputError("Portfolio current_as_of must be timezone-aware.")
+        if not isinstance(target_as_of, datetime) or target_as_of.tzinfo is None:
+            raise InvalidInputError("Portfolio target_as_of must be timezone-aware.")
+        if current_as_of >= target_as_of:
+            raise InvalidInputError("Portfolio current_as_of must precede target_as_of.")
+        if not isinstance(rebalance_definition, ResearchRebalanceDefinition):
+            raise InvalidInputError("Portfolio rebalance requires a ResearchRebalanceDefinition.")
+
+        current = self.construct(
+            symbols=symbols,
+            as_ofs=as_ofs,
+            target_as_of=current_as_of,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+            signal=signal,
+            factors=factors,
+            strategy=strategy,
+        )
+        target = self.construct(
+            symbols=symbols,
+            as_ofs=as_ofs,
+            target_as_of=target_as_of,
+            definition_identities=definition_identities,
+            dataset_identity=dataset_identity,
+            signal=signal,
+            factors=factors,
+            strategy=strategy,
+        )
+
+        rebalance = self._rebalance_service.rebalance(
+            current.portfolio,
+            target.portfolio,
+            rebalance_definition,
+            target_as_of,
+        )
+        return ResearchPortfolioRebalanceProductResult(
+            current=current,
+            target=target,
+            rebalance=rebalance,
         )
