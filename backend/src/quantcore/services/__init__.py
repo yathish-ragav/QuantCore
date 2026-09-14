@@ -165,8 +165,14 @@ from .research_backtest_performance_product_service import (
 )
 
 from .research_backtest_product_service import (
+    ResearchBacktestProductPriceObservation,
     ResearchBacktestProductResult,
     ResearchBacktestProductService,
+)
+
+from .research_backtest_attribution_product_service import (
+    ResearchBacktestAttributionProductResult,
+    ResearchBacktestAttributionProductService,
 )
 
 from .research_backtest_attribution_service import (

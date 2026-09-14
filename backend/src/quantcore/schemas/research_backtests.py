@@ -154,3 +154,66 @@ class ResearchBacktestPerformanceResponse(BaseModel):
     win_rate: float
     average_turnover: float
     target_portfolios: list[ResearchBacktestPerformanceProvenanceResponse]
+
+
+class ResearchBacktestAttributionPositionResponse(BaseModel):
+    """Stable API projection of one realized position contribution."""
+
+    period_start: datetime
+    period_end: datetime
+    symbol: str
+    security_id: int
+    target_weight: float
+    security_return: float
+    gross_contribution: float
+    return_contribution: float
+
+
+class ResearchBacktestAttributionPeriodResponse(BaseModel):
+    """Stable API projection of one realized attribution period."""
+
+    period_start: datetime
+    period_end: datetime
+    starting_equity: float
+    ending_equity: float
+    gross_return: float
+    transaction_cost_drag: float
+    net_return: float
+    long_contribution: float
+    short_contribution: float
+    return_contribution: float
+    transaction_cost_return_contribution: float
+    position_contributions: list[ResearchBacktestAttributionPositionResponse]
+
+
+class ResearchBacktestAttributionProvenanceResponse(BaseModel):
+    """Dataset provenance for one target portfolio used by attribution."""
+
+    as_of: datetime
+    dataset_fingerprint: str
+    dataset_identity: tuple[str, str] | None
+
+
+class ResearchBacktestAttributionResponse(BaseModel):
+    """Stable API projection of deterministic realized backtest attribution."""
+
+    backtest_key: str
+    backtest_definition_version: str
+    strategy_identity: tuple[str, str]
+    constraint_identity: tuple[str, str]
+    rebalance_identity: tuple[str, str]
+    transaction_cost_identity: tuple[str, str]
+    start_as_of: datetime
+    end_as_of: datetime
+    initial_capital: float
+    final_equity: float
+    total_return: float
+    price_basis: PriceBasis
+    total_gross_return: float
+    total_transaction_cost_drag: float
+    total_net_return: float
+    total_long_contribution: float
+    total_short_contribution: float
+    total_transaction_cost_return_contribution: float
+    periods: list[ResearchBacktestAttributionPeriodResponse]
+    target_portfolios: list[ResearchBacktestAttributionProvenanceResponse]

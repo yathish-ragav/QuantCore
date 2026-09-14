@@ -40,6 +40,8 @@ from quantcore.services.research_signal_service import ResearchSignalService
 from quantcore.services.research_portfolio_construction_service import ResearchPortfolioConstructionService
 from quantcore.services.research_portfolio_product_service import ResearchPortfolioProductService
 from quantcore.services.research_backtest_performance_product_service import ResearchBacktestPerformanceProductService
+from quantcore.services.research_backtest_attribution_product_service import ResearchBacktestAttributionProductService
+from quantcore.services.research_backtest_attribution_service import ResearchBacktestAttributionService
 from quantcore.services.research_backtest_product_service import ResearchBacktestProductService
 from quantcore.services.research_backtest_performance_service import ResearchBacktestPerformanceService
 from quantcore.services.research_backtest_service import ResearchBacktestService
@@ -228,6 +230,17 @@ def get_research_backtest_product_service(
         portfolio_product_service,
         price_service,
         ResearchBacktestService(),
+    )
+
+
+def get_research_backtest_attribution_product_service(
+    backtest_product_service: ResearchBacktestProductService = Depends(
+        get_research_backtest_product_service
+    ),
+) -> ResearchBacktestAttributionProductService:
+    return ResearchBacktestAttributionProductService(
+        backtest_product_service,
+        ResearchBacktestAttributionService(),
     )
 
 

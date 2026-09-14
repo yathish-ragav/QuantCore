@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from types import MappingProxyType
+from typing import Mapping
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.price_service import PriceService
 from quantcore.services.research_backtest_service import (
@@ -23,22 +25,24 @@ from quantcore.services.research_transaction_cost_service import (
 
 
 @dataclass(frozen=True)
-class ResearchBacktestProductResult:
-    """Deterministic backtest result with target-portfolio provenance."""
-
-    backtest: ResearchBacktest
-    target_portfolios: tuple[ResearchPortfolioProductResult, ...]
-
-
-@dataclass(frozen=True)
-class _ResearchBacktestPriceObservation:
-    """Immutable adapter from persisted price revisions to the backtest protocol."""
+class ResearchBacktestProductPriceObservation:
+    """Immutable PIT price observation retained for downstream backtest analysis."""
 
     date: datetime
     close: float
     adjusted_close: float | None
     known_at: datetime
     revision_number: int
+
+
+@dataclass(frozen=True)
+class ResearchBacktestProductResult:
+    """Deterministic backtest result with target-portfolio provenance."""
+
+    backtest: ResearchBacktest
+    target_portfolios: tuple[ResearchPortfolioProductResult, ...]
+    price_history_by_security: Mapping[int, tuple[ResearchBacktestProductPriceObservation, ...]] | None = None
+
 
 
 class ResearchBacktestProductService:
@@ -97,13 +101,14 @@ class ResearchBacktestProductService:
         return ResearchBacktestProductResult(
             backtest=backtest,
             target_portfolios=target_portfolios,
+            price_history_by_security=MappingProxyType(price_history_by_security),
         )
 
     def _load_price_history(
         self,
         target_portfolios: tuple[ResearchPortfolioProductResult, ...],
         known_as_of: datetime,
-    ) -> dict[int, tuple[_ResearchBacktestPriceObservation, ...]]:
+    ) -> dict[int, tuple[ResearchBacktestProductPriceObservation, ...]]:
         symbol_by_security: dict[int, str] = {}
         for result in target_portfolios:
             for position in result.portfolio.positions:
@@ -115,13 +120,13 @@ class ResearchBacktestProductService:
                     )
                 symbol_by_security[position.security_id] = symbol
 
-        histories: dict[int, tuple[_ResearchBacktestPriceObservation, ...]] = {}
+        histories: dict[int, tuple[ResearchBacktestProductPriceObservation, ...]] = {}
         for security_id, symbol in sorted(symbol_by_security.items()):
             revisions = self._price_service.get_price_revision_history_known_as_of(
                 symbol,
                 known_as_of,
             )
-            observations: list[_ResearchBacktestPriceObservation] = []
+            observations: list[ResearchBacktestProductPriceObservation] = []
             for revision in revisions:
                 date = revision.date
                 if date.tzinfo is None:
@@ -132,7 +137,7 @@ class ResearchBacktestProductService:
                         "Persisted price revision known_at must be timezone-aware."
                     )
                 observations.append(
-                    _ResearchBacktestPriceObservation(
+                    ResearchBacktestProductPriceObservation(
                         date=date,
                         close=revision.close,
                         adjusted_close=revision.adjusted_close,
