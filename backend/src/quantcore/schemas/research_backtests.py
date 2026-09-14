@@ -117,3 +117,40 @@ class ResearchBacktestResponse(BaseModel):
     status: str
     periods: list[ResearchBacktestPeriodResponse]
     target_portfolios: list[ResearchBacktestTargetPortfolioResponse]
+
+
+class ResearchBacktestPerformanceProvenanceResponse(BaseModel):
+    """Dataset provenance for one target portfolio used by performance analysis."""
+
+    as_of: datetime
+    dataset_fingerprint: str
+    dataset_identity: tuple[str, str] | None
+
+
+class ResearchBacktestPerformanceResponse(BaseModel):
+    """Stable API projection of deterministic realized backtest performance."""
+
+    backtest_key: str
+    backtest_definition_version: str
+    strategy_identity: tuple[str, str]
+    constraint_identity: tuple[str, str]
+    rebalance_identity: tuple[str, str]
+    transaction_cost_identity: tuple[str, str]
+    start_as_of: datetime
+    end_as_of: datetime
+    initial_capital: float
+    final_equity: float
+    total_return: float
+    price_basis: PriceBasis
+    period_count: int
+    annualized_return: float
+    annualized_volatility: float
+    maximum_drawdown: float
+    maximum_drawdown_duration_days: float
+    average_period_return: float
+    winning_periods: int
+    losing_periods: int
+    flat_periods: int
+    win_rate: float
+    average_turnover: float
+    target_portfolios: list[ResearchBacktestPerformanceProvenanceResponse]
