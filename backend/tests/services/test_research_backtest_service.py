@@ -141,6 +141,115 @@ def run_backtest(targets, price_history):
     )
 
 
+
+class RevisedPrice:
+    def __init__(self, date, close, known_at, revision_number=1, adjusted_close=None):
+        self.date = date
+        self.close = close
+        self.adjusted_close = adjusted_close if adjusted_close is not None else close
+        self.known_at = known_at
+        self.revision_number = revision_number
+
+
+def test_pit_price_selection_uses_revision_known_at_valuation_boundary():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0)),
+        target(AS_OF_2, row(1, 0.95, AS_OF_2)),
+    ]
+    first_price_date = AS_OF_0 + timedelta(hours=1)
+    end_price_date = AS_OF_2 + timedelta(hours=1)
+    old_known = RevisedPrice(
+        first_price_date, 100, AS_OF_0 - timedelta(hours=1), revision_number=1
+    )
+    later_revision = RevisedPrice(
+        first_price_date, 50, AS_OF_1, revision_number=2
+    )
+    end_price = RevisedPrice(
+        end_price_date, 120, AS_OF_2, revision_number=1
+    )
+
+    result = run_backtest(
+        targets,
+        {1: [old_known, later_revision, end_price]},
+    )
+
+    assert result.periods[0].gross_return == pytest.approx(0.20)
+
+
+def test_pit_price_selection_uses_latest_revision_known_by_boundary():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0)),
+        target(AS_OF_2, row(1, 0.95, AS_OF_2)),
+    ]
+    price_date = AS_OF_0 + timedelta(hours=1)
+    end_date = AS_OF_2 + timedelta(hours=1)
+    first_revision = RevisedPrice(
+        price_date, 100, AS_OF_0 - timedelta(hours=1), revision_number=1
+    )
+    second_revision = RevisedPrice(
+        price_date, 110, AS_OF_0, revision_number=2
+    )
+    end_price = RevisedPrice(end_date, 120, AS_OF_2, revision_number=1)
+
+    result = run_backtest(
+        targets,
+        {1: [first_revision, second_revision, end_price]},
+    )
+
+    assert result.periods[0].gross_return == pytest.approx((120 / 110) - 1.0)
+
+
+def test_pit_price_selection_skips_future_known_revision_and_uses_next_available_price():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0)),
+        target(AS_OF_2, row(1, 0.95, AS_OF_2)),
+    ]
+    unavailable_date = AS_OF_0 + timedelta(hours=1)
+    available_date = AS_OF_0 + timedelta(hours=2)
+    end_date = AS_OF_2 + timedelta(hours=1)
+    future_known = RevisedPrice(unavailable_date, 100, AS_OF_1, revision_number=1)
+    available = RevisedPrice(
+        available_date, 105, AS_OF_0, revision_number=1
+    )
+    end_price = RevisedPrice(end_date, 120, AS_OF_2, revision_number=1)
+
+    result = run_backtest(
+        targets,
+        {1: [future_known, available, end_price]},
+    )
+
+    assert result.periods[0].gross_return == pytest.approx(120 / 105 - 1.0)
+
+
+def test_duplicate_pit_revision_identity_is_rejected():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0)),
+        target(AS_OF_2, row(1, 0.95, AS_OF_2)),
+    ]
+    date = AS_OF_0 + timedelta(hours=1)
+    revision = RevisedPrice(date, 100, AS_OF_0, revision_number=1)
+    duplicate = RevisedPrice(date, 100, AS_OF_0, revision_number=1)
+    end_price = RevisedPrice(
+        AS_OF_2 + timedelta(hours=1), 120, AS_OF_2, revision_number=1
+    )
+    with pytest.raises(InvalidInputError, match="duplicate revisions"):
+        run_backtest(targets, {1: [revision, duplicate, end_price]})
+
+
+def test_naive_pit_known_at_is_rejected():
+    targets = [
+        target(AS_OF_0, row(1, 0.9, AS_OF_0)),
+        target(AS_OF_2, row(1, 0.95, AS_OF_2)),
+    ]
+    price = RevisedPrice(
+        AS_OF_0 + timedelta(hours=1), 100, AS_OF_0.replace(tzinfo=None)
+    )
+    end_price = RevisedPrice(
+        AS_OF_2 + timedelta(hours=1), 120, AS_OF_2
+    )
+    with pytest.raises(InvalidInputError, match="known_at"):
+        run_backtest(targets, {1: [price, end_price]})
+
 def test_definition_requires_positive_capital():
     with pytest.raises(InvalidInputError):
         ResearchBacktestDefinition(

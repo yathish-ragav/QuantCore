@@ -161,11 +161,16 @@ class ResearchBacktestService:
 
     The first target portfolio establishes the initial allocation. Each later
     target is treated as the next explicit rebalance boundary. Returns are valued
-    from the first available price strictly after the period start to the first
-    available price strictly after the period end, preserving the information
-    boundary used elsewhere in QuantCore. Successive target weights define the
-    rebalance turnover; this first backtest version does not model intra-period
-    weight drift or executable share-level fills.
+    from the first price observation strictly after the period start that was
+    known by the period start, to the first price observation strictly after the
+    period end that was known by the period end. When immutable price revisions
+    expose ``known_at``, the latest revision known at each valuation boundary is
+    selected, preventing later price restatements from leaking into an earlier
+    valuation. Legacy in-memory observations without ``known_at`` retain their
+    existing date-only behavior for the pure analytical service contract.
+    Successive target weights define the rebalance turnover; this first backtest
+    version does not model intra-period weight drift or executable share-level
+    fills.
     """
 
     def __init__(self) -> None:
@@ -297,8 +302,8 @@ class ResearchBacktestService:
                 price_history_by_security.get(position.security_id, ()),
                 position.security_id,
             )
-            start = cls._first_after(prices, period_start)
-            end = cls._first_after(prices, period_end)
+            start = cls._first_after(prices, period_start, knowledge_as_of=period_start)
+            end = cls._first_after(prices, period_end, knowledge_as_of=period_end)
             if start is None or end is None:
                 raise InvalidInputError(
                     f"Missing historical price for security {position.security_id} "
@@ -322,10 +327,40 @@ class ResearchBacktestService:
     def _first_after(
         prices: tuple[ResearchBacktestPriceObservation, ...],
         boundary: datetime,
+        *,
+        knowledge_as_of: datetime | None = None,
     ) -> ResearchBacktestPriceObservation | None:
-        for observation in prices:
-            if observation.date > boundary:
-                return observation
+        for observation_date in sorted({observation.date for observation in prices}):
+            if observation_date <= boundary:
+                continue
+
+            candidates = [
+                observation
+                for observation in prices
+                if observation.date == observation_date
+                and (
+                    knowledge_as_of is None
+                    or getattr(observation, "known_at", None) is None
+                    or observation.known_at <= knowledge_as_of
+                )
+            ]
+            if not candidates:
+                continue
+
+            known_candidates = [
+                observation
+                for observation in candidates
+                if getattr(observation, "known_at", None) is not None
+            ]
+            if known_candidates:
+                return max(
+                    known_candidates,
+                    key=lambda observation: (
+                        observation.known_at,
+                        getattr(observation, "revision_number", 0),
+                    ),
+                )
+            return candidates[0]
         return None
 
     @staticmethod
@@ -368,10 +403,28 @@ class ResearchBacktestService:
                 raise InvalidInputError(
                     "Backtest price observation dates must be timezone-aware."
                 )
-            if date in seen_dates:
+            known_at = getattr(observation, "known_at", None)
+            if known_at is not None:
+                if not isinstance(known_at, datetime) or known_at.tzinfo is None:
+                    raise InvalidInputError(
+                        "Backtest price observation known_at must be timezone-aware."
+                    )
+            if date in seen_dates and known_at is None:
                 raise InvalidInputError(
                     f"Price history for security {security_id} contains duplicate dates."
                 )
+            if date in seen_dates:
+                prior = [
+                    item for item in normalized
+                    if item.date == date
+                ]
+                if any(
+                    getattr(item, "known_at", None) == known_at
+                    for item in prior
+                ):
+                    raise InvalidInputError(
+                        f"Price history for security {security_id} contains duplicate revisions."
+                    )
             seen_dates.add(date)
             for field in ("close", "adjusted_close"):
                 value = getattr(observation, field, None)
