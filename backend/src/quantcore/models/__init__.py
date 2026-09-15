@@ -25,6 +25,7 @@ from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
 from quantcore.models.macro_ingestion import MacroIngestionState
 from quantcore.models.research_observation import ResearchObservation
 from quantcore.models.universe_sync import UniverseSyncRun, UniverseSyncRunStatus
+from quantcore.models.market_index import MarketIndex, MarketIndexConstituent
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
     ResearchExperimentComparisonResultRecord,
@@ -37,6 +38,8 @@ __all__ = [
     "Company",
     "UniverseSyncRun",
     "UniverseSyncRunStatus",
+    "MarketIndex",
+    "MarketIndexConstituent",
     "Security",
     "SecurityIdentifierHistory",
     "Price",

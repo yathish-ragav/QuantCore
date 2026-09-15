@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from quantcore.api.endpoints.health import router as health_router
 from quantcore.api.endpoints.companies import router as companies_router
 from quantcore.api.endpoints.universe import router as universe_router
+from quantcore.api.endpoints.indexes import router as indexes_router
 from quantcore.api.endpoints.prices import router as prices_router
 from quantcore.api.endpoints.news import router as news_router
 from quantcore.api.endpoints.analytics import router as analytics_router
@@ -62,6 +63,10 @@ router.include_router(
 
 router.include_router(
     universe_router,
+)
+
+router.include_router(
+    indexes_router,
 )
 
 router.include_router(
