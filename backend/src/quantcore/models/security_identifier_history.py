@@ -1,13 +1,13 @@
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
 
 
 class SecurityIdentifierHistory(Base):
-    """Observed ticker/exchange identities for a security over time."""
+    """Effective-dated ticker/exchange listing identities for a security."""
 
     __tablename__ = "security_identifier_history"
 
@@ -16,7 +16,15 @@ class SecurityIdentifierHistory(Base):
             "security_id",
             "symbol",
             "exchange",
-            name="uq_security_identifier_history_identity",
+            "effective_from",
+            "known_at",
+            name="uq_security_listing_history_revision",
+        ),
+        Index(
+            "ix_security_listing_history_effective",
+            "security_id",
+            "effective_from",
+            "effective_to",
         ),
     )
 
@@ -36,6 +44,32 @@ class SecurityIdentifierHistory(Base):
     exchange: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
+    )
+
+    effective_from: Mapped[date] = mapped_column(
+        Date,
+        nullable=False,
+    )
+
+    effective_to: Mapped[date | None] = mapped_column(
+        Date,
+        nullable=True,
+    )
+
+    known_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        index=True,
+    )
+
+    source: Mapped[str | None] = mapped_column(
+        String(100),
+        nullable=True,
+    )
+
+    source_reference: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
     )
 
     first_seen_at: Mapped[datetime] = mapped_column(

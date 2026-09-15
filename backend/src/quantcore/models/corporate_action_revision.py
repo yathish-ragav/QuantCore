@@ -50,6 +50,15 @@ class CorporateActionRevision(Base):
     )
     amount: Mapped[float | None] = mapped_column(Float, nullable=True)
     split_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
+    related_security_id: Mapped[int | None] = mapped_column(
+        ForeignKey("securities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    old_symbol: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    new_symbol: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    old_exchange: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    new_exchange: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     source: Mapped[DataSource | None] = mapped_column(DATA_SOURCE_ENUM, nullable=True)
     known_at: Mapped[datetime] = mapped_column(
@@ -58,4 +67,5 @@ class CorporateActionRevision(Base):
     source_reference: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     action = relationship("CorporateAction")
-    security = relationship("Security")
+    security = relationship("Security", foreign_keys=[security_id])
+    related_security = relationship("Security", foreign_keys=[related_security_id])

@@ -77,6 +77,11 @@ class CorporateActionService:
             and existing.action_type == data.action_type
             and existing.amount == data.amount
             and existing.split_ratio == data.split_ratio
+            and existing.related_security_id == data.related_security_id
+            and existing.old_symbol == data.old_symbol
+            and existing.new_symbol == data.new_symbol
+            and existing.old_exchange == data.old_exchange
+            and existing.new_exchange == data.new_exchange
         )
 
     def _create_revision(
@@ -95,6 +100,11 @@ class CorporateActionService:
             action_type=action.action_type,
             amount=action.amount,
             split_ratio=action.split_ratio,
+            related_security_id=action.related_security_id,
+            old_symbol=action.old_symbol,
+            new_symbol=action.new_symbol,
+            old_exchange=action.old_exchange,
+            new_exchange=action.new_exchange,
             source=source,
             known_at=known_at,
             source_reference=action.source_reference,
@@ -152,6 +162,11 @@ class CorporateActionService:
                     next_revision = self.revision_repo.get_next_revision_number(existing.id)
                     existing.amount = action.amount
                     existing.split_ratio = action.split_ratio
+                    existing.related_security_id = action.related_security_id
+                    existing.old_symbol = action.old_symbol
+                    existing.new_symbol = action.new_symbol
+                    existing.old_exchange = action.old_exchange
+                    existing.new_exchange = action.new_exchange
                     existing.source = source
                     existing.fetched_at = fetched_at
                     existing.source_reference = (
@@ -173,6 +188,11 @@ class CorporateActionService:
                     action_type=action.action_type,
                     amount=action.amount,
                     split_ratio=action.split_ratio,
+                    related_security_id=action.related_security_id,
+                    old_symbol=action.old_symbol,
+                    new_symbol=action.new_symbol,
+                    old_exchange=action.old_exchange,
+                    new_exchange=action.new_exchange,
                     source=source,
                     fetched_at=fetched_at,
                     source_reference=(

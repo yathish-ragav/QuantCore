@@ -144,11 +144,14 @@ class UniverseService:
                     symbol=universe_company.symbol,
                     exchange=universe_company.exchange,
                     observed_at=fetched_at,
+                    source=DataSource.SEC.value,
+                    source_reference=f"SEC:{universe_company.cik}:{universe_company.symbol}:{universe_company.exchange}",
                 )
                 self.identifier_history_repo.mark_not_current(
                     security_id=security.id,
                     except_symbol=universe_company.symbol,
                     except_exchange=universe_company.exchange,
+                    effective_to=fetched_at.date(),
                 )
 
             # The SEC source is a current ticker/exchange association feed.
@@ -163,7 +166,8 @@ class UniverseService:
                 if identity not in current_identities:
                     security.status = SecurityStatus.INACTIVE
                     self.identifier_history_repo.mark_all_not_current(
-                        security.id
+                        security.id,
+                        effective_to=fetched_at.date(),
                     )
 
             self.db.commit()

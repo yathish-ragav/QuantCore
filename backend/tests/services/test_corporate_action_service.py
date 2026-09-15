@@ -94,6 +94,11 @@ def test_sync_is_idempotent():
         existing.action_type = action.action_type
         existing.amount = action.amount
         existing.split_ratio = action.split_ratio
+        existing.related_security_id = action.related_security_id
+        existing.old_symbol = action.old_symbol
+        existing.new_symbol = action.new_symbol
+        existing.old_exchange = action.old_exchange
+        existing.new_exchange = action.new_exchange
         existing.source = DataSource.YAHOO
         existing.source_reference = (
             f"AAPL:{action.effective_date.isoformat()}:"

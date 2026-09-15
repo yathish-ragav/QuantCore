@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, Enum as SQLAlchemyEnum, Float, ForeignKey, UniqueConstraint
+from sqlalchemy import Date, Enum as SQLAlchemyEnum, Float, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
@@ -60,7 +60,24 @@ class CorporateAction(ProvenanceMixin, Base):
         nullable=True,
     )
 
+    related_security_id: Mapped[int | None] = mapped_column(
+        ForeignKey("securities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    old_symbol: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    new_symbol: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    old_exchange: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    new_exchange: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
     security = relationship(
         "Security",
         back_populates="corporate_actions",
+        foreign_keys=[security_id],
+    )
+
+    related_security = relationship(
+        "Security",
+        foreign_keys=[related_security_id],
     )

@@ -19,6 +19,11 @@ def test_get_corporate_actions():
     action.action_type = CorporateActionType.DIVIDEND
     action.amount = 0.25
     action.split_ratio = None
+    action.related_security_id = None
+    action.old_symbol = None
+    action.new_symbol = None
+    action.old_exchange = None
+    action.new_exchange = None
 
     with patch(
         "quantcore.api.dependencies.CorporateActionService"
@@ -35,6 +40,11 @@ def test_get_corporate_actions():
         "action_type": "DIVIDEND",
         "amount": 0.25,
         "split_ratio": None,
+        "related_security_id": None,
+        "old_symbol": None,
+        "new_symbol": None,
+        "old_exchange": None,
+        "new_exchange": None,
     }]
 
 
@@ -44,6 +54,11 @@ def test_get_corporate_actions_supports_as_of_query():
     action.action_type = CorporateActionType.DIVIDEND
     action.amount = 0.25
     action.split_ratio = None
+    action.related_security_id = None
+    action.old_symbol = None
+    action.new_symbol = None
+    action.old_exchange = None
+    action.new_exchange = None
 
     with patch(
         "quantcore.api.dependencies.CorporateActionService"

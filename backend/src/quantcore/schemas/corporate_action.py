@@ -12,3 +12,8 @@ class CorporateActionData(BaseModel):
     action_type: CorporateActionType
     amount: float | None = Field(default=None, ge=0)
     split_ratio: float | None = Field(default=None, gt=0)
+    related_security_id: int | None = Field(default=None, gt=0)
+    old_symbol: str | None = None
+    new_symbol: str | None = None
+    old_exchange: str | None = None
+    new_exchange: str | None = None

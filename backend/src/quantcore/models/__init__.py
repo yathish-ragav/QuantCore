@@ -1,6 +1,7 @@
 from quantcore.models.company import Company
 from quantcore.models.security import Security
 from quantcore.models.security_identifier_history import SecurityIdentifierHistory
+from quantcore.models.security_identifier import SecurityIdentifier
 from quantcore.models.price import Price
 from quantcore.models.price_observation_revision import PriceObservationRevision
 from quantcore.models.financial_statement_revision import FinancialStatementRevision
@@ -53,6 +54,7 @@ __all__ = [
     "MarketIndexDataLoadStatus",
     "Security",
     "SecurityIdentifierHistory",
+    "SecurityIdentifier",
     "Price",
     "PriceObservationRevision",
     "FinancialStatementRevision",

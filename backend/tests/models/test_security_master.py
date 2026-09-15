@@ -23,7 +23,19 @@ def test_security_has_lifecycle_fields():
 
 def test_identifier_history_has_temporal_identity():
     columns = SecurityIdentifierHistory.__table__.columns
-    assert {"security_id", "symbol", "exchange", "first_seen_at", "last_seen_at", "is_current"} <= set(columns.keys())
+    assert {
+        "security_id",
+        "symbol",
+        "exchange",
+        "effective_from",
+        "effective_to",
+        "known_at",
+        "source",
+        "source_reference",
+        "first_seen_at",
+        "last_seen_at",
+        "is_current",
+    } <= set(columns.keys())
 
 
 def test_security_status_can_be_assigned():

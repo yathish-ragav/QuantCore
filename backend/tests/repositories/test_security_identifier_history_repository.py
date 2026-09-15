@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import Mock
 
 from quantcore.models.security_identifier_history import SecurityIdentifierHistory
@@ -35,6 +35,8 @@ def test_upsert_updates_existing_history():
         security_id=1,
         symbol="AAPL",
         exchange="NASDAQ",
+        effective_from=date(2025, 1, 1),
+        known_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
         first_seen_at=datetime(2025, 1, 1, tzinfo=timezone.utc),
         last_seen_at=datetime(2025, 1, 2, tzinfo=timezone.utc),
         is_current=False,
@@ -56,6 +58,8 @@ def test_mark_all_not_current_marks_current_rows_inactive():
         security_id=1,
         symbol="AAPL",
         exchange="NASDAQ",
+        effective_from=date.today(),
+        known_at=datetime.now(timezone.utc),
         first_seen_at=datetime.now(timezone.utc),
         last_seen_at=datetime.now(timezone.utc),
         is_current=True,
@@ -65,3 +69,29 @@ def test_mark_all_not_current_marks_current_rows_inactive():
     repository.mark_all_not_current(1)
 
     assert history.is_current is False
+
+
+def test_mark_not_current_closes_effective_interval():
+    repository, db = make_repository()
+    history = SecurityIdentifierHistory(
+        security_id=1,
+        symbol="OLD",
+        exchange="NASDAQ",
+        effective_from=date(2020, 1, 1),
+        effective_to=None,
+        known_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
+        first_seen_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
+        last_seen_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        is_current=True,
+    )
+    db.scalars.return_value.all.return_value = [history]
+
+    repository.mark_not_current(
+        security_id=1,
+        except_symbol="NEW",
+        except_exchange="NASDAQ",
+        effective_to=date(2026, 2, 1),
+    )
+
+    assert history.is_current is False
+    assert history.effective_to == date(2026, 2, 1)

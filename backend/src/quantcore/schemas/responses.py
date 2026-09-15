@@ -216,6 +216,11 @@ class CorporateActionResponse(BaseModel):
     action_type: CorporateActionType
     amount: float | None = None
     split_ratio: float | None = None
+    related_security_id: int | None = None
+    old_symbol: str | None = None
+    new_symbol: str | None = None
+    old_exchange: str | None = None
+    new_exchange: str | None = None
 
 
 class MacroSeriesResponse(BaseModel):

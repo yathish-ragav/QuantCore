@@ -23,3 +23,22 @@ def test_corporate_action_revision_model():
     assert revision.action_type is CorporateActionType.STOCK_SPLIT
     assert revision.split_ratio == 4.0
     assert revision.known_at == known_at
+
+
+def test_revision_preserves_identity_impacting_fields():
+    known_at = datetime(2026, 8, 28, tzinfo=timezone.utc)
+    revision = CorporateActionRevision(
+        action_id=7,
+        security_id=1,
+        revision_number=2,
+        effective_date=date(2025, 1, 1),
+        action_type=CorporateActionType.TICKER_CHANGE,
+        related_security_id=2,
+        old_symbol="OLD",
+        new_symbol="NEW",
+        known_at=known_at,
+    )
+
+    assert revision.related_security_id == 2
+    assert revision.old_symbol == "OLD"
+    assert revision.new_symbol == "NEW"

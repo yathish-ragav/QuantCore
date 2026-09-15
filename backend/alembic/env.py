@@ -12,6 +12,7 @@ from quantcore.db.database import Base
 from quantcore.models.company import Company
 from quantcore.models.security import Security
 from quantcore.models.security_identifier_history import SecurityIdentifierHistory
+from quantcore.models.security_identifier import SecurityIdentifier
 from quantcore.models.price import Price
 from quantcore.models.financial_statement_revision import FinancialStatementRevision
 from quantcore.models.news import News

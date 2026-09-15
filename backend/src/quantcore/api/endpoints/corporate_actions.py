@@ -29,7 +29,21 @@ def get_corporate_actions(
         get_corporate_action_service
     ),
 ):
-    return service.get_actions(symbol.strip().upper(), as_of=as_of)
+    actions = service.get_actions(symbol.strip().upper(), as_of=as_of)
+    return [
+        CorporateActionResponse(
+            effective_date=action.effective_date,
+            action_type=action.action_type,
+            amount=action.amount,
+            split_ratio=action.split_ratio,
+            related_security_id=getattr(action, "related_security_id", None),
+            old_symbol=getattr(action, "old_symbol", None),
+            new_symbol=getattr(action, "new_symbol", None),
+            old_exchange=getattr(action, "old_exchange", None),
+            new_exchange=getattr(action, "new_exchange", None),
+        )
+        for action in actions
+    ]
 
 
 @router.post(

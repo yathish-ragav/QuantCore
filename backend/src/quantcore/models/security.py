@@ -76,6 +76,12 @@ class Security(ProvenanceMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    identifiers = relationship(
+        "SecurityIdentifier",
+        back_populates="security",
+        cascade="all, delete-orphan",
+    )
+
     identifier_history = relationship(
         "SecurityIdentifierHistory",
         back_populates="security",
@@ -86,4 +92,5 @@ class Security(ProvenanceMixin, Base):
         "CorporateAction",
         back_populates="security",
         cascade="all, delete-orphan",
+        foreign_keys="CorporateAction.security_id",
     )
