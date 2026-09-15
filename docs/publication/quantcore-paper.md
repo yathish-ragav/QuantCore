@@ -10,9 +10,9 @@ Quantitative equity research depends not only on statistical methodology but als
 
 ## 1. Introduction
 
-Quantitative equity research systems often combine heterogeneous market and financial datasets with statistical transformations, portfolio construction, and historical evaluation. A central difficulty is temporal: a value that is correct today may not have been knowable on a historical research date. Treating current values as historical truth can contaminate factor calculations and backtests with information that arrived later. Related work on data snooping and backtest selection also shows why historical performance should not be interpreted independently of the research-selection process [2–6].
+Quantitative equity research systems often combine heterogeneous market and financial datasets with statistical transformations, portfolio construction, and historical evaluation. A central difficulty is temporal: a value that is correct today may not have been knowable on a historical research date. Treating current values as historical truth can contaminate factor calculations and backtests with information that arrived later. Recent work on revised financial-statement data also shows why the distinction between historical period values and the information set available to researchers matters for empirical inference [18]. Related work on data snooping, backtest selection, and survivorship/sample-selection effects also shows why historical performance should not be interpreted independently of the research-selection process or historical universe construction [2–6,13,14]. Recent work further demonstrates that look-ahead contamination can arise when information unavailable at portfolio-formation time is used in historical strategy construction [17].
 
-A second difficulty is reproducibility. A research result may depend on mutable source data, ambiguous identifiers, implicit configuration, unordered collections, or undocumented transformations. Reproducible computational research therefore requires enough information to reconstruct the computational path rather than only reporting a final result [1]. In such systems, reproducing a published result can require reconstructing hidden assumptions rather than replaying an explicit research definition.
+A second difficulty is reproducibility. A research result may depend on mutable source data, ambiguous identifiers, implicit configuration, unordered collections, or undocumented transformations. Reproducible computational research therefore requires enough information to reconstruct the computational path rather than only reporting a final result [1,12]. In such systems, reproducing a published result can require reconstructing hidden assumptions rather than replaying an explicit research definition.
 
 QUANTCORE is designed as a research-engineering framework in which temporal semantics, deterministic identity, and analytical boundaries are first-class concerns. The system provides a canonical data layer and a research pipeline that proceeds from point-in-time observations through datasets, factors, signals, strategies, portfolios, backtests, and experiment artifacts.
 
@@ -107,7 +107,7 @@ PIT observations
 
 ## 5. Factors and signals
 
-Factor definitions and calculators are versioned and registered explicitly. Factor computation validates alignment between feature vectors and definitions. Cross-sectional factor panels preserve the research date and universe and use deterministic ranking behavior.
+Factor definitions and calculators are versioned and registered explicitly. Reproducible factor research also benefits from explicit data/code definitions and careful treatment of missing observations [15,16]. Factor computation validates alignment between feature vectors and definitions. Cross-sectional factor panels preserve the research date and universe and use deterministic ranking behavior.
 
 Forward factor returns use price observations strictly after the factor observation timestamp. The implementation explicitly handles unavailable horizons rather than silently manufacturing labels.
 
@@ -172,7 +172,7 @@ Only after the methodology tests pass should empirical strategy experiments be r
 
 ### 11.5 Robustness
 
-Where appropriate, report sensitivity to definitions, horizons, costs, universe rules, and other methodological assumptions. Implementation costs must be treated as part of the empirical design rather than as an afterthought [10,11]. Avoid presenting a single selected backtest as conclusive evidence; published predictors can also experience weaker out-of-sample or post-publication performance [9].
+Where appropriate, report sensitivity to definitions, horizons, costs, universe rules, and other methodological assumptions. Implementation costs must be treated as part of the empirical design rather than as an afterthought [10,11]. Avoid presenting a single selected backtest as conclusive evidence; published predictors can also experience weaker out-of-sample or post-publication performance [9]. Historical factor research must additionally distinguish the available universe and missing-data treatment from the current cross-section [13–16].
 
 **No empirical performance result is claimed in this draft.**
 
@@ -212,7 +212,7 @@ Underlying third-party financial data should only be redistributed where the app
 
 ## 15. Conclusion
 
-QUANTCORE presents a software architecture for quantitative US equity research in which historical information availability, deterministic identity, and analytical separation are treated as core research requirements. The framework is intended to provide a stable substrate on which reproducible quantitative analysis can be conducted and, later, an agentic AI system can orchestrate research workflows. The next scientific step is empirical validation of the PIT and reproducibility claims followed by carefully controlled financial-research experiments.
+QUANTCORE presents a software architecture for quantitative US equity research in which historical information availability, deterministic identity, and analytical separation are treated as core research requirements. The framework is intended to provide a stable substrate on which reproducible quantitative analysis can be conducted and, later, an agentic AI system can orchestrate research workflows. The next scientific step is empirical validation of the PIT and reproducibility claims followed by carefully controlled financial-research experiments that explicitly address information availability, historical universe construction, missing data, selection effects, and implementation costs.
 
 ## References
 

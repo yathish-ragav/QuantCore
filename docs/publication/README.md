@@ -50,7 +50,7 @@ Current publication blockers are:
 - no archived deterministic-reproducibility experiment results;
 - no final empirical strategy evaluation;
 - no generated publication figures/tables tied to archived artifacts;
-- no completed literature citation pass in the manuscript;
+- no final venue-specific literature and citation pass in the manuscript; the repository literature index now includes reproducibility, survivorship, missing-data, factor-replication, and recent look-ahead references;
 - no final project license decision;
 - no selected target journal and therefore no venue-specific formatting/disclosure package.
 

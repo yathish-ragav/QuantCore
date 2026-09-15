@@ -219,7 +219,7 @@ The current manuscript is a structured draft. Empirical claims and benchmark res
 - [x] Research experiment identity, execution, artifact, provenance, and comparison foundations
 - [x] Versioned research product API surface for the implemented analytical capabilities
 - [ ] Final product-API architecture review/freeze
-- [ ] Complete technical documentation and README release
+- [x] Complete technical documentation and README release
 - [ ] Scientific evaluation and reproducibility package
 - [ ] Journal submission preparation
 - [ ] Agentic AI research layer
