@@ -1,7 +1,7 @@
 [project]
 name = "quantcore"
 version = "0.1.0"
-description = "AI-Powered US Equity Research Platform"
+description = "Point-in-time, reproducible quantitative equity research platform for US markets"
 readme = "README.md"
 requires-python = ">=3.10"
 

@@ -15,7 +15,7 @@ from quantcore.core.exceptions import QuantCoreError
 app = FastAPI(
     title="QuantCore API",
     version="1.0.0",
-    description="AI-Powered Institutional Equity Research Platform",
+    description="Point-in-time, reproducible quantitative equity research platform for US markets",
 )
 
 

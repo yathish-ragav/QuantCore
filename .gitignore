@@ -34,3 +34,5 @@ htmlcov/
 dist/
 build/
 *.egg-info/
+# Local patch-transfer artifacts
+*.patch
