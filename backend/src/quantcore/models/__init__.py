@@ -26,6 +26,12 @@ from quantcore.models.macro_ingestion import MacroIngestionState
 from quantcore.models.research_observation import ResearchObservation
 from quantcore.models.universe_sync import UniverseSyncRun, UniverseSyncRunStatus
 from quantcore.models.market_index import MarketIndex, MarketIndexConstituent
+from quantcore.models.market_index_source import (
+    IndexLicenseStatus,
+    IndexSourceAuthority,
+    MarketIndexDataSource,
+)
+from quantcore.models.market_index_load import MarketIndexDataLoad, MarketIndexDataLoadStatus
 from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
     ResearchExperimentComparisonResultRecord,
@@ -40,6 +46,11 @@ __all__ = [
     "UniverseSyncRunStatus",
     "MarketIndex",
     "MarketIndexConstituent",
+    "MarketIndexDataSource",
+    "IndexSourceAuthority",
+    "IndexLicenseStatus",
+    "MarketIndexDataLoad",
+    "MarketIndexDataLoadStatus",
     "Security",
     "SecurityIdentifierHistory",
     "Price",

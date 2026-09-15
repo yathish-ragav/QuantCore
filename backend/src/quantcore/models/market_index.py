@@ -21,6 +21,11 @@ class MarketIndex(Base):
     key: Mapped[str] = mapped_column(String(100), nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     provider: Mapped[str] = mapped_column(String(100), nullable=False)
+    data_source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("market_index_data_sources.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     methodology_reference: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     source_reference: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     is_active: Mapped[bool] = mapped_column(
@@ -34,6 +39,9 @@ class MarketIndex(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
+
+    data_source = relationship("MarketIndexDataSource", back_populates="indexes")
+    data_loads = relationship("MarketIndexDataLoad", back_populates="index", cascade="all, delete-orphan")
 
     constituents = relationship(
         "MarketIndexConstituent",
@@ -56,7 +64,8 @@ class MarketIndexConstituent(Base):
             "index_id",
             "security_id",
             "effective_from",
-            name="uq_market_index_constituents_start",
+            "known_at",
+            name="uq_market_index_constituents_start_known_at",
         ),
         SQLIndex(
             "ix_market_index_constituents_index_effective",
@@ -91,6 +100,11 @@ class MarketIndexConstituent(Base):
         nullable=True,
     )
     source_reference: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    data_source_id: Mapped[int | None] = mapped_column(
+        ForeignKey("market_index_data_sources.id", ondelete="RESTRICT"),
+        nullable=True,
+        index=True,
+    )
     # ``known_at`` is the source-knowledge boundary used for PIT resolution.
     # ``observed_at`` records when QuantCore ingested the membership.
     known_at: Mapped[datetime] = mapped_column(
@@ -105,3 +119,4 @@ class MarketIndexConstituent(Base):
 
     index = relationship("MarketIndex", back_populates="constituents")
     security = relationship("Security")
+    data_source = relationship("MarketIndexDataSource")

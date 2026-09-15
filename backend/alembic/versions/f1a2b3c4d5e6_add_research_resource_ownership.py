@@ -29,11 +29,13 @@ def upgrade() -> None:
     bind = op.get_bind()
 
     run_columns = _columns(bind, "research_experiment_runs")
+
     if "owner_issuer" not in run_columns:
         op.add_column(
             "research_experiment_runs",
             sa.Column("owner_issuer", sa.String(length=500), nullable=True),
         )
+
     if "owner_subject" not in run_columns:
         op.add_column(
             "research_experiment_runs",
@@ -41,6 +43,7 @@ def upgrade() -> None:
         )
 
     run_indexes = _indexes(bind, "research_experiment_runs")
+
     if "ix_research_experiment_runs_owner_submitted_id" not in run_indexes:
         op.create_index(
             "ix_research_experiment_runs_owner_submitted_id",
@@ -49,12 +52,17 @@ def upgrade() -> None:
             unique=False,
         )
 
-    comparison_columns = _columns(bind, "research_experiment_comparison_results")
+    comparison_columns = _columns(
+        bind,
+        "research_experiment_comparison_results",
+    )
+
     if "owner_issuer" not in comparison_columns:
         op.add_column(
             "research_experiment_comparison_results",
             sa.Column("owner_issuer", sa.String(length=500), nullable=True),
         )
+
     if "owner_subject" not in comparison_columns:
         op.add_column(
             "research_experiment_comparison_results",
@@ -67,9 +75,11 @@ def upgrade() -> None:
             "research_experiment_comparison_results"
         )
     }
+
     legacy_constraint = (
         "uq_research_experiment_comparison_results_result_fingerprint"
     )
+
     if legacy_constraint in comparison_constraints:
         op.drop_constraint(
             legacy_constraint,
@@ -83,9 +93,13 @@ def upgrade() -> None:
             "research_experiment_comparison_results"
         )
     }
+
+    # PostgreSQL identifiers are limited to 63 characters.
+    # Keep this constraint name deliberately short.
     owner_constraint = (
-        "uq_research_experiment_comparison_results_owner_result_fingerprint"
+        "uq_research_exp_comparison_owner_result_fp"
     )
+
     if owner_constraint not in comparison_constraints:
         op.create_unique_constraint(
             owner_constraint,
@@ -93,8 +107,15 @@ def upgrade() -> None:
             ["owner_issuer", "owner_subject", "result_fingerprint"],
         )
 
-    comparison_indexes = _indexes(bind, "research_experiment_comparison_results")
-    if "ix_research_experiment_comparison_results_owner_recorded_id" not in comparison_indexes:
+    comparison_indexes = _indexes(
+        bind,
+        "research_experiment_comparison_results",
+    )
+
+    if (
+        "ix_research_experiment_comparison_results_owner_recorded_id"
+        not in comparison_indexes
+    ):
         op.create_index(
             "ix_research_experiment_comparison_results_owner_recorded_id",
             "research_experiment_comparison_results",
@@ -106,36 +127,50 @@ def upgrade() -> None:
 def downgrade() -> None:
     bind = op.get_bind()
 
-    comparison_indexes = _indexes(bind, "research_experiment_comparison_results")
-    if "ix_research_experiment_comparison_results_owner_recorded_id" in comparison_indexes:
+    comparison_indexes = _indexes(
+        bind,
+        "research_experiment_comparison_results",
+    )
+
+    if (
+        "ix_research_experiment_comparison_results_owner_recorded_id"
+        in comparison_indexes
+    ):
         op.drop_index(
             "ix_research_experiment_comparison_results_owner_recorded_id",
             table_name="research_experiment_comparison_results",
         )
+
     comparison_constraints = {
         constraint["name"]
         for constraint in sa.inspect(bind).get_unique_constraints(
             "research_experiment_comparison_results"
         )
     }
+
+    # Must match the shortened name used in upgrade().
     owner_constraint = (
-        "uq_research_experiment_comparison_results_owner_result_fingerprint"
+        "uq_research_exp_comparison_owner_result_fp"
     )
+
     if owner_constraint in comparison_constraints:
         op.drop_constraint(
             owner_constraint,
             "research_experiment_comparison_results",
             type_="unique",
         )
+
     comparison_constraints = {
         constraint["name"]
         for constraint in sa.inspect(bind).get_unique_constraints(
             "research_experiment_comparison_results"
         )
     }
+
     legacy_constraint = (
         "uq_research_experiment_comparison_results_result_fingerprint"
     )
+
     if legacy_constraint not in comparison_constraints:
         op.create_unique_constraint(
             legacy_constraint,
@@ -143,20 +178,41 @@ def downgrade() -> None:
             ["result_fingerprint"],
         )
 
-    comparison_columns = _columns(bind, "research_experiment_comparison_results")
+    comparison_columns = _columns(
+        bind,
+        "research_experiment_comparison_results",
+    )
+
     if "owner_subject" in comparison_columns:
-        op.drop_column("research_experiment_comparison_results", "owner_subject")
+        op.drop_column(
+            "research_experiment_comparison_results",
+            "owner_subject",
+        )
+
     if "owner_issuer" in comparison_columns:
-        op.drop_column("research_experiment_comparison_results", "owner_issuer")
+        op.drop_column(
+            "research_experiment_comparison_results",
+            "owner_issuer",
+        )
 
     run_indexes = _indexes(bind, "research_experiment_runs")
+
     if "ix_research_experiment_runs_owner_submitted_id" in run_indexes:
         op.drop_index(
             "ix_research_experiment_runs_owner_submitted_id",
             table_name="research_experiment_runs",
         )
+
     run_columns = _columns(bind, "research_experiment_runs")
+
     if "owner_subject" in run_columns:
-        op.drop_column("research_experiment_runs", "owner_subject")
+        op.drop_column(
+            "research_experiment_runs",
+            "owner_subject",
+        )
+
     if "owner_issuer" in run_columns:
-        op.drop_column("research_experiment_runs", "owner_issuer")
+        op.drop_column(
+            "research_experiment_runs",
+            "owner_issuer",
+        )

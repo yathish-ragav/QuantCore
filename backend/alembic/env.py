@@ -35,6 +35,8 @@ from quantcore.models.macro import MacroObservation, MacroSeries
 from quantcore.models.macro_ingestion import MacroIngestionState
 from quantcore.models.universe_sync import UniverseSyncRun
 from quantcore.models.market_index import MarketIndex, MarketIndexConstituent
+from quantcore.models.market_index_source import MarketIndexDataSource
+from quantcore.models.market_index_load import MarketIndexDataLoad
 
 
 config = context.config

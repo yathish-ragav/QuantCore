@@ -1,4 +1,5 @@
 from datetime import date, datetime, timezone
+from decimal import Decimal
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
@@ -6,6 +7,7 @@ from sqlalchemy.orm import Session
 from quantcore.db.database import Base
 from quantcore.models.company import Company
 from quantcore.models.market_index import MarketIndex, MarketIndexConstituent
+from quantcore.models.market_index_source import MarketIndexDataSource
 from quantcore.models.security import Security, SecurityStatus
 from quantcore.repositories.market_index_repository import MarketIndexRepository
 
@@ -17,6 +19,7 @@ def make_session():
         tables=[
             Company.__table__,
             Security.__table__,
+            MarketIndexDataSource.__table__,
             MarketIndex.__table__,
             MarketIndexConstituent.__table__,
         ],
@@ -143,6 +146,49 @@ def test_get_constituents_as_of_treats_effective_to_as_exclusive():
             effective_on=date(2021, 1, 1),
             known_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
         ) == []
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_get_constituents_as_of_uses_latest_known_revision():
+    engine, session = make_session()
+    try:
+        company = Company(
+            cik="0000000003", name="Example", sector="", industry="", country="", website=""
+        )
+        session.add(company)
+        session.flush()
+        security = Security(
+            company_id=company.id, symbol="TEST", exchange="NASDAQ", status=SecurityStatus.ACTIVE
+        )
+        session.add(security)
+        session.flush()
+        index = MarketIndex(key="TEST3", name="Test Index 3", provider="provider")
+        session.add(index)
+        session.flush()
+        session.add_all([
+            MarketIndexConstituent(
+                index_id=index.id, security_id=security.id, effective_from=date(2020, 1, 1),
+                effective_to=None, weight=Decimal("0.1"),
+                known_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
+                observed_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
+            ),
+            MarketIndexConstituent(
+                index_id=index.id, security_id=security.id, effective_from=date(2020, 1, 1),
+                effective_to=None, weight=Decimal("0.2"),
+                known_at=datetime(2020, 2, 2, tzinfo=timezone.utc),
+                observed_at=datetime(2020, 2, 2, tzinfo=timezone.utc),
+            ),
+        ])
+        session.commit()
+
+        repository = MarketIndexRepository(session)
+        result = repository.get_constituents_as_of(
+            index.id, effective_on=date(2020, 6, 1), known_at=datetime(2020, 3, 1, tzinfo=timezone.utc)
+        )
+        assert len(result) == 1
+        assert result[0].weight == Decimal("0.2")
     finally:
         session.close()
         engine.dispose()

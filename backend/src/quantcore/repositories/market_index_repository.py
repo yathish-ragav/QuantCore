@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from quantcore.models.market_index import MarketIndex, MarketIndexConstituent
@@ -33,6 +33,7 @@ class MarketIndexRepository:
         provider: str,
         methodology_reference: str | None = None,
         source_reference: str | None = None,
+        data_source_id: int | None = None,
     ) -> MarketIndex:
         index = MarketIndex(
             key=key,
@@ -40,6 +41,7 @@ class MarketIndexRepository:
             provider=provider,
             methodology_reference=methodology_reference,
             source_reference=source_reference,
+            data_source_id=data_source_id,
         )
         self.db.add(index)
         return index
@@ -51,8 +53,23 @@ class MarketIndexRepository:
         effective_on: date,
         known_at: datetime,
     ) -> list[MarketIndexConstituent]:
-        stmt = (
-            select(MarketIndexConstituent)
+        ranked = (
+            select(
+                MarketIndexConstituent.id.label("id"),
+                func.row_number()
+                .over(
+                    partition_by=(
+                        MarketIndexConstituent.index_id,
+                        MarketIndexConstituent.security_id,
+                        MarketIndexConstituent.effective_from,
+                    ),
+                    order_by=(
+                        MarketIndexConstituent.known_at.desc(),
+                        MarketIndexConstituent.id.desc(),
+                    ),
+                )
+                .label("revision_rank"),
+            )
             .where(
                 MarketIndexConstituent.index_id == index_id,
                 MarketIndexConstituent.effective_from <= effective_on,
@@ -60,6 +77,12 @@ class MarketIndexRepository:
                 | (MarketIndexConstituent.effective_to > effective_on),
                 MarketIndexConstituent.known_at <= known_at,
             )
+            .subquery()
+        )
+        stmt = (
+            select(MarketIndexConstituent)
+            .join(ranked, MarketIndexConstituent.id == ranked.c.id)
+            .where(ranked.c.revision_rank == 1)
             .order_by(
                 MarketIndexConstituent.security_id.asc(),
                 MarketIndexConstituent.id.asc(),
@@ -96,6 +119,7 @@ class MarketIndexRepository:
         source_reference: str | None,
         known_at,
         observed_at,
+        data_source_id: int | None = None,
     ) -> MarketIndexConstituent:
         constituent = MarketIndexConstituent(
             index_id=index_id,
@@ -104,6 +128,7 @@ class MarketIndexRepository:
             effective_to=effective_to,
             weight=weight,
             source_reference=source_reference,
+            data_source_id=data_source_id,
             known_at=known_at,
             observed_at=observed_at,
         )

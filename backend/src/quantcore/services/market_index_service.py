@@ -108,6 +108,7 @@ class MarketIndexService:
         provider: str,
         methodology_reference: str | None = None,
         source_reference: str | None = None,
+        data_source_id: int | None = None,
     ) -> MarketIndex:
         normalized_key = self._normalize_key(key)
         name = name.strip()
@@ -126,6 +127,7 @@ class MarketIndexService:
             provider=provider,
             methodology_reference=methodology_reference,
             source_reference=source_reference,
+            data_source_id=data_source_id,
         )
         self.db.flush()
         return index
@@ -176,15 +178,21 @@ class MarketIndexService:
                 item.security_id,
             )
             for previous in existing:
-                if previous.effective_from == item.effective_from:
+                if (
+                    previous.effective_from == item.effective_from
+                    and previous.known_at == item.known_at
+                ):
                     raise DataValidationError(
-                        "An index membership already exists for this security and effective date."
+                        "An index membership revision already exists for this security, effective date, and knowledge timestamp."
                     )
-                if self._intervals_overlap(
-                    previous.effective_from,
-                    previous.effective_to,
-                    item.effective_from,
-                    item.effective_to,
+                if (
+                    previous.known_at == item.known_at
+                    and self._intervals_overlap(
+                        previous.effective_from,
+                        previous.effective_to,
+                        item.effective_from,
+                        item.effective_to,
+                    )
                 ):
                     raise DataValidationError(
                         f"Index membership intervals overlap for security {item.security_id}."
@@ -209,6 +217,7 @@ class MarketIndexService:
                 effective_to=item.effective_to,
                 weight=item.weight,
                 source_reference=item.source_reference,
+                data_source_id=index.data_source_id,
                 known_at=item.known_at,
                 observed_at=observed_at,
             )

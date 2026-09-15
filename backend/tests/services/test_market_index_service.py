@@ -16,6 +16,7 @@ def make_index():
     index.provider = "licensed-provider"
     index.methodology_reference = "methodology-ref"
     index.source_reference = "source-ref"
+    index.data_source_id = None
     index.is_active = True
     return index
 
@@ -25,6 +26,7 @@ def make_existing(start, end=None, security_id=10):
     row.security_id = security_id
     row.effective_from = start
     row.effective_to = end
+    row.known_at = __import__("datetime").datetime(2020, 1, 1, tzinfo=__import__("datetime").timezone.utc)
     return row
 
 
@@ -53,6 +55,7 @@ def test_create_normalizes_key_and_rejects_duplicate():
         provider="licensed-provider",
         methodology_reference=None,
         source_reference=None,
+        data_source_id=None,
     )
     service.db.flush.assert_called_once()
 
@@ -171,3 +174,28 @@ def test_resolve_returns_deterministic_point_in_time_snapshot():
     assert first.size == 2
     assert first.fingerprint == second.fingerprint
     service.repository.get_constituents_as_of.assert_called_with(1, effective_on=date(2020, 6, 1), known_at=__import__("datetime").datetime(2020, 6, 1, tzinfo=__import__("datetime").timezone.utc))
+
+
+def test_add_constituents_allows_later_knowledge_revision():
+    service = make_service()
+    service.repository.get_by_key.return_value = make_index()
+    service.db.scalars.return_value.all.return_value = [10]
+    service.repository.get_constituents_for_security.return_value = [
+        make_existing(date(2020, 1, 1), None, 10)
+    ]
+    existing = service.repository.get_constituents_for_security.return_value[0]
+    existing.known_at = __import__("datetime").datetime(2020, 1, 2)
+
+    result = service.add_constituents(
+        "SP500",
+        [
+            IndexConstituentInput(
+                10,
+                date(2020, 1, 1),
+                None,
+                known_at=__import__("datetime").datetime(2020, 2, 1),
+            )
+        ],
+    )
+
+    assert result == 1
