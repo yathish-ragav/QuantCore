@@ -1,12 +1,12 @@
 from quantcore.db.database import SessionLocal
-from quantcore.universe.service import UniverseService
+from quantcore.services.universe_sync_service import UniverseSyncService
 
 
 def main() -> None:
     db = SessionLocal()
 
     try:
-        service = UniverseService(db)
+        service = UniverseSyncService(db)
 
         print("Starting SEC universe synchronization...")
 

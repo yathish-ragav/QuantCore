@@ -283,3 +283,44 @@ def test_sync_company_propagates_service_error():
         )
 
         service.get_company.assert_not_called()
+
+def test_search_companies_returns_listing_identity():
+    company = make_company()
+    company.cik = "0000320193"
+
+    security = Mock()
+    security.id = 10
+    security.company_id = company.id
+    security.symbol = "AAPL"
+    security.exchange = "NASDAQ"
+    security.status.value = "ACTIVE"
+    security.company = company
+
+    with patch(
+        "quantcore.api.dependencies.CompanyService"
+    ) as mock_service:
+        service = Mock()
+        service.search.return_value = [security]
+        mock_service.return_value = service
+
+        response = client.get("/companies/search?q=apple&limit=10")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {
+            "security_id": 10,
+            "company_id": 1,
+            "symbol": "AAPL",
+            "exchange": "NASDAQ",
+            "name": "Apple Inc.",
+            "cik": "0000320193",
+            "status": "ACTIVE",
+        }
+    ]
+    service.search.assert_called_once_with("apple", limit=10)
+
+
+def test_search_companies_rejects_empty_query():
+    response = client.get("/companies/search?q=")
+
+    assert response.status_code == 422

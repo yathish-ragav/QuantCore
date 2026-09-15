@@ -1,7 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import DataValidationError
+from quantcore.models.company import Company
 from quantcore.models.security import Security, SecurityStatus
 
 
@@ -31,6 +32,56 @@ class SecurityRepository:
             )
 
         return securities[0] if securities else None
+
+
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+    ) -> list[Security]:
+        """Search active listings by ticker, company name, or CIK.
+
+        Exact ticker/CIK matches rank first, followed by ticker prefixes,
+        company-name prefixes, and finally substring matches.  Results are
+        security-level records so the caller never loses listing identity.
+        """
+        normalized = query.strip()
+        if not normalized:
+            return []
+
+        normalized_upper = normalized.upper()
+        pattern = f"%{normalized}%"
+        prefix = f"{normalized}%"
+
+        match = or_(
+            func.upper(Security.symbol) == normalized_upper,
+            Company.cik == normalized,
+            func.upper(Security.symbol).like(f"{normalized_upper}%"),
+            Company.name.ilike(prefix),
+            Company.name.ilike(pattern),
+            Security.exchange.ilike(pattern),
+        )
+
+        rank = case(
+            (func.upper(Security.symbol) == normalized_upper, 0),
+            (Company.cik == normalized, 1),
+            (func.upper(Security.symbol).like(f"{normalized_upper}%"), 2),
+            (Company.name.ilike(prefix), 3),
+            (Company.name.ilike(pattern), 4),
+            else_=5,
+        )
+
+        stmt = (
+            select(Security)
+            .join(Security.company)
+            .where(
+                Security.status == SecurityStatus.ACTIVE,
+                match,
+            )
+            .order_by(rank, Company.name.asc(), Security.symbol.asc())
+            .limit(limit)
+        )
+        return list(self.db.scalars(stmt).all())
 
     def get_by_company_and_symbol(
         self,

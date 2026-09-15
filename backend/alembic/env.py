@@ -33,6 +33,7 @@ from quantcore.models.corporate_action_revision import CorporateActionRevision
 from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
 from quantcore.models.macro import MacroObservation, MacroSeries
 from quantcore.models.macro_ingestion import MacroIngestionState
+from quantcore.models.universe_sync import UniverseSyncRun
 
 
 config = context.config

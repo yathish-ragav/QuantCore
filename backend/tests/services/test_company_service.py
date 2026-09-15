@@ -345,3 +345,29 @@ def test_sync_company_records_yahoo_provenance_for_unowned_fields():
         call.kwargs["source"] == DataSource.YAHOO
         for call in service.provenance_repo.upsert.call_args_list
     )
+
+
+def test_search_delegates_to_security_repository():
+    service, db = make_service()
+    securities = [Mock()]
+    service.security_repo.search.return_value = securities
+
+    result = service.search("nvidia", limit=10)
+
+    assert result == securities
+    service.security_repo.search.assert_called_once_with(
+        "nvidia",
+        limit=10,
+    )
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
+
+def test_search_rejects_blank_query():
+    service, db = make_service()
+
+    with pytest.raises(ValueError, match="Search query must not be empty"):
+        service.search("   ")
+
+    service.security_repo.search.assert_not_called()
+    db.commit.assert_not_called()

@@ -68,6 +68,21 @@ class CompanyService:
 
         return company
 
+
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+    ):
+        query = query.strip()
+        if not query:
+            raise InvalidInputError("Search query must not be empty.")
+
+        if not 1 <= limit <= 50:
+            raise InvalidInputError("Search limit must be between 1 and 50.")
+
+        return self.security_repo.search(query, limit=limit)
+
     def _can_write_company_field(
         self,
         company_id: int,

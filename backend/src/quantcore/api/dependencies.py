@@ -10,6 +10,7 @@ from quantcore.services.cash_flow_statement_service import (
     CashFlowStatementService,
 )
 from quantcore.services.company_service import CompanyService
+from quantcore.services.universe_sync_service import UniverseSyncService
 from quantcore.services.income_statement_service import IncomeStatementService
 from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
 from quantcore.services.news_service import NewsService
@@ -266,3 +267,9 @@ def get_research_factor_return_service() -> ResearchFactorReturnService:
 def get_research_factor_return_methodology_service() -> ResearchFactorReturnMethodologyService:
     """Return the deterministic factor-return methodology service."""
     return ResearchFactorReturnMethodologyService()
+
+
+def get_universe_sync_service(
+    db: DbSession,
+) -> UniverseSyncService:
+    return UniverseSyncService(db)

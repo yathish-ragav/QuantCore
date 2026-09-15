@@ -6,6 +6,16 @@ from pydantic import BaseModel, Field
 from quantcore.core.enums import FinancialPeriodType
 
 
+class CompanySearchResult(BaseModel):
+    security_id: int
+    company_id: int
+    symbol: str
+    exchange: str
+    name: str
+    cik: str
+    status: str
+
+
 class CompanyResponse(BaseModel):
     id: int
     symbol: str

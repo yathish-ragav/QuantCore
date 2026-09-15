@@ -88,3 +88,23 @@ def test_get_by_symbols_returns_empty_for_empty_input():
 def test_security_status_values_are_stable():
     assert SecurityStatus.ACTIVE.value == "ACTIVE"
     assert SecurityStatus.INACTIVE.value == "INACTIVE"
+
+
+def test_search_returns_ranked_active_listings():
+    repository, db = make_repository()
+    security = Mock(spec=Security)
+    db.scalars.return_value.all.return_value = [security]
+
+    result = repository.search("nvidia", limit=10)
+
+    assert result == [security]
+    db.scalars.assert_called_once()
+    db.scalar.assert_not_called()
+
+
+def test_search_returns_empty_for_blank_query():
+    repository, db = make_repository()
+
+    assert repository.search("   ") == []
+    db.scalars.assert_not_called()
+    db.scalar.assert_not_called()
