@@ -52,3 +52,21 @@ def test_get_revisions_for_security_known_as_of_returns_all_known_revisions():
 
     assert repo.get_revisions_for_security_known_as_of(10, as_of) == revisions
     db.scalars.return_value.all.assert_called_once()
+
+
+def test_get_next_revision_numbers_returns_next_values_in_one_query():
+    db = Mock()
+    db.execute.return_value.all.return_value = [(10, 3), (20, 1)]
+    repo = PriceObservationRevisionRepository(db)
+
+    assert repo.get_next_revision_numbers([10, 20, 30]) == {10: 4, 20: 2, 30: 1}
+    db.execute.assert_called_once()
+    db.execute.return_value.all.assert_called_once()
+
+
+def test_get_next_revision_numbers_returns_empty_without_query():
+    db = Mock()
+    repo = PriceObservationRevisionRepository(db)
+
+    assert repo.get_next_revision_numbers([]) == {}
+    db.execute.assert_not_called()

@@ -56,3 +56,13 @@ def test_get_latest_for_security_as_of_builds_ranked_query():
 
     assert result == [revision]
     db.scalars.assert_called_once()
+
+
+def test_get_next_revision_numbers_returns_one_grouped_query():
+    repository, db = make_repository()
+    db.execute.return_value.all.return_value = [(10, 2), (20, 4)]
+
+    result = repository.get_next_revision_numbers([10, 20, 30])
+
+    assert result == {10: 3, 20: 5, 30: 1}
+    db.execute.assert_called_once()

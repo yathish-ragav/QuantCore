@@ -371,3 +371,67 @@ def test_search_rejects_blank_query():
 
     service.security_repo.search.assert_not_called()
     db.commit.assert_not_called()
+
+
+def test_sync_company_preserves_existing_values_for_missing_provider_fields():
+    service, db = make_service()
+
+    company = make_company()
+    security = make_security(company)
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_company_info.return_value = CompanyData(
+        symbol="AAPL",
+        name="Apple Inc.",
+        sector=None,
+        industry="ELECTRONIC COMPUTERS",
+        country=None,
+        website=None,
+        market_cap=None,
+    )
+    service.company_repo.update.return_value = company
+
+    result = service.sync_company("AAPL")
+
+    assert result is company
+    service.company_repo.update.assert_called_once_with(
+        company=company,
+        name="Apple Inc.",
+        sector="Old Sector",
+        industry="ELECTRONIC COMPUTERS",
+        country="United States",
+        website="https://old.apple.com",
+        market_cap=2_000_000_000_000,
+        cik=company.cik,
+    )
+
+    upserted_fields = {
+        call.kwargs["field_name"]
+        for call in service.provenance_repo.upsert.call_args_list
+    }
+    assert upserted_fields == {
+        CompanyField.NAME,
+        CompanyField.INDUSTRY,
+    }
+
+
+def test_sync_company_replaces_unknown_legacy_ownership():
+
+    service, db = make_service()
+    company = make_company()
+    security = make_security(company)
+
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_company_info.return_value = make_company_data()
+    service.provenance_repo.get.side_effect = lambda _id, field: (
+        Mock(source=DataSource.UNKNOWN)
+        if field is CompanyField.SECTOR
+        else None
+    )
+    service.company_repo.update.return_value = company
+
+    service.sync_company("AAPL")
+
+    assert any(
+        call.kwargs["field_name"] is CompanyField.SECTOR
+        for call in service.provenance_repo.upsert.call_args_list
+    )

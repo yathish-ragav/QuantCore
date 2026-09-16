@@ -14,12 +14,12 @@ keeps provider-specific response formats out of the application.
 | Income statements | SEC EDGAR | FMP | revenue, profitability and per-share fundamentals |
 | Cash flow statements | SEC EDGAR | FMP | operating, investing, financing cash flow and free cash flow |
 | Enriched fundamentals | FMP | SEC | standardized financial fields and ratios |
-| Current quote | FMP | Polygon | dashboard snapshot |
-| Real-time stream | Polygon | Nasdaq licensed feed | live charting / event-driven updates |
-| Historical EOD | FMP / Polygon | Yahoo | research and backtesting |
-| Corporate actions | Licensed market-data provider / FMP | Yahoo | dividends and stock splits; current adapter is secondary |
+| Current quote | Massive | FMP | dashboard snapshot; development may still use FMP |
+| Real-time stream | Massive | Nasdaq licensed feed | live charting / event-driven updates; production entitlement required |
+| Historical EOD | Massive | Yahoo | research and backtesting; production use requires the appropriate commercial entitlement |
+| Corporate actions | Massive | Yahoo | dividends and stock splits; production use requires the appropriate commercial entitlement |
 | Intraday | FMP / Polygon | Alpha Vantage | intraday charts and short-horizon analytics |
-| News | Polygon / FMP | Yahoo | company and market news |
+| News | Massive | Yahoo | company and market news; production entitlement required |
 | Macro economics | FRED / ALFRED | FMP | rates, CPI, unemployment, GDP, etc. |
 | Alternative / premium datasets | Nasdaq Data Link | vendor-specific | fundamentals, estimates, ratings and institutional datasets |
 
@@ -286,14 +286,12 @@ inside individual price rows. The normalized identity is
 `(security_id, effective_date, action_type)`, with row-level provenance and
 fetch time.
 
-The current adapter derives these actions from Yahoo Finance historical price
-history because Yahoo is the only configured historical market-data adapter
-implemented in this repository. This is deliberately a **secondary research
-source**, not the authoritative corporate-action source. The domain model and
-provider contract are intentionally independent of Yahoo so a licensed or
-primary
-market-data provider can replace the adapter without changing the research
-layer.
+The current production market-data adapter is Massive. Its stock dividends and
+splits endpoints are normalized into the same durable corporate-action model;
+Yahoo remains a secondary research adapter. Production customer-facing use is
+subject to the applicable Massive commercial entitlement. The domain model and
+provider contract remain independent of the provider so a licensed market-data
+source can replace the adapter without changing the research layer.
 
 Only dividends and stock splits are modeled in this increment. Mergers,
 acquisitions, spinoffs, tender offers, symbol changes and delistings are not
@@ -379,11 +377,23 @@ while `adjusted_close` is preserved separately for return-oriented research.
 Corporate actions remain a separate normalized dataset and are not inferred
 solely from adjusted prices.
 
-The current historical price implementation is EOD-oriented and sourced from
-Yahoo as a secondary research source. A future primary/licensed market-data
-adapter must preserve the same canonical semantics rather than silently
-changing the meaning of `close`. Intraday timestamps, additional bar
-frequencies, and real-time feeds remain separate future layers.
+The current production historical price implementation is EOD-oriented and uses
+Massive. Massive's `adjusted=true` aggregate endpoint adjusts historical prices
+for stock splits; it does **not** apply dividend adjustments. Therefore QuantCore's
+`adjusted_close` from Massive must not be interpreted as a total-return or
+dividend-adjusted close. Unadjusted OHLC remains the canonical market observation,
+while corporate actions are stored separately. Yahoo remains a secondary research
+adapter. Intraday timestamps, additional bar frequencies, and real-time feeds remain
+separate layers.
+
+## Market price coverage
+
+A price sync exposes the observed minimum and maximum observation timestamps as
+`coverage_start` and `coverage_end` alongside reconciliation counts. These fields
+describe what the provider actually returned; they are not a completeness claim.
+Completeness for a requested period must be measured separately against the expected
+US trading calendar and the provider entitlement/history boundary. Missing sessions
+must not be silently treated as zero-volume or zero-price observations.
 
 ## Market price reconciliation and point-in-time semantics
 
@@ -451,7 +461,11 @@ observable rather than silently treating every existing row as immutable.
 
 Corporate actions are treated as security-level observations that can be corrected by the upstream provider after initial ingestion. The canonical corporate-action row represents the latest known value, while `corporate_action_revisions` preserves immutable snapshots at each revision point.
 
-Repeated ingestion of an unchanged action does not create a new revision. A changed amount or split ratio updates the canonical action and creates the next revision with a `known_at` timestamp. Existing actions backfilled by the migration receive a baseline revision at their recorded `fetched_at` when available.
+Repeated ingestion of an unchanged action does not create a new revision. A changed action observation updates the canonical action and creates the next revision with a `known_at` timestamp. Existing actions backfilled by the migration receive a baseline revision at their recorded `fetched_at` when available.
+
+The Massive adapter preserves the provider's event identifier in `source_reference` when one is supplied. Reconciliation still uses QuantCore's canonical `(security_id, effective_date, action_type)` identity, while the provider reference makes the persisted observation traceable to the upstream event. Provider batches are rejected when they contain duplicate canonical identities or duplicate provider references, rather than silently overwriting one event with another.
+
+Massive's current stock corporate-action surface reports historical splits and dividends from 2008 onward. Therefore a successful `max` sync is evidence of the provider's returned range, not a claim that QuantCore has reconstructed pre-2008 corporate-action history. Historical completeness remains a separate coverage concern.
 
 The corporate-action API supports an optional `as_of` timestamp. PIT reads select the latest ingested revision for each action known at or before that timestamp. As with other QuantCore PIT datasets, this reconstructs the knowledge set represented by ingested revisions; it does not manufacture provider history that QuantCore never captured.
 

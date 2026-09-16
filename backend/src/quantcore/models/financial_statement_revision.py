@@ -43,6 +43,7 @@ DATA_SOURCE_ENUM = SQLAlchemyEnum(
     create_constraint=True,
     validate_strings=True,
     values_callable=lambda enum: [member.value for member in enum],
+    length=10,
 )
 
 

@@ -21,6 +21,22 @@ class CorporateActionRevisionRepository:
         )
         return (current or 0) + 1
 
+    def get_next_revision_numbers(self, action_ids: list[int]) -> dict[int, int]:
+        """Return the next revision number for each requested action in one query."""
+        if not action_ids:
+            return {}
+
+        rows = self.db.execute(
+            select(
+                CorporateActionRevision.action_id,
+                func.max(CorporateActionRevision.revision_number),
+            )
+            .where(CorporateActionRevision.action_id.in_(action_ids))
+            .group_by(CorporateActionRevision.action_id)
+        ).all()
+        current = {int(action_id): int(max_revision or 0) for action_id, max_revision in rows}
+        return {action_id: current.get(action_id, 0) + 1 for action_id in action_ids}
+
     def create(self, **kwargs) -> CorporateActionRevision:
         revision = CorporateActionRevision(**kwargs)
         self.db.add(revision)

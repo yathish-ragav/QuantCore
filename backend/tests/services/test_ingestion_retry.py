@@ -1,4 +1,4 @@
-from quantcore.core.exceptions import DataValidationError, ExternalDataError
+from quantcore.core.exceptions import DataValidationError, ExternalDataError, RateLimitError
 from quantcore.ingestion.retry import (
     IngestionFailureClass,
     IngestionRetryPolicy,
@@ -50,3 +50,19 @@ def test_retry_policy_rejects_invalid_configuration():
             pass
         else:
             raise AssertionError("expected ValueError")
+
+
+def test_rate_limit_retry_honors_provider_delay():
+    policy = IngestionRetryPolicy(
+        max_attempts=3,
+        base_delay_seconds=0.5,
+        max_delay_seconds=2.0,
+    )
+
+    error = RateLimitError(
+        "rate limited",
+        retry_after_seconds=60.0,
+    )
+
+    assert policy.should_retry(error, 1) is True
+    assert policy.delay_seconds(1, error) == 60.0

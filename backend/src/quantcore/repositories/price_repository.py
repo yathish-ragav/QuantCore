@@ -30,6 +30,27 @@ class PriceRepository:
             self.db.scalars(stmt).all()
         )
 
+
+    def get_for_security_and_dates(
+        self,
+        security_id: int,
+        dates: list[datetime],
+    ) -> list[Price]:
+        """Return existing prices for the supplied observation dates."""
+        if not dates:
+            return []
+
+        stmt = (
+            select(Price)
+            .where(
+                Price.security_id == security_id,
+                Price.date.in_(dates),
+            )
+            .order_by(Price.date)
+        )
+
+        return list(self.db.scalars(stmt).all())
+
     def get_by_security_and_date(
         self,
         security_id: int,

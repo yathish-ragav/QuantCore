@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 from quantcore.core.enums import CorporateActionType
+from quantcore.core.exceptions import DataValidationError
 from quantcore.models.provenance import DataSource
 from quantcore.schemas.corporate_action import CorporateActionData
 from quantcore.services.corporate_action_service import (
@@ -29,6 +30,7 @@ def make_service():
     service.action_repo = Mock()
     service.revision_repo = Mock()
     service.revision_repo.get_next_revision_number.return_value = 1
+    service.revision_repo.get_next_revision_numbers.return_value = {}
     return service, db
 
 
@@ -65,7 +67,7 @@ def test_sync_creates_actions():
     service, db = make_service()
     service.security_repo.get_by_symbol.return_value = make_security()
     service.client.get_corporate_actions.return_value = make_actions()
-    service.action_repo.get_by_identity.return_value = None
+    service.action_repo.get_for_security.return_value = []
 
     result = service.sync_corporate_actions("AAPL")
 
@@ -106,7 +108,7 @@ def test_sync_is_idempotent():
         )
         existing_actions.append(existing)
 
-    service.action_repo.get_by_identity.side_effect = existing_actions
+    service.action_repo.get_for_security.return_value = existing_actions
 
     result = service.sync_corporate_actions("AAPL")
 
@@ -138,8 +140,8 @@ def test_sync_changed_action_creates_revision():
     existing.amount = 0.25
     existing.split_ratio = None
     existing.source_reference = "AAPL:2024-11-01:DIVIDEND"
-    service.action_repo.get_by_identity.return_value = existing
-    service.revision_repo.get_next_revision_number.return_value = 2
+    service.action_repo.get_for_security.return_value = [existing]
+    service.revision_repo.get_next_revision_numbers.return_value = {22: 2}
 
     result = service.sync_corporate_actions("AAPL")
 
@@ -153,6 +155,70 @@ def test_sync_changed_action_creates_revision():
     assert service.revision_repo.create.call_args.kwargs["revision_number"] == 2
     assert service.revision_repo.create.call_args.kwargs["amount"] == 0.30
     db.commit.assert_called_once()
+
+
+def test_sync_rejects_duplicate_provider_identity_before_persistence():
+    service, db = make_service()
+    service.security_repo.get_by_symbol.return_value = make_security()
+    duplicate = CorporateActionData(
+        effective_date=date(2024, 11, 1),
+        action_type=CorporateActionType.DIVIDEND,
+        amount=0.25,
+    )
+    service.client.get_corporate_actions.return_value = [duplicate, duplicate]
+
+    with pytest.raises(DataValidationError, match="duplicate corporate-action identity"):
+        service.sync_corporate_actions("AAPL")
+
+    service.action_repo.get_for_security.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
+
+def test_sync_uses_bulk_existing_lookup_and_single_flush_for_new_actions():
+    service, db = make_service()
+    service.security_repo.get_by_symbol.return_value = make_security()
+    service.client.get_corporate_actions.return_value = make_actions()
+    service.action_repo.get_for_security.return_value = []
+
+    result = service.sync_corporate_actions("AAPL")
+
+    assert result.created == 2
+    service.action_repo.get_for_security.assert_called_once_with(10)
+    db.flush.assert_called_once()
+    assert service.revision_repo.create.call_count == 2
+
+
+def test_sync_uses_bulk_revision_numbers_for_changed_actions():
+    service, db = make_service()
+    service.security_repo.get_by_symbol.return_value = make_security()
+    action = CorporateActionData(
+        effective_date=date(2024, 11, 1),
+        action_type=CorporateActionType.DIVIDEND,
+        amount=0.30,
+    )
+    existing = Mock()
+    existing.id = 22
+    existing.security_id = 10
+    existing.effective_date = action.effective_date
+    existing.action_type = action.action_type
+    existing.amount = 0.25
+    existing.split_ratio = None
+    existing.related_security_id = None
+    existing.old_symbol = None
+    existing.new_symbol = None
+    existing.old_exchange = None
+    existing.new_exchange = None
+    existing.source_reference = "old"
+    service.client.get_corporate_actions.return_value = [action]
+    service.action_repo.get_for_security.return_value = [existing]
+    service.revision_repo.get_next_revision_numbers.return_value = {22: 7}
+
+    service.sync_corporate_actions("AAPL")
+
+    service.revision_repo.get_next_revision_numbers.assert_called_once_with([22])
+    service.revision_repo.get_next_revision_number.assert_not_called()
+    assert service.revision_repo.create.call_args.kwargs["revision_number"] == 7
 
 
 def test_sync_rolls_back_on_provider_error():
@@ -171,10 +237,10 @@ def test_sync_stamps_provenance():
     service, _ = make_service()
     service.security_repo.get_by_symbol.return_value = make_security()
     service.client.get_corporate_actions.return_value = make_actions()
-    service.action_repo.get_by_identity.return_value = None
+    service.action_repo.get_for_security.return_value = []
 
     service.sync_corporate_actions("AAPL")
 
     kwargs = service.action_repo.create.call_args.kwargs
     assert kwargs["source"] is DataSource.YAHOO
-    assert kwargs["source_reference"].startswith("AAPL:")
+    assert kwargs["source_reference"] is None

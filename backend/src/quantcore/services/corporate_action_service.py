@@ -131,24 +131,50 @@ class CorporateActionService:
                     f"Invalid corporate action data for '{symbol}'."
                 )
 
-            source = DataSource(self.client.SOURCE)
-            fetched_at = datetime.now(timezone.utc)
-            created = 0
-            updated = 0
-            unchanged = 0
-            records_processed = 0
-
+            normalized_actions: list[CorporateActionData] = []
+            seen_identities: set[tuple[object, object]] = set()
+            seen_references: set[str] = set()
             for action in raw_actions:
                 if not isinstance(action, CorporateActionData):
                     raise DataValidationError(
                         "Market-data provider returned an invalid corporate action."
                     )
 
-                records_processed += 1
-                existing = self.action_repo.get_by_identity(
-                    security.id,
-                    action.effective_date,
-                    action.action_type,
+                identity = (action.effective_date, action.action_type)
+                if identity in seen_identities:
+                    raise DataValidationError(
+                        "Market-data provider returned duplicate corporate-action "
+                        f"identity for '{symbol}': {action.effective_date} / "
+                        f"{action.action_type.value}."
+                    )
+                seen_identities.add(identity)
+
+                if action.source_reference:
+                    if action.source_reference in seen_references:
+                        raise DataValidationError(
+                            "Market-data provider returned duplicate corporate-action "
+                            f"source reference for '{symbol}': {action.source_reference}."
+                        )
+                    seen_references.add(action.source_reference)
+
+                normalized_actions.append(action)
+
+            source = DataSource(self.client.SOURCE)
+            fetched_at = datetime.now(timezone.utc)
+            existing_actions = {
+                (existing.effective_date, existing.action_type): existing
+                for existing in self.action_repo.get_for_security(security.id)
+            }
+
+            created = 0
+            updated = 0
+            unchanged = 0
+            revisions: list[tuple[object, int]] = []
+            new_actions: list[tuple[CorporateActionData, object]] = []
+
+            for action in normalized_actions:
+                existing = existing_actions.get(
+                    (action.effective_date, action.action_type)
                 )
 
                 if existing is not None:
@@ -157,9 +183,10 @@ class CorporateActionService:
                         if existing.source != source:
                             existing.source = source
                         existing.fetched_at = fetched_at
+                        if action.source_reference:
+                            existing.source_reference = action.source_reference
                         continue
 
-                    next_revision = self.revision_repo.get_next_revision_number(existing.id)
                     existing.amount = action.amount
                     existing.split_ratio = action.split_ratio
                     existing.related_security_id = action.related_security_id
@@ -169,17 +196,10 @@ class CorporateActionService:
                     existing.new_exchange = action.new_exchange
                     existing.source = source
                     existing.fetched_at = fetched_at
-                    existing.source_reference = (
-                        f"{symbol}:{action.effective_date.isoformat()}:"
-                        f"{action.action_type.value}"
-                    )
-                    self._create_revision(
-                        existing,
-                        source=source,
-                        known_at=fetched_at,
-                        revision_number=next_revision,
-                    )
+                    if action.source_reference:
+                        existing.source_reference = action.source_reference
                     updated += 1
+                    revisions.append((existing, 0))
                     continue
 
                 created_action = self.action_repo.create(
@@ -195,26 +215,43 @@ class CorporateActionService:
                     new_exchange=action.new_exchange,
                     source=source,
                     fetched_at=fetched_at,
-                    source_reference=(
-                        f"{symbol}:{action.effective_date.isoformat()}:"
-                        f"{action.action_type.value}"
-                    ),
+                    source_reference=action.source_reference,
                 )
+                created += 1
+                new_actions.append((action, created_action))
+
+            # Flush all new actions together so generated primary keys are
+            # available before creating their immutable revision snapshots.
+            if new_actions:
                 self.db.flush()
+
+            for action, created_action in new_actions:
                 self._create_revision(
                     created_action,
                     source=source,
                     known_at=fetched_at,
                     revision_number=1,
                 )
-                created += 1
+
+            # Resolve all changed-action revision numbers with one grouped query.
+            changed_actions = [action for action, _ in revisions]
+            next_revision_numbers = self.revision_repo.get_next_revision_numbers(
+                [action.id for action in changed_actions]
+            )
+            for action, _ in revisions:
+                self._create_revision(
+                    action,
+                    source=source,
+                    known_at=fetched_at,
+                    revision_number=next_revision_numbers[action.id],
+                )
 
             self.db.commit()
             return CorporateActionSyncResult(
                 created=created,
                 updated=updated,
                 unchanged=unchanged,
-                records_processed=records_processed,
+                records_processed=len(normalized_actions),
             )
         except Exception:
             self.db.rollback()

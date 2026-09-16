@@ -136,3 +136,20 @@ def test_create_price():
     # Repository must not control the transaction.
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
+
+def test_get_for_security_and_dates_returns_matching_prices():
+    repository, db = make_repository()
+    prices = [Mock(spec=Price), Mock(spec=Price)]
+    db.scalars.return_value.all.return_value = prices
+    dates = [datetime(2026, 1, 2), datetime(2026, 1, 5)]
+
+    assert repository.get_for_security_and_dates(1, dates) == prices
+    db.scalars.assert_called_once()
+    db.scalars.return_value.all.assert_called_once()
+
+
+def test_get_for_security_and_dates_returns_empty_without_query():
+    repository, db = make_repository()
+
+    assert repository.get_for_security_and_dates(1, []) == []
+    db.scalars.assert_not_called()

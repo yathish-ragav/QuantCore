@@ -1,7 +1,9 @@
 from quantcore.core.config import settings
 from quantcore.core.exceptions import ConfigurationError
+from quantcore.core.production_data_policy import ProductionDataPolicy
 
 from .base import MarketDataProvider
+from .massive import MassiveClient
 from .yahoo import YahooClient
 
 
@@ -17,6 +19,10 @@ class ProviderFactory:
     @staticmethod
     def get_provider() -> MarketDataProvider:
         provider = settings.market_data_provider.strip().lower()
+        ProductionDataPolicy.validate_market_provider(provider)
+
+        if provider == "massive":
+            return MassiveClient()
 
         if provider == "yahoo":
             return YahooClient()

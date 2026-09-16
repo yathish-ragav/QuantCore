@@ -22,3 +22,5 @@ This documentation set is the authoritative technical and research description o
 4. Record reproducibility requirements alongside the methodology they protect.
 5. Keep public documentation independent of private environment values and credentials.
 6. Treat the Git repository and its verified tests as the implementation source of truth.
+
+- [Production data stack](production-data-stack.md) — production source policy, licensing boundaries, and bounded bootstrap procedure.

@@ -21,6 +21,27 @@ class PriceObservationRevisionRepository:
         )
         return (current or 0) + 1
 
+
+    def get_next_revision_numbers(self, price_ids: list[int]) -> dict[int, int]:
+        """Return the next revision number for each supplied price in one query."""
+        if not price_ids:
+            return {}
+
+        stmt = (
+            select(
+                PriceObservationRevision.price_id,
+                func.max(PriceObservationRevision.revision_number),
+            )
+            .where(PriceObservationRevision.price_id.in_(price_ids))
+            .group_by(PriceObservationRevision.price_id)
+        )
+
+        current = {
+            price_id: (maximum or 0)
+            for price_id, maximum in self.db.execute(stmt).all()
+        }
+        return {price_id: current.get(price_id, 0) + 1 for price_id in price_ids}
+
     def create(self, **kwargs) -> PriceObservationRevision:
         revision = PriceObservationRevision(**kwargs)
         self.db.add(revision)

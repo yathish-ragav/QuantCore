@@ -102,7 +102,25 @@ def test_freshness_is_true_inside_policy_window():
         state,
         IngestionDataset.NEWS,
         now,
+        current_source="FMP",
     ) is True
+
+
+def test_freshness_is_false_when_provider_source_changes():
+    service = make_service()
+    now = datetime.now(timezone.utc)
+
+    state = make_state(
+        IngestionDataset.PRICE_HISTORY,
+        last_success_at=now - timedelta(minutes=30),
+    )
+
+    assert service._is_fresh(
+        state,
+        IngestionDataset.PRICE_HISTORY,
+        now,
+        current_source="MASSIVE",
+    ) is False
 
 
 def test_get_freshness_reports_all_registered_datasets():
@@ -193,6 +211,7 @@ def test_sync_market_skips_fresh_state():
     service.state_repo.get.return_value = fresh
 
     service._service_for = Mock()
+    service._service_for.return_value.provider.SOURCE = "FMP"
 
     result = service.sync_market(
         datasets=[IngestionDataset.PRICE_HISTORY],
@@ -201,7 +220,41 @@ def test_sync_market_skips_fresh_state():
 
     assert result[0].attempted == 0
     assert result[0].skipped == 1
-    service._service_for.assert_not_called()
+    service._service_for.assert_called_once()
+
+
+def test_sync_market_refreshes_fresh_state_when_provider_source_changes():
+    service = make_service()
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+
+    run = Mock()
+    run.id = 1
+    service.state_repo.create_run.return_value = run
+
+    old_source_state = make_state(
+        IngestionDataset.PRICE_HISTORY,
+        security_id=security.id,
+        last_success_at=datetime.now(timezone.utc),
+    )
+    old_source_state.last_success_source = "FMP"
+    service.state_repo.get.return_value = old_source_state
+    service.state_repo.get_or_create.return_value = Mock()
+
+    fake_service = Mock()
+    fake_service.provider.SOURCE = "MASSIVE"
+    fake_service.sync_price_history.return_value = Mock(records_processed=1)
+    service._service_for = Mock(return_value=fake_service)
+
+    result = service.sync_market(
+        datasets=[IngestionDataset.PRICE_HISTORY],
+        only_stale=True,
+    )
+
+    assert result[0].attempted == 1
+    assert result[0].succeeded == 1
+    assert result[0].skipped == 0
+    fake_service.sync_price_history.assert_called_once_with("AAPL")
 
 
 def test_sync_market_records_failure_without_stopping_other_symbols():

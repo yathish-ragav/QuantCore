@@ -3,6 +3,7 @@ from typing import Any
 
 import requests
 
+from quantcore.core.config import settings
 from quantcore.core.enums import FinancialPeriodType
 from quantcore.core.exceptions import (
     DataValidationError,
@@ -33,7 +34,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     TICKER_URL = "https://www.sec.gov/files/company_tickers.json"
 
     HEADERS = {
-        "User-Agent": "QuantCore/1.0 contact: yathishragav@gmail.com",
+        "User-Agent": settings.SEC_USER_AGENT,
         "Accept-Encoding": "gzip, deflate",
     }
 

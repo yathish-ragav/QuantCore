@@ -229,3 +229,19 @@ def test_validate_price_rejects_infinite_value():
     price = make_price(close=float("inf"))
 
     assert DataValidator.validate_price(price) is False
+
+def test_validate_company_accepts_provider_missing_optional_enrichment_fields():
+    company = make_company(
+        sector=None,
+        country=None,
+        website=None,
+    )
+
+    assert DataValidator.validate_company(company) is True
+
+
+def test_validate_prices_rejects_duplicate_dates():
+    first = make_price()
+    duplicate = make_price(close=254.0)
+
+    assert not DataValidator.validate_prices([first, duplicate])

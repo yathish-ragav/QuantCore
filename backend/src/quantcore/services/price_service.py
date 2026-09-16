@@ -22,12 +22,14 @@ from quantcore.repositories.security_repository import SecurityRepository
 
 @dataclass(frozen=True)
 class PriceSyncResult:
-    """Reconciliation counts produced by one market-price sync."""
+    """Reconciliation counts and observed coverage from one market-price sync."""
 
     created: int
     updated: int
     unchanged: int
     records_processed: int
+    coverage_start: datetime | None = None
+    coverage_end: datetime | None = None
 
 
 class PriceService:
@@ -148,16 +150,28 @@ class PriceService:
             created = 0
             updated = 0
             unchanged = 0
-            records_processed = 0
+            records_processed = len(prices)
             source = DataSource(self.client.SOURCE)
             known_at = datetime.now(timezone.utc)
+            coverage_start = min((price.date for price in prices), default=None)
+            coverage_end = max((price.date for price in prices), default=None)
+
+            # Load all existing observations in one query. This avoids an N+1
+            # SELECT pattern when backfilling years of daily history.
+            existing_prices = self.price_repo.get_for_security_and_dates(
+                security.id,
+                [price.date for price in prices],
+            )
+            existing_by_date = {
+                price.date: price
+                for price in existing_prices
+            }
+
+            new_prices = []
+            changed_prices = []
 
             for data in prices:
-                records_processed += 1
-                existing = self.price_repo.get_by_security_and_date(
-                    security.id,
-                    data.date,
-                )
+                existing = existing_by_date.get(data.date)
 
                 if existing is None:
                     price = self.price_repo.create(
@@ -175,23 +189,13 @@ class PriceService:
                         source=source,
                         fetched_at=known_at,
                     )
-                    self.db.flush()
-                    self._create_revision(
-                        price,
-                        source=source,
-                        known_at=known_at,
-                        revision_number=1,
-                    )
+                    new_prices.append(price)
                     created += 1
                     continue
 
                 if self._matches(existing, data):
                     unchanged += 1
                     continue
-
-                next_revision = self.revision_repo.get_next_revision_number(
-                    existing.id
-                )
 
                 existing.open = data.open
                 existing.high = data.high
@@ -204,14 +208,34 @@ class PriceService:
                 existing.stock_splits = data.stock_splits
                 existing.source = source
                 existing.fetched_at = known_at
+                changed_prices.append(existing)
+                updated += 1
 
+            # New rows need database-generated IDs before their immutable
+            # revision snapshots can be created. One flush is sufficient for
+            # the entire batch.
+            if new_prices:
+                self.db.flush()
+
+            next_revision_numbers = self.revision_repo.get_next_revision_numbers(
+                [price.id for price in changed_prices]
+            )
+
+            for price in new_prices:
                 self._create_revision(
-                    existing,
+                    price,
                     source=source,
                     known_at=known_at,
-                    revision_number=next_revision,
+                    revision_number=1,
                 )
-                updated += 1
+
+            for price in changed_prices:
+                self._create_revision(
+                    price,
+                    source=source,
+                    known_at=known_at,
+                    revision_number=next_revision_numbers[price.id],
+                )
 
             self.db.commit()
 
@@ -220,6 +244,8 @@ class PriceService:
                 updated=updated,
                 unchanged=unchanged,
                 records_processed=records_processed,
+                coverage_start=coverage_start,
+                coverage_end=coverage_end,
             )
 
         except Exception:

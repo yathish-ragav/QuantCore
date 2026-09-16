@@ -17,3 +17,4 @@ class CorporateActionData(BaseModel):
     new_symbol: str | None = None
     old_exchange: str | None = None
     new_exchange: str | None = None
+    source_reference: str | None = Field(default=None, max_length=1000)

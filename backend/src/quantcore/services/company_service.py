@@ -97,7 +97,7 @@ class CompanyService:
         if ownership is None:
             return True
 
-        if ownership.source == source:
+        if ownership.source in (source, DataSource.UNKNOWN):
             return True
 
         authoritative_source = AUTHORITATIVE_COMPANY_FIELDS.get(
@@ -185,7 +185,8 @@ class CompanyService:
             accepted_fields = {
                 field: value
                 for field, value in incoming_fields.items()
-                if self._can_write_company_field(
+                if value not in (None, "")
+                and self._can_write_company_field(
                     company.id,
                     field,
                     source,

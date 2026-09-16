@@ -81,6 +81,18 @@ class ExternalDataError(QuantCoreError):
     status_code = 502
     code = "EXTERNAL_DATA_ERROR"
 
+
+class RateLimitError(ExternalDataError):
+    """An upstream provider explicitly rate-limited the request."""
+
+    status_code = 429
+    code = "EXTERNAL_RATE_LIMIT"
+
+    def __init__(self, message: str, retry_after_seconds: float | None = None):
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
 class ConfigurationError(QuantCoreError):
     """
     The application is configured with an invalid or unavailable

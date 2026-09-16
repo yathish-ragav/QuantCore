@@ -97,10 +97,10 @@ def test_sync_creates_new_company_and_security():
     service.company_repo.create.assert_called_once_with(
         cik="0000320193",
         name="Apple Inc.",
-        sector="",
-        industry="",
-        country="",
-        website="",
+        sector=None,
+        industry=None,
+        country=None,
+        website=None,
         market_cap=None,
     )
 
@@ -259,10 +259,10 @@ def test_sync_creates_multiple_securities_for_same_cik():
     service.company_repo.create.assert_called_once_with(
         cik="0000320193",
         name="Apple Inc.",
-        sector="",
-        industry="",
-        country="",
-        website="",
+        sector=None,
+        industry=None,
+        country=None,
+        website=None,
         market_cap=None,
     )
 
@@ -321,10 +321,10 @@ def test_sync_deduplicates_duplicate_cik_and_symbol_records():
     service.company_repo.create.assert_called_once_with(
         cik="0000320193",
         name="Apple Inc.",
-        sector="",
-        industry="",
-        country="",
-        website="",
+        sector=None,
+        industry=None,
+        country=None,
+        website=None,
         market_cap=None,
     )
 

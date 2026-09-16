@@ -18,13 +18,13 @@ class Company(Base):
 
     name: Mapped[str] = mapped_column(String(255))
 
-    sector: Mapped[str] = mapped_column(String(255))
+    sector: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    industry: Mapped[str] = mapped_column(String(255))
+    industry: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    country: Mapped[str] = mapped_column(String(100))
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
 
-    website: Mapped[str] = mapped_column(String(500))
+    website: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     market_cap: Mapped[int] = mapped_column(
         BigInteger,

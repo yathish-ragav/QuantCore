@@ -4,6 +4,7 @@ import pytest
 
 from quantcore.core.exceptions import ConfigurationError
 from quantcore.ingestion.providers.factory import ProviderFactory
+from quantcore.ingestion.providers.massive import MassiveClient
 from quantcore.ingestion.providers.yahoo import YahooClient
 
 
@@ -64,3 +65,15 @@ def test_factory_rejects_unknown_provider():
             match="Unknown market data provider: unknown",
         ):
             ProviderFactory.get_provider()
+
+def test_factory_returns_massive_provider():
+    with patch(
+        "quantcore.ingestion.providers.factory.settings.market_data_provider",
+        "massive",
+    ), patch(
+        "quantcore.ingestion.providers.factory.settings.MASSIVE_API_KEY",
+        "test-key",
+    ):
+        provider = ProviderFactory.get_provider()
+
+    assert isinstance(provider, MassiveClient)

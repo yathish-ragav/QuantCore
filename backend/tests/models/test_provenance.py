@@ -4,6 +4,8 @@ from quantcore.models.cash_flow_statement import CashFlowStatement
 from quantcore.models.income_statement import IncomeStatement
 from quantcore.models.news import News
 from quantcore.models.price import Price
+from quantcore.models.price_observation_revision import PriceObservationRevision
+from quantcore.models.ingestion_lineage import IngestionLineage
 from quantcore.models.provenance import (
     CompanyField,
     CompanyFieldProvenance,
@@ -16,6 +18,29 @@ def test_data_source_values_are_stable():
     assert DataSource.SEC.value == "SEC"
     assert DataSource.FMP.value == "FMP"
     assert DataSource.YAHOO.value == "YAHOO"
+    assert DataSource.MASSIVE.value == "MASSIVE"
+    assert DataSource.UNKNOWN.value == "UNKNOWN"
+
+
+def test_provider_data_source_storage_contract_supports_massive():
+    assert len(DataSource.MASSIVE.value) == 7
+
+    for model in (
+        Price,
+        PriceObservationRevision,
+        IngestionLineage,
+    ):
+        assert model.__table__.c.source.type.length == 10
+
+    assert Price.__table__.c.price_basis.type.length == 10
+    assert PriceObservationRevision.__table__.c.price_basis.type.length == 10
+
+
+def test_company_enrichment_columns_are_nullable():
+    from quantcore.models.company import Company
+
+    for column_name in ("sector", "industry", "country", "website"):
+        assert Company.__table__.c[column_name].nullable is True
 
 
 def test_company_field_values_match_company_columns():

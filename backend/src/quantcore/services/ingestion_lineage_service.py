@@ -56,6 +56,10 @@ class IngestionLineageService:
                 raise InvalidInputError(
                     f"Unsupported ingestion lineage source: {source}."
                 ) from exc
+            if normalized_source is DataSource.UNKNOWN:
+                raise InvalidInputError(
+                    f"Unsupported ingestion lineage source: {source}."
+                )
 
         return self.repository.record_success(
             ingestion_run_id=ingestion_run_id,

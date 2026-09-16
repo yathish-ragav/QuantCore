@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from datetime import datetime, timezone
 
 from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
@@ -50,10 +51,26 @@ class DataCleaner:
         return CompanyData(
             symbol=cls.clean_symbol(data.symbol),
             name=cls.clean_text(data.name),
-            sector=cls.clean_text(data.sector),
-            industry=cls.clean_text(data.industry),
-            country=cls.clean_text(data.country),
-            website=cls.clean_text(data.website),
+            sector=(
+                None
+                if data.sector is None
+                else cls.clean_text(data.sector)
+            ),
+            industry=(
+                None
+                if data.industry is None
+                else cls.clean_text(data.industry)
+            ),
+            country=(
+                None
+                if data.country is None
+                else cls.clean_text(data.country)
+            ),
+            website=(
+                None
+                if data.website is None
+                else cls.clean_text(data.website)
+            ),
             market_cap=data.market_cap,
         )
 
@@ -76,8 +93,17 @@ class DataCleaner:
         data: PriceData,
     ) -> PriceData:
 
+        observation_date = data.date
+        if observation_date.tzinfo is not None:
+            # The price schema persists observation dates in a timezone-naive
+            # column. Canonicalize aware provider timestamps to UTC before
+            # persistence so repeated syncs compare the same instant reliably.
+            observation_date = observation_date.astimezone(timezone.utc).replace(
+                tzinfo=None
+            )
+
         return PriceData(
-            date=data.date,
+            date=observation_date,
             open=float(data.open),
             high=float(data.high),
             low=float(data.low),

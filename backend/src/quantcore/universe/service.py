@@ -74,10 +74,10 @@ class UniverseService:
                     company = self.company_repo.create(
                         cik=cik,
                         name=representative.name,
-                        sector="",
-                        industry="",
-                        country="",
-                        website="",
+                        sector=None,
+                        industry=None,
+                        country=None,
+                        website=None,
                         market_cap=None,
                     )
                 else:

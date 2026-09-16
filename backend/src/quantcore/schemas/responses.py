@@ -20,10 +20,10 @@ class CompanyResponse(BaseModel):
     id: int
     symbol: str
     name: str
-    sector: str
-    industry: str
-    country: str
-    website: str
+    sector: str | None
+    industry: str | None
+    country: str | None
+    website: str | None
     market_cap: int | None = None
 
 

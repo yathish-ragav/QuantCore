@@ -134,7 +134,7 @@ class IngestionOrchestrator:
                 # before retrying so a failed attempt cannot leak a partial
                 # transaction into the next attempt.
                 self.db.rollback()
-                delay = self.retry_policy.delay_seconds(attempt)
+                delay = self.retry_policy.delay_seconds(attempt, exc)
                 if delay > 0:
                     self._sleeper(delay)
 
@@ -202,8 +202,18 @@ class IngestionOrchestrator:
         state: IngestionState | None,
         dataset: IngestionDataset,
         now: datetime,
+        current_source: str | None = None,
     ) -> bool:
         if state is None or state.last_success_at is None:
+            return False
+
+        # Freshness is provider-specific. A successful Yahoo/FMP ingestion
+        # must not suppress a required Massive/SEC refresh after the active
+        # provider configuration changes.
+        if (
+            current_source is not None
+            and state.last_success_source != current_source
+        ):
             return False
 
         return (
@@ -500,6 +510,8 @@ class IngestionOrchestrator:
             attempted = succeeded = skipped = failed = 0
             errors: list[str] = []
             seen_entities: set[int] = set()
+            service = self._service_for(self.db, dataset)
+            current_source = self._source_for(service)
 
             try:
                 for security in securities:
@@ -531,13 +543,17 @@ class IngestionOrchestrator:
 
                     if (
                         only_stale
-                        and self._is_fresh(state, dataset, now)
+                        and self._is_fresh(
+                            state,
+                            dataset,
+                            now,
+                            current_source=current_source,
+                        )
                     ):
                         skipped += 1
                         continue
 
                     attempted += 1
-                    service = self._service_for(self.db, dataset)
                     state = self.state_repo.get_or_create(
                         dataset,
                         scope,

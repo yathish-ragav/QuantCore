@@ -1,5 +1,6 @@
 import requests
 
+from quantcore.core.config import settings
 from quantcore.core.exceptions import DataValidationError, ExternalDataError
 from quantcore.universe.models import UniverseCompany
 
@@ -15,8 +16,7 @@ class SECUniverseProvider:
 
     HEADERS = {
         "User-Agent": (
-            "QuantCore/1.0 "
-            "contact: yathishragav@gmail.com"
+            settings.SEC_USER_AGENT
         ),
         "Accept-Encoding": "gzip, deflate",
     }

@@ -1,5 +1,6 @@
 from quantcore.core.config import settings
 from quantcore.core.exceptions import ConfigurationError
+from quantcore.core.production_data_policy import ProductionDataPolicy
 
 from .financial_provider import FinancialDataProvider
 from .fmp import FMPClient
@@ -12,6 +13,7 @@ class FinancialProviderFactory:
     @staticmethod
     def get_provider() -> FinancialDataProvider:
         provider = settings.financial_data_provider.strip().lower()
+        ProductionDataPolicy.validate_financial_provider(provider)
 
         if provider == "fmp":
             return FMPClient()

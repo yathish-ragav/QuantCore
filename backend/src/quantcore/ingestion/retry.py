@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Type
 
-from quantcore.core.exceptions import ExternalDataError
+from quantcore.core.exceptions import ExternalDataError, RateLimitError
 
 
 class IngestionFailureClass(str, Enum):
@@ -57,9 +57,19 @@ class IngestionRetryPolicy:
             return False
         return classify_ingestion_failure(exc) is IngestionFailureClass.TRANSIENT
 
-    def delay_seconds(self, attempt: int) -> float:
-        """Return deterministic exponential backoff after the given attempt."""
+    def delay_seconds(
+        self,
+        attempt: int,
+        exc: BaseException | None = None,
+    ) -> float:
+        """Return deterministic backoff, honoring provider rate-limit guidance."""
         if attempt < 1:
             raise ValueError("attempt must be at least one.")
+
+        if isinstance(exc, RateLimitError) and exc.retry_after_seconds is not None:
+            if exc.retry_after_seconds < 0:
+                raise ValueError("retry_after_seconds must not be negative.")
+            return max(0.0, exc.retry_after_seconds)
+
         delay = self.base_delay_seconds * (2 ** (attempt - 1))
         return min(delay, self.max_delay_seconds)

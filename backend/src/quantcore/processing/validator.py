@@ -65,10 +65,6 @@ class DataValidator:
         required_fields = [
             "symbol",
             "name",
-            "sector",
-            "industry",
-            "country",
-            "website",
         ]
 
         for field in required_fields:
@@ -79,6 +75,22 @@ class DataValidator:
 
             if not value.strip():
                 return False
+
+        optional_text_fields = [
+            "sector",
+            "industry",
+            "country",
+            "website",
+        ]
+
+        for field in optional_text_fields:
+            value = getattr(data, field, None)
+            if value is not None and not isinstance(value, str):
+                return False
+
+            if isinstance(value, str) and not value.strip():
+                # Empty strings are treated as absent provider fields.
+                continue
 
         market_cap = getattr(data, "market_cap", None)
 
@@ -294,10 +306,17 @@ class DataValidator:
         if not isinstance(data, list):
             return False
 
-        return all(
+        if not all(
             DataValidator.validate_price(price)
             for price in data
-        )
+        ):
+            return False
+
+        # A canonical price row is uniquely identified by security + date.
+        # Reject duplicate provider observations rather than making persistence
+        # order decide which value becomes canonical.
+        dates = [price.date for price in data]
+        return len(dates) == len(set(dates))
 
     @staticmethod
     def validate_news_articles(data) -> bool:

@@ -14,6 +14,7 @@ PRICE_BASIS_ENUM = SQLAlchemyEnum(
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
+    length=10,
 )
 
 

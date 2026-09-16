@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.schemas.company import CompanyData
@@ -112,3 +112,20 @@ def test_clean_price_normalizes_numeric_types():
     assert result.volume == 1_000_000
     assert result.dividends == 0.0
     assert result.stock_splits == 0.0
+
+def test_clean_price_normalizes_aware_timestamp_to_utc_naive():
+    price = PriceData(
+        date=datetime(2026, 1, 2, 5, 30, tzinfo=timezone.utc),
+        open=250,
+        high=255,
+        low=248,
+        close=253,
+        volume=1_000_000,
+        dividends=0,
+        stock_splits=0,
+    )
+
+    result = DataCleaner.clean_price(price)
+
+    assert result.date == datetime(2026, 1, 2, 5, 30)
+    assert result.date.tzinfo is None

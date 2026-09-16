@@ -11,8 +11,11 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     SECRET_KEY: str
     ENVIRONMENT: str
-    FMP_API_KEY: str
+    FMP_API_KEY: str = ""
     FRED_API_KEY: str = ""
+    MASSIVE_API_KEY: str = ""
+    SEC_USER_AGENT: str = "QuantCore/1.0 contact: yathishragav@gmail.com"
+    PRODUCTION_DATA_POLICY_ENFORCED: bool = True
 
     market_data_provider: str = "yahoo"
     financial_data_provider: str = "fmp"
