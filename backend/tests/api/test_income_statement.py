@@ -17,7 +17,7 @@ def make_statement(
     operating_income=123216000000.0,
     net_income=93736000000.0,
     eps=6.08,
-    shares_outstanding=15408095000,
+    shares_outstanding=15000000000,
 ):
     statement = Mock()
     statement.period_start = None
@@ -35,6 +35,7 @@ def make_statement(
     statement.net_income = net_income
     statement.eps = eps
     statement.shares_outstanding = shares_outstanding
+    statement.weighted_average_shares_outstanding = 15408095000
 
     return statement
 
@@ -75,7 +76,8 @@ def test_get_income_statements_returns_statements():
             "operating_income": 123216000000.0,
             "net_income": 93736000000.0,
             "eps": 6.08,
-            "shares_outstanding": 15408095000,
+            "shares_outstanding": 15000000000,
+            "weighted_average_shares_outstanding": 15408095000,
         }
     ]
 

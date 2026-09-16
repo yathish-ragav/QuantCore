@@ -272,6 +272,16 @@ which allows an annual and quarterly observation to coexist for the same
 period-end date. Filing-revision history is intentionally not yet an event
 log; that will be introduced with the later SEC filing/document layer.
 
+Income-statement share fields are semantically distinct: `shares_outstanding`
+represents the issuer's reported common shares outstanding at the applicable
+period-end when the provider supplies that observation, while
+`weighted_average_shares_outstanding` represents the weighted-average share
+count used for earnings-per-share reporting. SEC normalization sources the
+former from the DEI `EntityCommonStockSharesOutstanding` fact and the latter
+from the corresponding US-GAAP weighted-average share fact. Both are stored as
+64-bit integers because large-cap issuers can exceed PostgreSQL's 32-bit integer
+range.
+
 ## SEC filing metadata and filing events
 
 SEC EDGAR submissions are the authoritative source for regulatory filing

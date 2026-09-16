@@ -167,6 +167,9 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                         ),
                         eps=item.get("eps"),
                         shares_outstanding=item.get(
+                            "sharesOutstanding"
+                        ),
+                        weighted_average_shares_outstanding=item.get(
                             "weightedAverageShsOut"
                         ),
                     )

@@ -140,9 +140,7 @@ def test_sync_income_statements_creates_new_statements():
         statements
     )
 
-    service.statement_repo.get_by_company_and_date.return_value = (
-        None
-    )
+    service.statement_repo.get_for_company.return_value = []
 
     result = service.sync_income_statements(
         "AAPL"
@@ -183,11 +181,9 @@ def test_sync_income_statements_skips_existing():
         ),
     ]
 
-    service.statement_repo.get_by_company_and_date.return_value = (
-        make_statement(
-        date(2024, 9, 28)
-    )
-    )
+    service.statement_repo.get_for_company.return_value = [
+        make_statement(date(2024, 9, 28))
+    ]
 
     result = service.sync_income_statements(
         "AAPL"
@@ -270,8 +266,8 @@ def test_sync_income_statements_rolls_back_on_repository_lookup_error():
         ),
     ]
 
-    service.statement_repo.get_by_company_and_date.side_effect = (
-        RuntimeError("database lookup error")
+    service.statement_repo.get_for_company.side_effect = RuntimeError(
+        "database lookup error"
     )
 
     with pytest.raises(
@@ -306,9 +302,7 @@ def test_sync_income_statements_rolls_back_on_repository_create_error():
         ),
     ]
 
-    service.statement_repo.get_by_company_and_date.return_value = (
-        None
-    )
+    service.statement_repo.get_for_company.return_value = []
 
     service.statement_repo.create.side_effect = (
         RuntimeError("database error")
@@ -372,8 +366,8 @@ def test_sync_income_statements_updates_changed_observation_and_creates_revision
     existing = SimpleNamespace(**incoming.model_dump(), id=42, company_id=company.id, source_reference=None)
     existing.total_revenue = 900.0
     service.provider.get_income_statements.return_value = [incoming]
-    service.statement_repo.get_by_company_and_date.return_value = existing
-    service.revision_repo.get_next_revision_number.return_value = 2
+    service.statement_repo.get_for_company.return_value = [existing]
+    service.revision_repo.get_next_revision_numbers.return_value = {42: 2}
 
     result = service.sync_income_statements("AAPL")
 

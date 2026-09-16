@@ -119,6 +119,7 @@ def test_create_income_statement():
         net_income=99_000_000_000,
         eps=6.4,
         shares_outstanding=15_000_000_000,
+        weighted_average_shares_outstanding=15_408_095_000,
     )
 
     db.add.assert_called_once_with(
@@ -151,6 +152,9 @@ def test_create_income_statement():
     assert statement.eps == 6.4
     assert statement.shares_outstanding == (
         15_000_000_000
+    )
+    assert statement.weighted_average_shares_outstanding == (
+        15_408_095_000
     )
 
     # Repository must not control the transaction.

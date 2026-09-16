@@ -26,7 +26,7 @@ class Company(Base):
 
     website: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    market_cap: Mapped[int] = mapped_column(
+    market_cap: Mapped[int | None] = mapped_column(
         BigInteger,
         nullable=True,
     )

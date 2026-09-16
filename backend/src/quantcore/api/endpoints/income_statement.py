@@ -54,8 +54,9 @@ def get_income_statements(
             operating_income=statement.operating_income,
             net_income=statement.net_income,
             eps=statement.eps,
-            shares_outstanding=(
-                statement.shares_outstanding
+            shares_outstanding=statement.shares_outstanding,
+            weighted_average_shares_outstanding=(
+                statement.weighted_average_shares_outstanding
             ),
         )
         for statement in statements

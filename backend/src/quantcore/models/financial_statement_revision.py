@@ -90,6 +90,7 @@ class FinancialStatementRevision(Base):
     net_income: Mapped[float | None] = mapped_column(Float, nullable=True)
     eps: Mapped[float | None] = mapped_column(Float, nullable=True)
     shares_outstanding: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    weighted_average_shares_outstanding: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     # Balance-sheet values
     cash_and_cash_equivalents: Mapped[float | None] = mapped_column(Float, nullable=True)

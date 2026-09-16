@@ -1,7 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 
-from quantcore.core.enums import PriceBasis
+from quantcore.core.enums import FinancialPeriodType, PriceBasis
 from quantcore.processing.validator import DataValidator
 
 
@@ -245,3 +245,35 @@ def test_validate_prices_rejects_duplicate_dates():
     duplicate = make_price(close=254.0)
 
     assert not DataValidator.validate_prices([first, duplicate])
+
+
+def test_validate_income_statement_accepts_distinct_share_fields():
+    statement = SimpleNamespace(
+        fiscal_date=datetime(2024, 9, 28).date(),
+        period_type=FinancialPeriodType.ANNUAL,
+        total_revenue=100.0,
+        gross_profit=50.0,
+        operating_income=25.0,
+        net_income=20.0,
+        eps=1.0,
+        shares_outstanding=15_000_000_000,
+        weighted_average_shares_outstanding=15_408_095_000,
+    )
+
+    assert DataValidator.validate_income_statements([statement]) is True
+
+
+def test_validate_income_statement_rejects_non_integer_weighted_average_shares():
+    statement = SimpleNamespace(
+        fiscal_date=datetime(2024, 9, 28).date(),
+        period_type=FinancialPeriodType.ANNUAL,
+        total_revenue=100.0,
+        gross_profit=50.0,
+        operating_income=25.0,
+        net_income=20.0,
+        eps=1.0,
+        shares_outstanding=15_000_000_000,
+        weighted_average_shares_outstanding=15_408_095_000.0,
+    )
+
+    assert DataValidator.validate_income_statements([statement]) is False

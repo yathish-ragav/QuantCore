@@ -6,6 +6,7 @@ from quantcore.models.provenance import DataSource
 from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.services.financial_statement_revision import (
     cached_statement_known_at,
+    build_statement_known_at_cache,
     resolve_statement_known_at,
 )
 
@@ -60,3 +61,31 @@ def test_cached_statement_known_at_reuses_accession_lookup():
 
     assert first == second == accepted
     filing_repo.get_by_accession.assert_called_once_with(statement.accession_number)
+
+
+def test_build_statement_known_at_cache_preloads_accessions_once():
+    from datetime import date
+    from quantcore.schemas.income_statement import IncomeStatementData
+
+    statements = [
+        IncomeStatementData(fiscal_date=date(2024, 9, 28), accession_number="A"),
+        IncomeStatementData(fiscal_date=date(2023, 9, 30), accession_number="B"),
+    ]
+    accepted_a = datetime(2024, 11, 1, 16, 30, tzinfo=timezone.utc)
+    accepted_b = datetime(2023, 11, 3, 16, 30, tzinfo=timezone.utc)
+    filing_repo = Mock()
+    filing_repo.get_by_accessions.return_value = {
+        "A": Mock(acceptance_datetime=accepted_a),
+        "B": Mock(acceptance_datetime=accepted_b),
+    }
+    fetched_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    cache = build_statement_known_at_cache(
+        statements,
+        source=DataSource.SEC,
+        fetched_at=fetched_at,
+        filing_repo=filing_repo,
+    )
+
+    assert cache == {"A": accepted_a, "B": accepted_b}
+    filing_repo.get_by_accessions.assert_called_once_with({"A", "B"})

@@ -17,3 +17,5 @@ class IncomeStatementData(FinancialStatementMetadata):
     eps: float | None = None
 
     shares_outstanding: int | None = None
+
+    weighted_average_shares_outstanding: int | None = None

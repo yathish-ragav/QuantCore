@@ -231,7 +231,21 @@ def test_sec_get_income_statements_success():
                         ]
                     }
                 },
-            }
+            },
+            "dei": {
+                "EntityCommonStockSharesOutstanding": {
+                    "units": {
+                        "shares": [
+                            {
+                                "end": "2024-09-28",
+                                "val": 15000000000,
+                                "form": "10-K",
+                                "filed": "2024-11-01",
+                            }
+                        ]
+                    }
+                }
+            },
         }
     }
 
@@ -269,7 +283,8 @@ def test_sec_get_income_statements_success():
     assert result[0].operating_income == 123216000000
     assert result[0].net_income == 93736000000
     assert result[0].eps == 6.08
-    assert result[0].shares_outstanding == 15408095000
+    assert result[0].shares_outstanding == 15000000000
+    assert result[0].weighted_average_shares_outstanding == 15408095000
 
 
 def test_sec_get_income_statements_empty_symbol():

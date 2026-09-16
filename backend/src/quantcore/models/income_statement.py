@@ -1,6 +1,6 @@
 from datetime import date
 
-from sqlalchemy import Date, Float, ForeignKey, Integer, UniqueConstraint
+from sqlalchemy import BigInteger, Date, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
@@ -64,6 +64,11 @@ class IncomeStatement(FinancialStatementMetadataMixin, ProvenanceMixin, Base):
     )
 
     shares_outstanding: Mapped[int | None] = mapped_column(
-        Integer,
+        BigInteger,
+        nullable=True,
+    )
+
+    weighted_average_shares_outstanding: Mapped[int | None] = mapped_column(
+        BigInteger,
         nullable=True,
     )

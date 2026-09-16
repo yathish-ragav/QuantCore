@@ -68,6 +68,7 @@ class IncomeStatementResponse(BaseModel):
     net_income: float | None = None
     eps: float | None = None
     shares_outstanding: int | None = None
+    weighted_average_shares_outstanding: int | None = None
 
 
 class IncomeStatementSyncResponse(BaseModel):

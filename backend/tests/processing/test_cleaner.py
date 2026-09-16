@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.schemas.company import CompanyData
+from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
 
@@ -143,3 +144,16 @@ def test_clean_company_preserves_security_type():
     cleaned = DataCleaner.clean_company(data)
 
     assert cleaned.security_type is SecurityType.COMMON_STOCK
+
+
+def test_clean_income_statement_preserves_distinct_share_fields():
+    statement = IncomeStatementData(
+        fiscal_date=datetime(2024, 9, 28).date(),
+        shares_outstanding=15_000_000_000,
+        weighted_average_shares_outstanding=15_408_095_000,
+    )
+
+    result = DataCleaner.clean_income_statement(statement)
+
+    assert result.shares_outstanding == 15_000_000_000
+    assert result.weighted_average_shares_outstanding == 15_408_095_000

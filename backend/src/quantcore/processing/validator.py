@@ -280,21 +280,16 @@ class DataValidator:
             if not isfinite(value):
                 return False
 
-        shares_outstanding = getattr(
-            data,
+        for field in (
             "shares_outstanding",
-            None,
-        )
-
-        if shares_outstanding is not None:
-            if not isinstance(
-                shares_outstanding,
-                int,
-            ):
-                return False
-
-            if shares_outstanding < 0:
-                return False
+            "weighted_average_shares_outstanding",
+        ):
+            value = getattr(data, field, None)
+            if value is not None:
+                if not isinstance(value, int):
+                    return False
+                if value < 0:
+                    return False
 
         return True
 

@@ -61,3 +61,19 @@ def test_get_latest_for_company_as_of_returns_ranked_revisions():
 
     assert result == [revision]
     db.scalars.assert_called_once()
+
+
+def test_get_next_revision_numbers_batches_statement_ids():
+    from unittest.mock import Mock
+    from quantcore.core.enums import FinancialStatementType
+
+    db = Mock()
+    db.execute.return_value.all.return_value = [(1, 3), (3, 1)]
+    repo = FinancialStatementRevisionRepository(db)
+
+    result = repo.get_next_revision_numbers(
+        FinancialStatementType.INCOME, [1, 2, 3]
+    )
+
+    assert result == {1: 4, 2: 1, 3: 2}
+    db.execute.assert_called_once()

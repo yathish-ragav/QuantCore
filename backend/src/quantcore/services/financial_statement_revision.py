@@ -11,7 +11,7 @@ COMMON_FIELDS = (
     "fiscal_date", "period_start", "fiscal_year", "fiscal_period",
     "period_type", "filing_date", "filing_form", "accession_number",
 )
-INCOME_FIELDS = ("total_revenue", "gross_profit", "operating_income", "net_income", "eps", "shares_outstanding")
+INCOME_FIELDS = ("total_revenue", "gross_profit", "operating_income", "net_income", "eps", "shares_outstanding", "weighted_average_shares_outstanding")
 BALANCE_FIELDS = (
     "cash_and_cash_equivalents", "short_term_investments", "accounts_receivable",
     "inventory", "total_current_assets", "property_plant_equipment_net",
@@ -72,6 +72,36 @@ def resolve_statement_known_at(
                 return filing.acceptance_datetime
     return fetched_at
 
+def build_statement_known_at_cache(
+    statements,
+    *,
+    source: DataSource,
+    fetched_at: datetime,
+    filing_repo=None,
+) -> dict:
+    """Preload SEC filing acceptance timestamps for a statement batch in one query."""
+    cache = {}
+    accessions = {
+        getattr(statement, "accession_number", None)
+        for statement in statements
+        if getattr(statement, "accession_number", None)
+    }
+    if source is DataSource.SEC and filing_repo is not None and accessions:
+        filings = filing_repo.get_by_accessions(accessions)
+        for accession in accessions:
+            filing = filings.get(accession)
+            cache[accession] = (
+                filing.acceptance_datetime
+                if filing is not None and filing.acceptance_datetime is not None
+                else fetched_at
+            )
+    for statement in statements:
+        accession = getattr(statement, "accession_number", None)
+        if accession not in cache:
+            cache[accession] = fetched_at
+    return cache
+
+
 def cached_statement_known_at(
     statement,
     *,
@@ -93,13 +123,17 @@ def cached_statement_known_at(
         cache[key] = value
     return value
 
-def create_revision(revision_repo, statement, statement_type, source, known_at):
+def create_revision(revision_repo, statement, statement_type, source, known_at, revision_number=None):
     values = {field: getattr(statement, field) for field in STATEMENT_FIELDS[statement_type]}
     values.update({
         "statement_type": statement_type,
         "statement_id": statement.id,
         "company_id": statement.company_id,
-        "revision_number": revision_repo.get_next_revision_number(statement_type, statement.id),
+        "revision_number": (
+            revision_number
+            if revision_number is not None
+            else revision_repo.get_next_revision_number(statement_type, statement.id)
+        ),
         "source": source,
         "known_at": known_at,
         "source_reference": getattr(statement, "source_reference", None),

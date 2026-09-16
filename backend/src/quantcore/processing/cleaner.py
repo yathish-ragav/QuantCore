@@ -164,6 +164,11 @@ class DataCleaner:
                 if data.shares_outstanding is not None
                 else None
             ),
+            weighted_average_shares_outstanding=(
+                int(data.weighted_average_shares_outstanding)
+                if data.weighted_average_shares_outstanding is not None
+                else None
+            ),
         )
 
 

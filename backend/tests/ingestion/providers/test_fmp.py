@@ -20,6 +20,7 @@ def test_fmp_success():
             "operatingIncome": 123216000000,
             "netIncome": 112010000000,
             "eps": 7.46,
+            "sharesOutstanding": 14950000000,
             "weightedAverageShsOut": 15000000000,
         }
     ]
@@ -54,7 +55,8 @@ def test_fmp_success():
     assert result[0].operating_income == 123216000000
     assert result[0].net_income == 112010000000
     assert result[0].eps == 7.46
-    assert result[0].shares_outstanding == 15000000000
+    assert result[0].shares_outstanding == 14950000000
+    assert result[0].weighted_average_shares_outstanding == 15000000000
 
 
 def test_fmp_empty_response():

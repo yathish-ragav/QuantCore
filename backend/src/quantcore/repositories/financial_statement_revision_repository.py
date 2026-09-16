@@ -11,6 +11,29 @@ class FinancialStatementRevisionRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_next_revision_numbers(
+        self,
+        statement_type: FinancialStatementType,
+        statement_ids: list[int],
+    ) -> dict[int, int]:
+        """Return next revision numbers for multiple statements in one query."""
+        if not statement_ids:
+            return {}
+
+        rows = self.db.execute(
+            select(
+                FinancialStatementRevision.statement_id,
+                func.max(FinancialStatementRevision.revision_number),
+            )
+            .where(
+                FinancialStatementRevision.statement_type == statement_type,
+                FinancialStatementRevision.statement_id.in_(statement_ids),
+            )
+            .group_by(FinancialStatementRevision.statement_id)
+        ).all()
+        current = {int(statement_id): int(maximum or 0) for statement_id, maximum in rows}
+        return {statement_id: current.get(statement_id, 0) + 1 for statement_id in statement_ids}
+
     def get_next_revision_number(self, statement_type: FinancialStatementType, statement_id: int) -> int:
         value = self.db.scalar(
             select(func.max(FinancialStatementRevision.revision_number)).where(
