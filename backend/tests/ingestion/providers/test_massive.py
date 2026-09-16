@@ -330,3 +330,24 @@ def test_massive_company_info_maps_documented_reference_fields_without_fabricati
     assert result.country == "United States"
     assert result.website == "https://www.apple.com"
     assert result.market_cap == 2771126040150
+
+
+def test_massive_company_info_maps_common_stock_type(client, monkeypatch):
+    monkeypatch.setattr(
+        client,
+        "_get",
+        lambda *args, **kwargs: {
+            "results": {
+                "ticker": "AAPL",
+                "name": "Apple Inc.",
+                "type": "CS",
+                "locale": "us",
+            }
+        },
+    )
+
+    data = client.get_company_info("AAPL")
+
+    from quantcore.core.enums import SecurityType
+
+    assert data.security_type is SecurityType.COMMON_STOCK

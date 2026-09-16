@@ -6,7 +6,7 @@ from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 import requests
 
 from quantcore.core.config import settings
-from quantcore.core.enums import CorporateActionType, PriceBasis
+from quantcore.core.enums import CorporateActionType, PriceBasis, SecurityType
 from quantcore.core.exceptions import (
     ConfigurationError,
     DataValidationError,
@@ -197,6 +197,22 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
         except (TypeError, ValueError):
             market_cap = None
 
+        provider_type = str(item.get("type") or "").strip().upper()
+        security_type = {
+            "CS": SecurityType.COMMON_STOCK,
+            "COMMON STOCK": SecurityType.COMMON_STOCK,
+            "P": SecurityType.PREFERRED_STOCK,
+            "PREFERRED": SecurityType.PREFERRED_STOCK,
+            "ETF": SecurityType.ETF,
+            "ADR": SecurityType.ADR,
+            "ADRC": SecurityType.ADR,
+            "WARRANT": SecurityType.WARRANT,
+            "WARRANTS": SecurityType.WARRANT,
+            "UNIT": SecurityType.UNIT,
+            "RIGHT": SecurityType.RIGHT,
+            "SPAC": SecurityType.SPAC,
+        }.get(provider_type, SecurityType.UNKNOWN)
+
         return CompanyData(
             symbol=symbol,
             name=str(item.get("name") or ""),
@@ -207,6 +223,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
             country=(str(country) if country else None),
             website=(str(website) if website else None),
             market_cap=market_cap,
+            security_type=security_type,
         )
 
     def get_price_history(

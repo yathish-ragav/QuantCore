@@ -9,6 +9,7 @@ from quantcore.core.exceptions import (
 )
 from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.models.provenance import CompanyField, DataSource
+from quantcore.core.enums import SecurityType
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
@@ -172,6 +173,10 @@ class CompanyService:
 
             source = DataSource(self.client.SOURCE)
             fetched_at = datetime.now(timezone.utc)
+
+            if data.security_type is not None and data.security_type is not SecurityType.UNKNOWN:
+                security.security_type = data.security_type
+
 
             incoming_fields = {
                 CompanyField.NAME: data.name,

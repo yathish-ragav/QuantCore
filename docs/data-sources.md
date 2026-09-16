@@ -101,7 +101,23 @@ deleted, preserving historical references for later research and backtesting.
 The current exchange filter is intentionally explicit. It represents
 QuantCore's present managed listed-equity scope; it must not be described as
 "all US securities" until additional instrument classifications and source
-coverage are implemented and measured.
+coverage are implemented and measured. The security master is an identity and
+lifecycle registry, not a statement that every row is research-ready.
+
+Each security also carries a canonical `security_type`. New SEC universe rows
+start as `UNKNOWN`; provider-owned classification can subsequently establish
+`COMMON_STOCK`, `PREFERRED_STOCK`, `ADR`, `ETF`, `WARRANT`, `UNIT`, `RIGHT`,
+`SPAC`, or `OTHER`. Unknown classifications are never guessed from ticker
+suffixes. This keeps broad master coverage separate from research eligibility.
+
+Research readiness is computed for a requested research capability rather than
+persisted as one global boolean. A current ready universe can require a
+security type plus fresh successful ingestion for the datasets that capability
+actually needs. Historical universe selection is separate: the
+`security_identifier_history` effective interval and `known_at` timestamp are
+used to resolve listings without silently substituting today's active universe
+for a historical one. Index membership is an additional universe definition,
+not the definition of general QuantCore eligibility.
 
 ## Ingestion orchestration and freshness
 

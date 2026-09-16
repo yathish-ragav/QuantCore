@@ -41,3 +41,23 @@ For historical analysis, QUANTCORE should follow this chain:
 `provider identifier -> security identity -> effective interval -> known-at cutoff -> research observation`
 
 Never infer security identity solely from a current ticker string.
+
+## Security master versus research universe
+
+The security master intentionally contains identity records even when the
+security is not yet usable by every research capability. `security_type` is a
+canonical instrument classification, with `UNKNOWN` retained when no
+authoritative classification has been established. QuantCore must not infer
+instrument type from ticker spelling.
+
+Research eligibility is computed from the requested capability and its dataset
+requirements. For example, a current price-only universe can require an active
+common stock plus fresh price history, while a fundamental strategy can require
+fresh SEC filings and financial statements as well. This avoids a misleading
+global `research_active` flag.
+
+Historical universe selection is a separate concern. The listing-history table
+can resolve which security listings were effective and known at a historical
+cutoff. Licensed index membership, when available, is an additional
+point-in-time universe definition and is not a prerequisite for general
+QuantCore research eligibility.

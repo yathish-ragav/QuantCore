@@ -1,16 +1,26 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
 from quantcore.models.provenance import ProvenanceMixin
+from quantcore.core.enums import SecurityType
 
 
 class SecurityStatus(str, Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
+
+
+SECURITY_TYPE_ENUM = SQLAlchemyEnum(
+    SecurityType,
+    name="security_type",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+)
 
 
 class Security(ProvenanceMixin, Base):
@@ -42,6 +52,14 @@ class Security(ProvenanceMixin, Base):
     exchange: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
+        index=True,
+    )
+
+    security_type: Mapped[SecurityType] = mapped_column(
+        SECURITY_TYPE_ENUM,
+        nullable=False,
+        default=SecurityType.UNKNOWN,
+        server_default=SecurityType.UNKNOWN.value,
         index=True,
     )
 

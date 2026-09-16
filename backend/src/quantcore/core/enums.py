@@ -25,6 +25,21 @@ class FilingEventType(str, Enum):
     AMENDED = "AMENDED"
 
 
+class SecurityType(str, Enum):
+    """Canonical instrument classification used by research-universe policy."""
+
+    UNKNOWN = "UNKNOWN"
+    COMMON_STOCK = "COMMON_STOCK"
+    PREFERRED_STOCK = "PREFERRED_STOCK"
+    ADR = "ADR"
+    ETF = "ETF"
+    WARRANT = "WARRANT"
+    UNIT = "UNIT"
+    RIGHT = "RIGHT"
+    SPAC = "SPAC"
+    OTHER = "OTHER"
+
+
 class PriceBasis(str, Enum):
     """Adjustment basis of the stored OHLC price fields."""
 

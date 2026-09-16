@@ -1,5 +1,7 @@
 from pydantic import BaseModel
 
+from quantcore.core.enums import SecurityType
+
 
 class CompanyData(BaseModel):
     """Normalized company reference data returned by a provider.
@@ -16,3 +18,4 @@ class CompanyData(BaseModel):
     country: str | None = None
     website: str | None = None
     market_cap: int | None = None
+    security_type: SecurityType | None = None

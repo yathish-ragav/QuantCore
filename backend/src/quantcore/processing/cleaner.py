@@ -72,6 +72,7 @@ class DataCleaner:
                 else cls.clean_text(data.website)
             ),
             market_cap=data.market_cap,
+            security_type=data.security_type,
         )
 
     @classmethod

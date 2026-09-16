@@ -129,3 +129,17 @@ def test_clean_price_normalizes_aware_timestamp_to_utc_naive():
 
     assert result.date == datetime(2026, 1, 2, 5, 30)
     assert result.date.tzinfo is None
+
+
+def test_clean_company_preserves_security_type():
+    from quantcore.core.enums import SecurityType
+
+    data = CompanyData(
+        symbol="AAPL",
+        name="Apple Inc.",
+        security_type=SecurityType.COMMON_STOCK,
+    )
+
+    cleaned = DataCleaner.clean_company(data)
+
+    assert cleaned.security_type is SecurityType.COMMON_STOCK
