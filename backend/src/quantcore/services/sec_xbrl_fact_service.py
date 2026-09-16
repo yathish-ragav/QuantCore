@@ -26,7 +26,7 @@ class SECXBRLFactService:
 
     def __init__(self, db: Session):
         self.db = db
-        self.provider = RegulatoryProviderFactory.get_provider()
+        self.provider = RegulatoryProviderFactory.get_provider(db)
         self.security_repo = SecurityRepository(db)
         self.filing_repo = SECFilingRepository(db)
         self.fact_repo = SECXBRLFactRepository(db)

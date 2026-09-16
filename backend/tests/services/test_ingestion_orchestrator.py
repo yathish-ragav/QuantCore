@@ -16,6 +16,7 @@ from quantcore.models.security import SecurityStatus
 from quantcore.services.ingestion_orchestrator import (
     IngestionOrchestrator,
 )
+from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
 from quantcore.services.sec_filing_service import SECFilingSyncResult
 from quantcore.services.sec_xbrl_fact_service import SECXBRLFactSyncResult
 
@@ -574,6 +575,54 @@ def test_sync_market_does_not_retry_permanent_failure():
     assert fake_service.sync_balance_sheets.call_count == 1
     service._sleeper.assert_not_called()
 
+
+
+def test_sync_market_processes_companyfacts_datasets_issuer_first_without_provider_mutation():
+    service = make_service()
+    service.db.info = {}
+    first = make_security(10, 1, "AAPL")
+    second = make_security(11, 2, "MSFT")
+    service.db.scalars.return_value.all.return_value = [first, second]
+
+    income_run = Mock(id=1)
+    balance_run = Mock(id=2)
+    service.state_repo.create_run.side_effect = [income_run, balance_run]
+    service.state_repo.get.return_value = None
+    service.state_repo.get_or_create.return_value = Mock()
+
+    income_service = Mock()
+    income_service.provider.SOURCE = "SEC"
+    income_service.sync_income_statements.return_value = FinancialStatementSyncResult(
+        created=0, updated=0, unchanged=1, records_processed=10
+    )
+    balance_service = Mock()
+    balance_service.provider.SOURCE = "SEC"
+    balance_service.sync_balance_sheets.return_value = FinancialStatementSyncResult(
+        created=0, updated=0, unchanged=1, records_processed=10
+    )
+    service._service_for = Mock(side_effect=[income_service, balance_service])
+
+    result = service.sync_market(
+        datasets=[
+            IngestionDataset.INCOME_STATEMENT,
+            IngestionDataset.BALANCE_SHEET,
+        ],
+        only_stale=False,
+    )
+
+    assert [item.dataset for item in result] == [
+        IngestionDataset.INCOME_STATEMENT,
+        IngestionDataset.BALANCE_SHEET,
+    ]
+    assert result[0].succeeded == 2
+    assert result[1].succeeded == 2
+    assert [call.args for call in income_service.sync_income_statements.call_args_list] == [
+        ("AAPL",), ("MSFT",)
+    ]
+    assert [call.args for call in balance_service.sync_balance_sheets.call_args_list] == [
+        ("AAPL",), ("MSFT",)
+    ]
+    assert income_service.provider is not balance_service.provider
 
 def test_recover_stale_runs_marks_old_running_runs_failed():
     service = make_service()

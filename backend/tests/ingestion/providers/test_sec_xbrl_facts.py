@@ -138,3 +138,50 @@ def test_get_sec_xbrl_fact_observations_http_error():
     ):
         with pytest.raises(ExternalDataError, match="XBRL fact observations"):
             SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+
+def test_companyfacts_cache_is_instance_scoped_and_reused():
+    payload = {"facts": {"us-gaap": {}}}
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ) as mock_get:
+        provider = SECProvider()
+        assert provider._get_company_facts(
+            "0000320193", error_message="boom"
+        ) == payload
+        assert provider._get_company_facts(
+            "0000320193", error_message="boom"
+        ) == payload
+        assert mock_get.call_count == 1
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ) as mock_get:
+        other_provider = SECProvider()
+        assert other_provider._get_company_facts(
+            "0000320193", error_message="boom"
+        ) == payload
+        mock_get.assert_called_once()
+
+
+def test_companyfacts_cache_can_be_shared_by_financial_and_regulatory_providers():
+    from quantcore.ingestion.providers.sec import SECCompanyFactsCache
+
+    payload = {"facts": {"us-gaap": {}}}
+    cache = SECCompanyFactsCache()
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ) as mock_get:
+        financial_provider = SECProvider(company_facts_cache=cache)
+        regulatory_provider = SECProvider(company_facts_cache=cache)
+
+        assert financial_provider._get_company_facts(
+            "0000320193", error_message="boom"
+        ) == payload
+        assert regulatory_provider._get_company_facts(
+            "0000320193", error_message="boom"
+        ) == payload
+        mock_get.assert_called_once()

@@ -28,6 +28,7 @@ from quantcore.services.financial_statement_revision import (
     apply_statement_data,
     create_revision,
     cached_statement_known_at,
+    build_statement_known_at_cache,
     get_statements_as_of,
     statement_changed,
 )
@@ -36,7 +37,7 @@ from quantcore.services.financial_statement_revision import (
 class BalanceSheetService:
     def __init__(self, db: Session):
         self.db = db
-        self.provider = FinancialProviderFactory.get_provider()
+        self.provider = FinancialProviderFactory.get_provider(db)
         self.security_repo = SecurityRepository(db)
         self.statement_repo = BalanceSheetRepository(db)
         self.revision_repo = FinancialStatementRevisionRepository(db)
@@ -108,14 +109,24 @@ class BalanceSheetService:
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)
 
-            filing_known_at_cache = {}
+            filing_known_at_cache = build_statement_known_at_cache(
+                statements,
+                source=source,
+                fetched_at=fetched_at,
+                filing_repo=self.filing_repo,
+            )
+            existing_by_key = {
+                (statement.fiscal_date, statement.period_type): statement
+                for statement in self.statement_repo.get_for_company(company.id)
+            }
+            created_statements = []
+            changed_statements = []
+
 
             for data in statements:
 
-                existing = self.statement_repo.get_by_company_and_date(
-                    company.id,
-                    data.fiscal_date,
-                    data.period_type,
+                existing = existing_by_key.get(
+                    (data.fiscal_date, data.period_type)
                 )
 
                 if existing is None:
@@ -151,7 +162,25 @@ class BalanceSheetService:
                     source=source,
                     fetched_at=fetched_at,
                     )
-                    self.db.flush()
+                    created_statements.append(statement)
+                    existing_by_key[(data.fiscal_date, data.period_type)] = statement
+                    created += 1
+                    continue
+
+                if not statement_changed(existing, data, FinancialStatementType.BALANCE_SHEET):
+                    unchanged += 1
+                    continue
+
+                apply_statement_data(existing, data, FinancialStatementType.BALANCE_SHEET)
+                existing.source = source
+                existing.fetched_at = fetched_at
+                changed_statements.append(existing)
+                updated += 1
+
+            # Flush new statements once, then create immutable revisions.
+            if created_statements:
+                self.db.flush()
+                for statement in created_statements:
                     create_revision(
                         self.revision_repo,
                         statement,
@@ -164,31 +193,29 @@ class BalanceSheetService:
                             filing_repo=self.filing_repo,
                             cache=filing_known_at_cache,
                         ),
+                        revision_number=1,
                     )
-                    created += 1
-                    continue
 
-                if not statement_changed(existing, data, FinancialStatementType.BALANCE_SHEET):
-                    unchanged += 1
-                    continue
-
-                apply_statement_data(existing, data, FinancialStatementType.BALANCE_SHEET)
-                existing.source = source
-                existing.fetched_at = fetched_at
-                create_revision(
-                    self.revision_repo,
-                    existing,
+            if changed_statements:
+                next_revision_numbers = self.revision_repo.get_next_revision_numbers(
                     FinancialStatementType.BALANCE_SHEET,
-                    source,
-                    cached_statement_known_at(
-                        existing,
-                        source=source,
-                        fetched_at=fetched_at,
-                        filing_repo=self.filing_repo,
-                        cache=filing_known_at_cache,
-                    ),
+                    [statement.id for statement in changed_statements],
                 )
-                updated += 1
+                for statement in changed_statements:
+                    create_revision(
+                        self.revision_repo,
+                        statement,
+                        FinancialStatementType.BALANCE_SHEET,
+                        source,
+                        cached_statement_known_at(
+                            statement,
+                            source=source,
+                            fetched_at=fetched_at,
+                            filing_repo=self.filing_repo,
+                            cache=filing_known_at_cache,
+                        ),
+                        revision_number=next_revision_numbers[statement.id],
+                    )
 
             self.db.commit()
 

@@ -418,6 +418,199 @@ class IngestionOrchestrator:
 
         return len(runs)
 
+    def _sync_company_facts_group(
+        self,
+        *,
+        datasets: list[IngestionDataset],
+        securities: list[Security],
+        normalized_symbols: list[str] | None,
+        limit: int | None,
+        only_stale: bool,
+        idempotency_key: str | None,
+        job_id: int | None,
+        attempt_number: int,
+    ) -> list[IngestionResult]:
+        """Process CompanyFacts-derived datasets issuer-first.
+
+        SEC exposes income, balance sheet, cash flow, and raw XBRL observations
+        through one CompanyFacts document. Running these datasets issuer-first
+        allows SECProvider's bounded per-issuer cache to reuse that document
+        across all selected CompanyFacts-derived datasets.
+        """
+        contexts: dict[IngestionDataset, dict[str, object]] = {}
+        results_by_dataset: dict[IngestionDataset, IngestionResult] = {}
+
+        for dataset in datasets:
+            request_fingerprint = self._request_fingerprint(
+                dataset,
+                normalized_symbols,
+                limit,
+                only_stale,
+            )
+            run, replayed = self._get_or_create_run(
+                dataset,
+                idempotency_key=idempotency_key,
+                request_fingerprint=request_fingerprint,
+                job_id=job_id,
+                attempt_number=attempt_number,
+            )
+            if replayed:
+                results_by_dataset[dataset] = self._result_from_run(dataset, run)
+                continue
+
+            contexts[dataset] = {
+                "run": run,
+                "attempted": 0,
+                "succeeded": 0,
+                "skipped": 0,
+                "failed": 0,
+                "errors": [],
+                "seen_entities": set(),
+                "service": self._service_for(self.db, dataset),
+            }
+
+        if not contexts:
+            return [results_by_dataset[dataset] for dataset in datasets]
+
+        self.db.commit()
+
+        try:
+            # Issuer-first ordering is the key scale optimization: all selected
+            # CompanyFacts-derived datasets for one issuer execute together.
+            seen_companies: set[int] = set()
+            for security in securities:
+                if security.company_id in seen_companies:
+                    continue
+                seen_companies.add(security.company_id)
+
+                # The cache is intentionally one-issuer and request/session scoped.
+                # Clear it at the issuer boundary so a long market sync cannot reuse
+                # stale CompanyFacts data from an earlier issuer.
+                cache = self.db.info.get("quantcore.sec_company_facts_cache")
+                if cache is not None:
+                    cache.clear()
+
+                for dataset, context in contexts.items():
+                    service = context["service"]
+                    run = context["run"]
+                    scope = DATASET_SCOPES[dataset]
+                    seen_entities = context["seen_entities"]
+                    seen_entities.add(
+                        security.company_id
+                        if scope is IngestionScope.COMPANY
+                        else security.id
+                    )
+                    state = self.state_repo.get(
+                        dataset,
+                        company_id=security.company_id if scope is IngestionScope.COMPANY else None,
+                        security_id=security.id if scope is IngestionScope.SECURITY else None,
+                    )
+                    current_source = self._source_for(service)
+                    if (
+                        only_stale
+                        and self._is_fresh(
+                            state, dataset, datetime.now(timezone.utc), current_source=current_source
+                        )
+                    ):
+                        context["skipped"] += 1
+                        continue
+
+                    context["attempted"] += 1
+                    state = self.state_repo.get_or_create(
+                        dataset,
+                        scope,
+                        company_id=security.company_id if scope is IngestionScope.COMPANY else None,
+                        security_id=security.id if scope is IngestionScope.SECURITY else None,
+                    )
+                    attempted_at = datetime.now(timezone.utc)
+                    self.state_repo.mark_attempt(state, attempted_at)
+
+                    try:
+                        records = self._sync_with_retry(service, dataset, security.symbol)
+                        succeeded_at = datetime.now(timezone.utc)
+                        source = self._source_for(service)
+                        self.state_repo.mark_success(
+                            state, succeeded_at=succeeded_at, source=source, records=records
+                        )
+                        self.lineage_service.record_success(
+                            ingestion_run_id=run.id,
+                            dataset=dataset,
+                            scope=scope,
+                            company_id=security.company_id if scope is IngestionScope.COMPANY else None,
+                            security_id=security.id if scope is IngestionScope.SECURITY else None,
+                            source=source,
+                            records_processed=records,
+                            recorded_at=succeeded_at,
+                        )
+                        self.db.commit()
+                        context["succeeded"] += 1
+                    except Exception as exc:
+                        self.db.rollback()
+                        state = self.state_repo.get_or_create(
+                            dataset,
+                            scope,
+                            company_id=security.company_id if scope is IngestionScope.COMPANY else None,
+                            security_id=security.id if scope is IngestionScope.SECURITY else None,
+                        )
+                        self.state_repo.mark_attempt(state, attempted_at)
+                        self.state_repo.mark_failure(
+                            state, failed_at=datetime.now(timezone.utc), error=str(exc)
+                        )
+                        self.db.commit()
+                        context["failed"] += 1
+                        context["errors"].append(f"{security.symbol}: {str(exc)[:500]}")
+
+            for dataset, context in contexts.items():
+                run = context["run"]
+                failed = context["failed"]
+                finished_at = datetime.now(timezone.utc)
+                self.state_repo.finish_run(
+                    run,
+                    status=(
+                        IngestionRunStatus.COMPLETED_WITH_ERRORS
+                        if failed
+                        else IngestionRunStatus.COMPLETED
+                    ),
+                    finished_at=finished_at,
+                    eligible=len(context["seen_entities"]),
+                    attempted=context["attempted"],
+                    succeeded=context["succeeded"],
+                    skipped=context["skipped"],
+                    failed=failed,
+                    error_summary=("; ".join(context["errors"]) if context["errors"] else None),
+                )
+                self.db.commit()
+                results_by_dataset[dataset] = IngestionResult(
+                    dataset=dataset,
+                    eligible=len(context["seen_entities"]),
+                    attempted=context["attempted"],
+                    succeeded=context["succeeded"],
+                    skipped=context["skipped"],
+                    failed=failed,
+                    errors=tuple(context["errors"]),
+                    run_id=run.id,
+                )
+        except Exception as exc:
+            self.db.rollback()
+            for dataset, context in contexts.items():
+                run = self.state_repo.get_run(context["run"].id)
+                if run is not None and run.status is IngestionRunStatus.RUNNING:
+                    self.state_repo.finish_run(
+                        run,
+                        status=IngestionRunStatus.FAILED,
+                        finished_at=datetime.now(timezone.utc),
+                        eligible=len(context["seen_entities"]),
+                        attempted=context["attempted"],
+                        succeeded=context["succeeded"],
+                        skipped=context["skipped"],
+                        failed=context["failed"],
+                        error_summary=str(exc),
+                    )
+            self.db.commit()
+            raise
+
+        return [results_by_dataset[dataset] for dataset in datasets]
+
     def sync_market(
         self,
         *,
@@ -485,6 +678,29 @@ class IngestionOrchestrator:
         securities = list(self.db.scalars(security_stmt).all())
         now = datetime.now(timezone.utc)
         results: list[IngestionResult] = []
+
+        company_facts_datasets = {
+            IngestionDataset.INCOME_STATEMENT,
+            IngestionDataset.CASH_FLOW_STATEMENT,
+            IngestionDataset.BALANCE_SHEET,
+            IngestionDataset.SEC_XBRL_FACTS,
+        }
+        grouped = [dataset for dataset in selected if dataset in company_facts_datasets]
+        if grouped:
+            results.extend(
+                self._sync_company_facts_group(
+                    datasets=grouped,
+                    securities=securities,
+                    normalized_symbols=normalized_symbols,
+                    limit=limit,
+                    only_stale=only_stale,
+                    idempotency_key=idempotency_key,
+                    job_id=job_id,
+                    attempt_number=attempt_number,
+                )
+            )
+
+        selected = [dataset for dataset in selected if dataset not in company_facts_datasets]
 
         for dataset in selected:
             scope = DATASET_SCOPES[dataset]

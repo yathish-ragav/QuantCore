@@ -20,6 +20,24 @@ from .financial_provider import FinancialDataProvider
 from .regulatory_provider import RegulatoryDataProvider
 
 
+class SECCompanyFactsCache:
+    """Request-scoped cache for one issuer's SEC CompanyFacts payload."""
+
+    def __init__(self) -> None:
+        self._payload: tuple[str, dict[str, Any]] | None = None
+
+    def get(self, cik: str) -> dict[str, Any] | None:
+        if self._payload is None or self._payload[0] != cik:
+            return None
+        return self._payload[1]
+
+    def set(self, cik: str, payload: dict[str, Any]) -> None:
+        self._payload = (cik, payload)
+
+    def clear(self) -> None:
+        self._payload = None
+
+
 class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     SOURCE = "SEC"
     """
@@ -39,6 +57,49 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     }
 
     _ticker_to_cik: dict[str, str] | None = None
+
+    def __init__(self, *, company_facts_cache: SECCompanyFactsCache | None = None) -> None:
+        self._company_facts_cache = company_facts_cache or SECCompanyFactsCache()
+
+    @staticmethod
+    def cache_for_session(db) -> SECCompanyFactsCache:
+        """Return the CompanyFacts cache owned by one SQLAlchemy session."""
+        key = "quantcore.sec_company_facts_cache"
+        cache = db.info.get(key)
+        if cache is None:
+            cache = SECCompanyFactsCache()
+            db.info[key] = cache
+        return cache
+
+    def _get_company_facts(
+        self,
+        cik: str,
+        *,
+        error_message: str,
+    ) -> dict[str, Any]:
+        """Fetch one issuer CompanyFacts payload and reuse it for this issuer."""
+        cached = self._company_facts_cache.get(cik)
+        if cached is not None:
+            return cached
+
+        try:
+            response = requests.get(
+                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
+                headers=self.HEADERS,
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except requests.RequestException as exc:
+            raise ExternalDataError(error_message) from exc
+
+        if not isinstance(data, dict):
+            raise DataValidationError(
+                "SEC CompanyFacts response must be an object."
+            )
+
+        self._company_facts_cache.set(cik, data)
+        return data
 
     def _load_ticker_map(self) -> dict[str, str]:
         """
@@ -341,18 +402,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             raise InvalidInputError("CIK must be a numeric SEC CIK.")
         cik = f"{int(cik):010d}"
 
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
-                headers=self.HEADERS,
-                timeout=30,
-            )
-            response.raise_for_status()
-            data = response.json()
-        except requests.RequestException as exc:
-            raise ExternalDataError(
-                "Failed to retrieve SEC XBRL fact observations."
-            ) from exc
+        data = self._get_company_facts(
+            cik,
+            error_message="Failed to retrieve SEC XBRL fact observations.",
+        )
 
         if not isinstance(data, dict):
             raise DataValidationError("SEC CompanyFacts response must be an object.")
@@ -450,21 +503,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         # Transport/provider failures are translated into
         # an application-level ExternalDataError.
         # -------------------------------------------------
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
-                headers=self.HEADERS,
-                timeout=30,
-            )
-
-            response.raise_for_status()
-
-            data = response.json()
-
-        except requests.RequestException as exc:
-            raise ExternalDataError(
-                "Failed to retrieve income statement data from SEC."
-            ) from exc
+        data = self._get_company_facts(
+            cik,
+            error_message="Failed to retrieve income statement data from SEC.",
+        )
 
         # -------------------------------------------------
         # 4. Extract US GAAP facts.
@@ -526,7 +568,16 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             preferred_unit="USD-per-shares",
         )
 
+        dei = facts.get("dei", {})
+        if not isinstance(dei, dict):
+            dei = {}
+
         shares = self._get_fact(
+            dei,
+            ["EntityCommonStockSharesOutstanding"],
+            preferred_unit="shares",
+        )
+        weighted_average_shares = self._get_fact(
             us_gaap,
             [
                 "WeightedAverageNumberOfDilutedSharesOutstanding",
@@ -579,6 +630,13 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                     shares_outstanding=self._integer_value_on_date(
                         shares,
                         fiscal_date,
+                        annual_only=False,
+                    ),
+                    weighted_average_shares_outstanding=(
+                        self._integer_value_on_date(
+                            weighted_average_shares,
+                            fiscal_date,
+                        )
                     ),
                 )
             )
@@ -611,21 +669,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         # -------------------------------------------------
         # 3. Retrieve CompanyFacts from SEC.
         # -------------------------------------------------
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
-                headers=self.HEADERS,
-                timeout=30,
-            )
-
-            response.raise_for_status()
-
-            data = response.json()
-
-        except requests.RequestException as exc:
-            raise ExternalDataError(
-                "Failed to retrieve cash flow statement data from SEC."
-            ) from exc
+        data = self._get_company_facts(
+            cik,
+            error_message="Failed to retrieve cash flow statement data from SEC.",
+        )
 
         # -------------------------------------------------
         # 4. Extract US GAAP facts.
@@ -811,20 +858,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
         cik = self._get_cik(symbol)
 
-        try:
-            response = requests.get(
-                f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
-                headers=self.HEADERS,
-                timeout=30,
-            )
-
-            response.raise_for_status()
-            data = response.json()
-
-        except requests.RequestException as exc:
-            raise ExternalDataError(
-                "Failed to retrieve balance sheet data from SEC."
-            ) from exc
+        data = self._get_company_facts(
+            cik,
+            error_message="Failed to retrieve balance sheet data from SEC.",
+        )
 
         if not isinstance(data, dict):
             raise DataValidationError(
@@ -1191,15 +1228,25 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         cls,
         facts: list[dict[str, Any]],
         fiscal_date: date,
+        *,
+        annual_only: bool = True,
     ) -> int | None:
-        """
-        Get an annual value and convert it to an integer.
-        """
+        """Get the latest integer XBRL value for a period-end date."""
 
-        value = cls._value_on_date(
-            facts,
-            fiscal_date,
-        )
+        if annual_only:
+            value = cls._value_on_date(facts, fiscal_date)
+        else:
+            matching = [
+                fact
+                for fact in facts
+                if fact.get("end") == fiscal_date.isoformat()
+                and fact.get("val") is not None
+                and str(fact.get("form") or "") in {"10-K", "10-K/A"}
+            ]
+            if not matching:
+                return None
+            latest = max(matching, key=lambda fact: fact.get("filed", ""))
+            value = latest.get("val")
 
         if value is None:
             return None
