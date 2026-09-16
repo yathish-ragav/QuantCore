@@ -76,24 +76,31 @@ class SECFilingService:
 
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)
-            created = 0
-            updated = 0
-            unchanged = 0
-            events_created = 0
-            records_processed = 0
+            created = updated = unchanged = events_created = 0
 
+            normalized: dict[str, SECFilingData] = {}
             for data in raw_filings:
                 if not isinstance(data, SECFilingData):
                     raise DataValidationError(
                         "SEC provider returned an invalid filing object."
                     )
-
                 accession = data.accession_number.strip()
                 if not accession:
                     continue
-                records_processed += 1
+                previous = normalized.get(accession)
+                if previous is not None and previous != data:
+                    raise DataValidationError(
+                        f"SEC provider returned conflicting filing rows for '{accession}'."
+                    )
+                normalized[accession] = data
 
-                existing = self.filing_repo.get_by_accession(accession)
+            existing_by_accession = self.filing_repo.get_by_accessions(
+                set(normalized)
+            )
+            filings_by_accession = dict(existing_by_accession)
+
+            for accession, data in normalized.items():
+                existing = existing_by_accession.get(accession)
                 if existing is None:
                     filing = self.filing_repo.create(
                         company_id=company.id,
@@ -118,48 +125,43 @@ class SECFilingService:
                         fetched_at=fetched_at,
                         source_reference=accession,
                     )
-                    self.db.flush()
+                    filings_by_accession[accession] = filing
                     created += 1
+                    continue
+
+                filing = existing
+                changed = False
+                for field in (
+                    "filing_date", "report_date", "acceptance_datetime", "form",
+                    "act", "file_number", "film_number", "items",
+                    "primary_document", "primary_doc_description", "is_xbrl",
+                    "is_inline_xbrl", "fiscal_year", "fiscal_period",
+                    "is_amendment", "filing_url",
+                ):
+                    value = getattr(data, field)
+                    if getattr(filing, field) != value:
+                        setattr(filing, field, value)
+                        changed = True
+                if filing.source != source:
+                    filing.source = source
+                    changed = True
+                if filing.source_reference != accession:
+                    filing.source_reference = accession
+                    changed = True
+                filing.fetched_at = fetched_at
+                if changed:
+                    updated += 1
                 else:
-                    filing = existing
-                    changed = False
+                    unchanged += 1
 
-                    # SEC submissions are an authoritative metadata feed. Update
-                    # mutable descriptive fields without changing filing identity.
-                    for field in (
-                        "filing_date",
-                        "report_date",
-                        "acceptance_datetime",
-                        "form",
-                        "act",
-                        "file_number",
-                        "film_number",
-                        "items",
-                        "primary_document",
-                        "primary_doc_description",
-                        "is_xbrl",
-                        "is_inline_xbrl",
-                        "fiscal_year",
-                        "fiscal_period",
-                        "is_amendment",
-                        "filing_url",
-                    ):
-                        value = getattr(data, field)
-                        if getattr(filing, field) != value:
-                            setattr(filing, field, value)
-                            changed = True
-                    if filing.source != source:
-                        filing.source = source
-                        changed = True
-                    if filing.source_reference != accession:
-                        filing.source_reference = accession
-                        changed = True
-                    if changed:
-                        updated += 1
-                    else:
-                        unchanged += 1
-                    filing.fetched_at = fetched_at
+            # New filing IDs are assigned in one flush instead of one flush per filing.
+            self.db.flush()
 
+            event_identities = self.filing_repo.get_events_by_identity(
+                {filing.id for filing in filings_by_accession.values()}
+            )
+            for accession, data in normalized.items():
+                filing = filings_by_accession[accession]
                 occurred_at = (
                     data.acceptance_datetime
                     or datetime(
@@ -174,21 +176,19 @@ class SECFilingService:
                     if data.is_amendment
                     else FilingEventType.FILED
                 )
-
-                if self.filing_repo.get_event(
-                    filing.id,
-                    event_type,
-                    occurred_at,
-                ) is None:
-                    self.filing_repo.create_event(
-                        filing_id=filing.id,
-                        event_type=event_type,
-                        occurred_at=occurred_at,
-                        source=source,
-                        fetched_at=fetched_at,
-                        source_reference=accession,
-                    )
-                    events_created += 1
+                identity = (filing.id, event_type, occurred_at)
+                if identity in event_identities:
+                    continue
+                self.filing_repo.create_event(
+                    filing_id=filing.id,
+                    event_type=event_type,
+                    occurred_at=occurred_at,
+                    source=source,
+                    fetched_at=fetched_at,
+                    source_reference=accession,
+                )
+                event_identities.add(identity)
+                events_created += 1
 
             self.db.commit()
             return SECFilingSyncResult(
@@ -196,7 +196,7 @@ class SECFilingService:
                 updated=updated,
                 unchanged=unchanged,
                 events_created=events_created,
-                records_processed=records_processed,
+                records_processed=len(normalized),
             )
 
         except Exception:

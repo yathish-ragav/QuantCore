@@ -18,6 +18,7 @@ from quantcore.processing.validator import DataValidator
 from quantcore.repositories.income_statement_repository import (
     IncomeStatementRepository,
 )
+from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.security_repository import (
     SecurityRepository,
 )
@@ -28,6 +29,7 @@ from quantcore.services.financial_statement_revision import (
     FinancialStatementSyncResult,
     apply_statement_data,
     create_revision,
+    cached_statement_known_at,
     get_statements_as_of,
     statement_changed,
 )
@@ -48,6 +50,7 @@ class IncomeStatementService:
             IncomeStatementRepository(db)
         )
         self.revision_repo = FinancialStatementRevisionRepository(db)
+        self.filing_repo = SECFilingRepository(db)
 
     def get_company_for_symbol(
         self,
@@ -168,6 +171,8 @@ class IncomeStatementService:
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)
 
+            filing_known_at_cache = {}
+
             # -------------------------------------------------
             # 7. Reconcile statements and preserve revisions.
             # -------------------------------------------------
@@ -204,7 +209,13 @@ class IncomeStatementService:
                         statement,
                         FinancialStatementType.INCOME,
                         source,
-                        fetched_at,
+                        cached_statement_known_at(
+                            statement,
+                            source=source,
+                            fetched_at=fetched_at,
+                            filing_repo=self.filing_repo,
+                            cache=filing_known_at_cache,
+                        ),
                     )
                     created += 1
                     continue
@@ -221,7 +232,13 @@ class IncomeStatementService:
                     existing,
                     FinancialStatementType.INCOME,
                     source,
-                    fetched_at,
+                    cached_statement_known_at(
+                        existing,
+                        source=source,
+                        fetched_at=fetched_at,
+                        filing_repo=self.filing_repo,
+                        cache=filing_known_at_cache,
+                    ),
                 )
                 updated += 1
 

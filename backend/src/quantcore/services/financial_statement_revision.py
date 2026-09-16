@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from quantcore.core.enums import FinancialStatementType
+from quantcore.models.provenance import DataSource
 from quantcore.repositories.financial_statement_revision_repository import (
     FinancialStatementRevisionRepository,
 )
@@ -47,6 +48,50 @@ def apply_statement_data(existing, data, statement_type):
     for field in STATEMENT_FIELDS[statement_type]:
         setattr(existing, field, getattr(data, field))
 
+
+def resolve_statement_known_at(
+    statement,
+    *,
+    source: DataSource,
+    fetched_at: datetime,
+    filing_repo=None,
+):
+    """Resolve the PIT publication timestamp for a normalized statement.
+
+    SEC-derived statements use the authoritative filing acceptance timestamp
+    when the corresponding accession is available. Fetch time is only a
+    fallback when SEC filing metadata is unavailable. Non-SEC providers retain
+    fetch-time semantics because their filing timestamps are not authoritative
+    EDGAR publication timestamps.
+    """
+    if source is DataSource.SEC and filing_repo is not None:
+        accession = getattr(statement, "accession_number", None)
+        if accession:
+            filing = filing_repo.get_by_accession(accession)
+            if filing is not None and filing.acceptance_datetime is not None:
+                return filing.acceptance_datetime
+    return fetched_at
+
+def cached_statement_known_at(
+    statement,
+    *,
+    source: DataSource,
+    fetched_at: datetime,
+    filing_repo=None,
+    cache: dict | None = None,
+):
+    key = getattr(statement, "accession_number", None)
+    if cache is not None and key in cache:
+        return cache[key]
+    value = resolve_statement_known_at(
+        statement,
+        source=source,
+        fetched_at=fetched_at,
+        filing_repo=filing_repo,
+    )
+    if cache is not None:
+        cache[key] = value
+    return value
 
 def create_revision(revision_repo, statement, statement_type, source, known_at):
     values = {field: getattr(statement, field) for field in STATEMENT_FIELDS[statement_type]}

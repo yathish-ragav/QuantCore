@@ -68,41 +68,18 @@ class SECXBRLFactService:
             _, company = self.get_company_for_symbol(symbol)
             raw_observations = self.provider.get_sec_xbrl_fact_observations(company.cik)
             if not isinstance(raw_observations, list):
-                raise DataValidationError(f"Invalid SEC XBRL fact data for '{symbol}'.")
+                raise DataValidationError(
+                    f"Invalid SEC XBRL fact data for '{symbol}'."
+                )
 
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)
-            created = unchanged = records_processed = 0
-            filing_cache = {}
-
+            prepared = {}
             for data in raw_observations:
                 if not isinstance(data, SECXBRLFactObservationData):
-                    raise DataValidationError("SEC provider returned an invalid XBRL fact object.")
-
-                records_processed += 1
-                value = data.value
-                existing = self.fact_repo.get_by_identity(
-                    company_id=company.id,
-                    accession_number=data.accession_number,
-                    taxonomy=data.taxonomy,
-                    concept=data.concept,
-                    unit=data.unit,
-                    period_start=data.period_start,
-                    period_end=data.period_end,
-                    frame=data.frame,
-                    qtrs=data.qtrs,
-                    value=value,
-                )
-                if existing is not None:
-                    existing.fetched_at = fetched_at
-                    unchanged += 1
-                    continue
-
-                if data.accession_number not in filing_cache:
-                    filing_cache[data.accession_number] = (
-                        self.filing_repo.get_by_accession(data.accession_number)
+                    raise DataValidationError(
+                        "SEC provider returned an invalid XBRL fact object."
                     )
-                filing = filing_cache[data.accession_number]
                 identity_hash = build_sec_xbrl_fact_identity_hash(
                     company_id=company.id,
                     accession_number=data.accession_number,
@@ -113,8 +90,33 @@ class SECXBRLFactService:
                     period_end=data.period_end,
                     frame=data.frame,
                     qtrs=data.qtrs,
-                    value=value,
+                    value=data.value,
                 )
+                prepared[identity_hash] = data
+
+            existing_by_hash = self.fact_repo.get_by_identity_hashes(set(prepared))
+            accessions = {data.accession_number for data in prepared.values()}
+            filings_by_accession = self.filing_repo.get_by_accessions(accessions)
+
+            created = unchanged = 0
+            for identity_hash, data in prepared.items():
+                existing = existing_by_hash.get(identity_hash)
+                filing = filings_by_accession.get(data.accession_number)
+                accepted_at = (
+                    filing.acceptance_datetime
+                    if filing is not None
+                    else data.accepted_at
+                )
+
+                if existing is not None:
+                    if filing is not None and existing.filing_id != filing.id:
+                        existing.filing_id = filing.id
+                    if accepted_at is not None and existing.accepted_at != accepted_at:
+                        existing.accepted_at = accepted_at
+                    existing.fetched_at = fetched_at
+                    unchanged += 1
+                    continue
+
                 self.fact_repo.create(
                     identity_hash=identity_hash,
                     company_id=company.id,
@@ -123,15 +125,11 @@ class SECXBRLFactService:
                     taxonomy=data.taxonomy,
                     concept=data.concept,
                     unit=data.unit,
-                    value=value,
+                    value=data.value,
                     period_start=data.period_start,
                     period_end=data.period_end,
                     filed_at=data.filed_at,
-                    accepted_at=(
-                        filing.acceptance_datetime
-                        if filing is not None
-                        else data.accepted_at
-                    ),
+                    accepted_at=accepted_at,
                     form=data.form,
                     fiscal_year=data.fiscal_year,
                     fiscal_period=data.fiscal_period,
@@ -148,7 +146,7 @@ class SECXBRLFactService:
             return SECXBRLFactSyncResult(
                 created=created,
                 unchanged=unchanged,
-                records_processed=records_processed,
+                records_processed=len(prepared),
             )
         except Exception:
             self.db.rollback()

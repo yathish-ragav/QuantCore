@@ -53,6 +53,8 @@ def make_service():
     service.provider.SOURCE = "SEC"
     service.security_repo = Mock()
     service.filing_repo = Mock()
+    service.filing_repo.get_by_accessions.return_value = {}
+    service.filing_repo.get_events_by_identity.return_value = set()
     return service, db
 
 
@@ -72,11 +74,9 @@ def test_sync_filings_creates_filing_and_event():
     company = make_company()
     service.security_repo.get_by_symbol.return_value = make_security(company)
     service.provider.get_sec_filings.return_value = [make_filing()]
-    service.filing_repo.get_by_accession.return_value = None
     created = Mock()
     created.id = 100
     service.filing_repo.create.return_value = created
-    service.filing_repo.get_event.return_value = None
 
     result = service.sync_filings("AAPL")
 
@@ -101,11 +101,9 @@ def test_sync_filings_creates_amendment_event():
     company = make_company()
     service.security_repo.get_by_symbol.return_value = make_security(company)
     service.provider.get_sec_filings.return_value = [make_filing(amendment=True)]
-    service.filing_repo.get_by_accession.return_value = None
     created = Mock()
     created.id = 101
     service.filing_repo.create.return_value = created
-    service.filing_repo.get_event.return_value = None
 
     service.sync_filings("AAPL")
 
@@ -132,8 +130,8 @@ def test_sync_filings_is_idempotent_for_existing_filing_and_event():
     existing.source_reference = incoming.accession_number
     service.security_repo.get_by_symbol.return_value = make_security(company)
     service.provider.get_sec_filings.return_value = [incoming]
-    service.filing_repo.get_by_accession.return_value = existing
-    service.filing_repo.get_event.return_value = Mock()
+    service.filing_repo.get_by_accessions.return_value = {incoming.accession_number: existing}
+    service.filing_repo.get_events_by_identity.return_value = {(100, FilingEventType.FILED, incoming.acceptance_datetime)}
 
     result = service.sync_filings("AAPL")
 
@@ -163,10 +161,12 @@ def test_sync_filings_counts_updated_metadata_and_new_event():
         setattr(existing, field, None)
     existing.source = DataSource.SEC
     existing.source_reference = "old"
+    incoming = make_filing()
     service.security_repo.get_by_symbol.return_value = make_security(company)
-    service.provider.get_sec_filings.return_value = [make_filing()]
-    service.filing_repo.get_by_accession.return_value = existing
-    service.filing_repo.get_event.return_value = None
+    service.provider.get_sec_filings.return_value = [incoming]
+    service.filing_repo.get_by_accessions.return_value = {
+        incoming.accession_number: existing
+    }
 
     result = service.sync_filings("AAPL")
 

@@ -19,6 +19,25 @@ class SECFilingRepository:
             )
         )
 
+    def get_by_accessions(
+        self,
+        accession_numbers: set[str] | list[str],
+    ) -> dict[str, SECFiling]:
+        accessions = {value for value in accession_numbers if value}
+        if not accessions:
+            return {}
+        rows = []
+        values = list(accessions)
+        for start in range(0, len(values), 1000):
+            rows.extend(
+                self.db.scalars(
+                    select(SECFiling).where(
+                        SECFiling.accession_number.in_(values[start : start + 1000])
+                    )
+                ).all()
+            )
+        return {row.accession_number: row for row in rows}
+
     def get_for_company(
         self,
         company_id: int,
@@ -49,6 +68,18 @@ class SECFilingRepository:
         filing = SECFiling(**kwargs)
         self.db.add(filing)
         return filing
+
+    def get_events_by_identity(
+        self,
+        filing_ids: set[int] | list[int],
+    ) -> set[tuple[int, FilingEventType, object]]:
+        ids = {value for value in filing_ids if value is not None}
+        if not ids:
+            return set()
+        rows = self.db.scalars(
+            select(FilingEvent).where(FilingEvent.filing_id.in_(ids))
+        ).all()
+        return {(row.filing_id, row.event_type, row.occurred_at) for row in rows}
 
     def get_event(
         self,

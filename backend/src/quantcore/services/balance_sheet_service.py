@@ -19,6 +19,7 @@ from quantcore.repositories.balance_sheet_repository import (
     BalanceSheetRepository,
 )
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.financial_statement_revision_repository import (
     FinancialStatementRevisionRepository,
 )
@@ -26,6 +27,7 @@ from quantcore.services.financial_statement_revision import (
     FinancialStatementSyncResult,
     apply_statement_data,
     create_revision,
+    cached_statement_known_at,
     get_statements_as_of,
     statement_changed,
 )
@@ -38,6 +40,7 @@ class BalanceSheetService:
         self.security_repo = SecurityRepository(db)
         self.statement_repo = BalanceSheetRepository(db)
         self.revision_repo = FinancialStatementRevisionRepository(db)
+        self.filing_repo = SECFilingRepository(db)
 
     def get_company_for_symbol(self, symbol: str):
         symbol = DataCleaner.clean_symbol(symbol)
@@ -105,6 +108,8 @@ class BalanceSheetService:
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)
 
+            filing_known_at_cache = {}
+
             for data in statements:
 
                 existing = self.statement_repo.get_by_company_and_date(
@@ -152,7 +157,13 @@ class BalanceSheetService:
                         statement,
                         FinancialStatementType.BALANCE_SHEET,
                         source,
-                        fetched_at,
+                        cached_statement_known_at(
+                            statement,
+                            source=source,
+                            fetched_at=fetched_at,
+                            filing_repo=self.filing_repo,
+                            cache=filing_known_at_cache,
+                        ),
                     )
                     created += 1
                     continue
@@ -169,7 +180,13 @@ class BalanceSheetService:
                     existing,
                     FinancialStatementType.BALANCE_SHEET,
                     source,
-                    fetched_at,
+                    cached_statement_known_at(
+                        existing,
+                        source=source,
+                        fetched_at=fetched_at,
+                        filing_repo=self.filing_repo,
+                        cache=filing_known_at_cache,
+                    ),
                 )
                 updated += 1
 

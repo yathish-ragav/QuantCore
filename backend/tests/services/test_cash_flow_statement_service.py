@@ -68,6 +68,7 @@ def make_service():
     service.security_repo = Mock()
     service.statement_repo = Mock()
     service.revision_repo = Mock()
+    service.filing_repo = Mock()
 
     return service, db
 

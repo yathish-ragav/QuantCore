@@ -259,6 +259,14 @@ balance-sheet observations as `INSTANT`. FMP observations retain the same
 canonical period model while only persisting filing fields when FMP supplies
 them.
 
+For SEC-derived normalized financial statements, revision `known_at` is tied to
+the corresponding SEC filing acceptance timestamp when the accession resolves
+to an ingested filing. It therefore represents when the reported observation
+was publicly accepted by EDGAR rather than when QuantCore happened to fetch it.
+If SEC filing metadata is unavailable, fetch time is retained as a conservative
+fallback. This distinction is required for point-in-time research and
+backtesting.
+
 The uniqueness boundary is now `(company_id, fiscal_date, period_type)`,
 which allows an annual and quarterly observation to coexist for the same
 period-end date. Filing-revision history is intentionally not yet an event

@@ -40,6 +40,27 @@ class SECXBRLFactRepository:
             )
         )
 
+    def get_by_identity_hashes(
+        self,
+        identity_hashes: set[str] | list[str],
+    ) -> dict[str, SECXBRLFactObservation]:
+        hashes = {value for value in identity_hashes if value}
+        if not hashes:
+            return {}
+        rows = []
+        values = list(hashes)
+        for start in range(0, len(values), 1000):
+            rows.extend(
+                self.db.scalars(
+                    select(SECXBRLFactObservation).where(
+                        SECXBRLFactObservation.identity_hash.in_(
+                            values[start : start + 1000]
+                        )
+                    )
+                ).all()
+            )
+        return {row.identity_hash: row for row in rows}
+
     def get_for_company(
         self,
         company_id: int,
