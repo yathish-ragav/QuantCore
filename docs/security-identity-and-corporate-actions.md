@@ -27,6 +27,14 @@ symbol. Such a transition requires authoritative identity-event evidence (for ex
 corporate action or an equivalent authoritative identifier history). Until that evidence exists, the old and new
 security records remain distinct rather than being merged heuristically.
 
+`SecurityIdentityTransitionService` is the explicit application boundary for an authoritative ticker/exchange
+transition. It consumes an immutable `CorporateActionRevision`, requires SEC provenance and a source reference,
+validates the old identity against the current `Security`, closes the old effective interval, creates the new
+interval, and updates the same `Security` row to the new current symbol/exchange. It never merges into another
+`Security` when the target identity is already owned. The service does not commit its transaction so the caller can
+atomically persist the authoritative event and the identity transition. Future-dated transitions are rejected by
+this service because `Security.symbol` and `Security.exchange` represent the currently effective identity.
+
 ## Corporate actions
 
 Corporate actions are normalized as security-level events. In addition to dividends and stock splits, the

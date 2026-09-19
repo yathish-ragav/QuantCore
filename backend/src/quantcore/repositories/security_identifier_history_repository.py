@@ -91,6 +91,32 @@ class SecurityIdentifierHistoryRepository:
                 if effective_to > row.effective_from:
                     row.effective_to = effective_to
 
+    def close_current(
+        self,
+        security_id: int,
+        symbol: str,
+        exchange: str,
+        *,
+        effective_to: date,
+    ) -> SecurityIdentifierHistory:
+        """Close exactly one current listing interval.
+
+        Identity transitions must not accidentally close another current
+        listing if a security temporarily has more than one provider-visible
+        listing. The effective end is exclusive.
+        """
+        history = self.get_current(security_id, symbol, exchange)
+        if history is None:
+            raise ValueError(
+                f"Current identifier '{symbol}' on '{exchange}' not found for security {security_id}."
+            )
+        if effective_to <= history.effective_from:
+            raise ValueError("effective_to must be after effective_from")
+
+        history.is_current = False
+        history.effective_to = effective_to
+        return history
+
     def mark_not_current(
         self,
         security_id: int,
