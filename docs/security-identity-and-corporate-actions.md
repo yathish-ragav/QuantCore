@@ -19,6 +19,13 @@ A mapping learned after the research cutoff must not leak into an earlier snapsh
 
 The security universe sync closes effective listing intervals when a ticker/exchange association disappears.
 If the same listing later returns, a new effective interval is created instead of overwriting the old history.
+A repeated observation of an already-known listing updates operational observation timestamps only; it must not
+move `known_at` forward, because `known_at` is the bitemporal knowledge boundary used by historical research.
+
+A ticker/exchange change is not inferred merely because the SEC snapshot shows the same CIK under a different
+symbol. Such a transition requires authoritative identity-event evidence (for example, a documented ticker-change
+corporate action or an equivalent authoritative identifier history). Until that evidence exists, the old and new
+security records remain distinct rather than being merged heuristically.
 
 ## Corporate actions
 

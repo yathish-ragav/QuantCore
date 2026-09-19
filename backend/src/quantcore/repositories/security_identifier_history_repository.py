@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from quantcore.models.security_identifier_history import SecurityIdentifierHistory
@@ -65,9 +65,11 @@ class SecurityIdentifierHistoryRepository:
             self.db.add(history)
             return history
 
-        history.last_seen_at = observed_at
-        history.source = source
-        history.source_reference = source_reference
+        # `known_at` is the knowledge boundary for this historical revision.
+        # Once the listing is known, later observations must not move that
+        # boundary forward: doing so would make the listing disappear from
+        # valid point-in-time reads before the later observation.
+        history.last_seen_at = max(history.last_seen_at, observed_at)
         history.is_current = True
         return history
 
@@ -119,15 +121,48 @@ class SecurityIdentifierHistoryRepository:
         security_id: int,
         *,
         effective_on: date,
+        known_at: datetime | None = None,
     ) -> list[SecurityIdentifierHistory]:
+        """Return listing revisions visible at an effective/knowledge cutoff.
+
+        When ``known_at`` is supplied, only revisions known by that timestamp
+        are considered and the latest visible revision for each
+        symbol/exchange is selected. This prevents later observations from
+        leaking into historical research snapshots.
+        """
+        conditions = [
+            SecurityIdentifierHistory.security_id == security_id,
+            SecurityIdentifierHistory.effective_from <= effective_on,
+            (SecurityIdentifierHistory.effective_to.is_(None))
+            | (SecurityIdentifierHistory.effective_to > effective_on),
+        ]
+        if known_at is not None:
+            conditions.append(SecurityIdentifierHistory.known_at <= known_at)
+
+        ranked = (
+            select(
+                SecurityIdentifierHistory.id.label("id"),
+                func.row_number()
+                .over(
+                    partition_by=(
+                        SecurityIdentifierHistory.symbol,
+                        SecurityIdentifierHistory.exchange,
+                    ),
+                    order_by=(
+                        SecurityIdentifierHistory.known_at.desc(),
+                        SecurityIdentifierHistory.effective_from.desc(),
+                        SecurityIdentifierHistory.id.desc(),
+                    ),
+                )
+                .label("revision_rank"),
+            )
+            .where(*conditions)
+            .subquery()
+        )
         stmt = (
             select(SecurityIdentifierHistory)
-            .where(
-                SecurityIdentifierHistory.security_id == security_id,
-                SecurityIdentifierHistory.effective_from <= effective_on,
-                (SecurityIdentifierHistory.effective_to.is_(None))
-                | (SecurityIdentifierHistory.effective_to > effective_on),
-            )
+            .join(ranked, ranked.c.id == SecurityIdentifierHistory.id)
+            .where(ranked.c.revision_rank == 1)
             .order_by(SecurityIdentifierHistory.effective_from.desc())
         )
         return list(self.db.scalars(stmt).all())
