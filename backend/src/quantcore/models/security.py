@@ -5,7 +5,7 @@ from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, String, Uni
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
-from quantcore.models.provenance import ProvenanceMixin
+from quantcore.models.provenance import DATA_SOURCE_ENUM, DataSource, ProvenanceMixin
 from quantcore.core.enums import SecurityType
 
 
@@ -61,6 +61,22 @@ class Security(ProvenanceMixin, Base):
         default=SecurityType.UNKNOWN,
         server_default=SecurityType.UNKNOWN.value,
         index=True,
+    )
+
+    security_type_source: Mapped[DataSource | None] = mapped_column(
+        DATA_SOURCE_ENUM,
+        nullable=True,
+        index=True,
+    )
+
+    security_type_fetched_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
+
+    security_type_source_reference: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
     )
 
     status: Mapped[SecurityStatus] = mapped_column(
