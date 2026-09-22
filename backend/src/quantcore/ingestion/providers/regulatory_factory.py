@@ -17,7 +17,8 @@ class RegulatoryProviderFactory:
 
         if provider == "sec":
             return SECProvider(
-                company_facts_cache=SECProvider.cache_for_session(db) if db is not None else None
+                company_facts_cache=SECProvider.cache_for_session(db) if db is not None else None,
+                http_session=SECProvider.http_session_for_session(db) if db is not None else None,
             )
 
         raise ConfigurationError(

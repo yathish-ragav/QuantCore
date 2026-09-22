@@ -151,7 +151,6 @@ class UniverseService:
                     security_id=security.id,
                     except_symbol=universe_company.symbol,
                     except_exchange=universe_company.exchange,
-                    effective_to=fetched_at.date(),
                 )
 
             # The SEC source is a current ticker/exchange association feed.
@@ -167,7 +166,6 @@ class UniverseService:
                     security.status = SecurityStatus.INACTIVE
                     self.identifier_history_repo.mark_all_not_current(
                         security.id,
-                        effective_to=fetched_at.date(),
                     )
 
             self.db.commit()

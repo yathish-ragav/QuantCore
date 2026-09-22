@@ -1,6 +1,7 @@
 from datetime import date
 
 from quantcore.core.enums import CorporateActionType
+from quantcore.models.provenance import DataSource
 from quantcore.models.corporate_action import CorporateAction
 
 
@@ -38,3 +39,24 @@ def test_corporate_action_supports_identity_impacting_fields():
     assert action.old_exchange == "NYSE"
     assert action.new_exchange == "NASDAQ"
     assert action.related_security_id == 2
+
+
+def test_corporate_action_provider_identity_allows_same_date_with_distinct_reference():
+    first = CorporateAction(
+        security_id=1,
+        effective_date=date(2012, 11, 29),
+        action_type=CorporateActionType.DIVIDEND,
+        amount=0.12,
+        source=DataSource.MASSIVE,
+        source_reference="MASSIVE:DIVIDEND:regular",
+    )
+    second = CorporateAction(
+        security_id=1,
+        effective_date=date(2012, 11, 29),
+        action_type=CorporateActionType.DIVIDEND,
+        amount=0.12,
+        source=DataSource.MASSIVE,
+        source_reference="MASSIVE:DIVIDEND:special",
+    )
+
+    assert first.source_reference != second.source_reference

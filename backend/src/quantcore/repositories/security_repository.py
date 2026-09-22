@@ -11,6 +11,10 @@ class SecurityRepository:
     def __init__(self, db: Session):
         self.db = db
 
+    def get_by_id(self, security_id: int) -> Security | None:
+        stmt = select(Security).where(Security.id == security_id)
+        return self.db.scalar(stmt)
+
     def get_by_symbol(
         self,
         symbol: str,

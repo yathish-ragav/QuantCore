@@ -61,6 +61,8 @@ def make_service():
     service.lineage_service = Mock()
     service.retry_policy = IngestionRetryPolicy(max_attempts=1)
     service._sleeper = Mock()
+    service._service_for = Mock()
+    service._service_for.return_value.provider.SOURCE = "FMP"
     return service
 
 
@@ -141,6 +143,30 @@ def test_get_freshness_reports_all_registered_datasets():
     assert all(view.is_fresh is False for view in result)
 
 
+def test_get_freshness_marks_state_stale_when_provider_source_changes():
+    service = make_service()
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+    price_state = make_state(
+        IngestionDataset.PRICE_HISTORY,
+        security_id=security.id,
+        last_success_at=datetime.now(timezone.utc) - timedelta(minutes=30),
+    )
+    service.state_repo.get.side_effect = lambda dataset, **kwargs: (
+        price_state if dataset is IngestionDataset.PRICE_HISTORY else None
+    )
+    service._service_for.return_value.provider.SOURCE = "MASSIVE"
+
+    result = service.get_freshness("aapl")
+
+    price_view = next(
+        view for view in result if view.dataset is IngestionDataset.PRICE_HISTORY
+    )
+    assert price_view.last_success_source == "FMP"
+    assert price_view.is_fresh is False
+    assert service._service_for.call_count == 1
+
+
 def test_get_freshness_unknown_symbol_returns_empty():
     service = make_service()
     service.db.scalars.return_value.all.return_value = []
@@ -180,7 +206,7 @@ def test_sync_market_deduplicates_company_scoped_work():
 
     assert result[0].attempted == 1
     assert result[0].succeeded == 1
-    fake_dataset_service.sync_balance_sheets.assert_called_once_with("AAPL")
+    fake_dataset_service.sync_balance_sheets.assert_called_once_with("AAPL", commit=False)
     service.state_repo.finish_run.assert_called_once()
     service.lineage_service.record_success.assert_called_once()
     lineage_kwargs = service.lineage_service.record_success.call_args.kwargs
@@ -385,7 +411,7 @@ def test_sync_market_supports_sec_xbrl_fact_dataset():
     assert result[0].dataset is IngestionDataset.SEC_XBRL_FACTS
     assert result[0].attempted == 1
     assert result[0].succeeded == 1
-    fake_service.sync_facts.assert_called_once_with("AAPL")
+    fake_service.sync_facts.assert_called_once_with("AAPL", commit=False)
 
 
 def test_idempotency_fingerprint_is_deterministic():
@@ -619,9 +645,17 @@ def test_sync_market_processes_companyfacts_datasets_issuer_first_without_provid
     assert [call.args for call in income_service.sync_income_statements.call_args_list] == [
         ("AAPL",), ("MSFT",)
     ]
+    assert all(
+        call.kwargs == {"commit": False}
+        for call in income_service.sync_income_statements.call_args_list
+    )
     assert [call.args for call in balance_service.sync_balance_sheets.call_args_list] == [
         ("AAPL",), ("MSFT",)
     ]
+    assert all(
+        call.kwargs == {"commit": False}
+        for call in balance_service.sync_balance_sheets.call_args_list
+    )
     assert income_service.provider is not balance_service.provider
 
 def test_recover_stale_runs_marks_old_running_runs_failed():

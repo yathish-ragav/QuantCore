@@ -174,9 +174,16 @@ class CompanyService:
             source = DataSource(self.client.SOURCE)
             fetched_at = datetime.now(timezone.utc)
 
-            if data.security_type is not None and data.security_type is not SecurityType.UNKNOWN:
+            if (
+                data.security_type is not None
+                and data.security_type is not SecurityType.UNKNOWN
+            ):
                 security.security_type = data.security_type
-
+                security.security_type_source = source
+                security.security_type_fetched_at = fetched_at
+                security.security_type_source_reference = (
+                    f"{source.value}:TICKER:{symbol}:{company.cik}"
+                )
 
             incoming_fields = {
                 CompanyField.NAME: data.name,

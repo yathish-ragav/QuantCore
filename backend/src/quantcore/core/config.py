@@ -14,6 +14,11 @@ class Settings(BaseSettings):
     FMP_API_KEY: str = ""
     FRED_API_KEY: str = ""
     MASSIVE_API_KEY: str = ""
+    # Massive Stocks Basic allows 5 API calls/minute. Keep ingestion and
+    # reference-data requests below that account-level limit by default.
+    # Paid plans can override these explicitly without a code change.
+    MASSIVE_REQUEST_INTERVAL_SECONDS: float = 12.5
+    MASSIVE_REFERENCE_REQUEST_INTERVAL_SECONDS: float = 12.5
     SEC_USER_AGENT: str = "QuantCore/1.0 contact: yathishragav@gmail.com"
     PRODUCTION_DATA_POLICY_ENFORCED: bool = True
 

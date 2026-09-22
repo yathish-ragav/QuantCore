@@ -85,9 +85,85 @@ python ../scripts/bootstrap_production_data.py   --limit 25   --datasets company
 
 After the pilot passes data-quality review, increase the limit in controlled batches.
 
+### Ingestion throughput validation
+
+Before declaring the production data platform scale-ready, QuantCore uses the
+repository-provided `scripts/benchmark_ingestion.py` harness to measure the
+current implementation rather than relying on estimated throughput. The
+harness records elapsed time, per-dataset execution time, SQL statement count
+and statement classes, transaction commits/rollbacks, HTTP request counts,
+SEC CompanyFacts request count, provider HTTP time, and peak process RSS.
+
+The financial/SEC hot path should be measured in this order:
+
+```text
+AAPL -> 25 -> 100 -> 500 active securities
+```
+
+The same dataset selection and environment should be retained across cohort
+runs. A benchmark result is evidence for that exact software commit, database
+state, provider configuration, cohort, and run mode; it must not be generalized
+into a universal latency or coverage claim. Record the JSON output alongside
+the commit identifier when a benchmark becomes a release artifact.
+
+Example for the first controlled cohort:
+
+```bash
+cd ~/Developer/QuantCore/backend
+source .venv/bin/activate
+uv run python ../scripts/benchmark_ingestion.py \
+  --datasets income_statement balance_sheet cash_flow_statement sec_xbrl_facts \
+  --limit 25 \
+  --all \
+  --output ../data/benchmarks/financial-ingestion-25.json
+```
+
+Do not move to a larger cohort after a failed or materially inconsistent run.
+Investigate correctness, failure isolation, SEC request behavior, database
+transaction cost, and idempotent rerun behavior first.
+
 Do not use the script to ingest an index such as the S&P 500 from a public webpage.
 Index membership remains behind the licensed index-data ingestion contract created
 in Phase IX.
+
+
+
+## Controlled production cohort selection
+
+The production-data validation ladder uses an explicit, deterministic cohort rather
+than the first `N` active security rows. A cohort member must be:
+
+- `ACTIVE` in the QuantCore security master,
+- classified as `COMMON_STOCK`, and
+- classified by the provider-owned Massive classification source.
+
+Membership is ordered by durable `security.id`, and the selected
+`(security_id, symbol, exchange)` tuples receive a SHA-256 fingerprint. The
+fingerprint and symbols are recorded in benchmark output so a run can be
+reproduced with the exact same explicit symbols.
+
+The controlled stages are therefore:
+
+```text
+25 -> 100 -> 500 -> 7,669 master population
+```
+
+The first three stages are **production-data cohorts**, not security-master
+counts. The final 7,669 stage is the broad current SEC security-master
+population; the research-active subset is determined by instrument
+classification, data coverage, and capability-specific readiness.
+
+Use the cohort selector for benchmark/bootstrap runs:
+
+```bash
+cd ~/Developer/QuantCore/backend
+
+uv run python ../scripts/benchmark_ingestion.py   --datasets income_statement balance_sheet cash_flow_statement sec_xbrl_facts   --cohort-size 25   --all   --output ../data/benchmarks/financial-ingestion-cohort-25.json
+```
+
+A cohort request fails closed when the requested number of classified common
+stocks is unavailable. Do not replace this with an arbitrary `--limit`; that
+would mix instrument types and make the 25/100/500 progression incomparable.
 
 
 ## Legacy company enrichment provenance

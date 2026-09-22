@@ -69,3 +69,7 @@ def test_get_latest_for_company_as_of_timestamp_uses_exact_timestamp_boundary():
 
     assert len(result) == 1
     db.scalars.assert_called_once()
+    statement = db.scalars.call_args.args[0]
+    sql = str(statement)
+    assert "sec_xbrl_fact_observations.accepted_at IS NOT NULL" in sql
+    assert "sec_xbrl_fact_observations.filed_at <=" not in sql

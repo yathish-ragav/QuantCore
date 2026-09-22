@@ -5,7 +5,7 @@ import requests
 
 from quantcore.core.enums import CorporateActionType
 from quantcore.core.exceptions import ExternalDataError, RateLimitError
-from quantcore.ingestion.providers.massive import MassiveClient
+from quantcore.ingestion.providers.massive import MassiveClient, MassiveRequestLimiter
 
 
 @pytest.fixture
@@ -13,6 +13,9 @@ def client():
     with patch(
         "quantcore.ingestion.providers.massive.settings.MASSIVE_API_KEY",
         "test-key",
+    ), patch(
+        "quantcore.ingestion.providers.massive.settings.MASSIVE_REQUEST_INTERVAL_SECONDS",
+        0.0,
     ):
         return MassiveClient()
 
@@ -261,6 +264,47 @@ def test_massive_http_error_boundary(client):
     ):
         with pytest.raises(Exception, match="Massive market-data request failed"):
             client.get_company_info("AAPL")
+
+
+def test_massive_request_limiter_paces_requests_across_clients(monkeypatch):
+    sleeps = []
+    now = [0.0]
+
+    def sleep(seconds):
+        sleeps.append(seconds)
+        now[0] += seconds
+
+    limiter = MassiveRequestLimiter(
+        12.5,
+        sleep_fn=sleep,
+        monotonic_fn=lambda: now[0],
+    )
+
+    with patch(
+        "quantcore.ingestion.providers.massive.settings.MASSIVE_API_KEY",
+        "test-key",
+    ):
+        first = MassiveClient(request_limiter=limiter)
+        second = MassiveClient(request_limiter=limiter)
+
+    response = Mock(status_code=200, json=lambda: {"status": "OK", "results": {}})
+    with patch(
+        "quantcore.ingestion.providers.massive.requests.get",
+        return_value=response,
+    ) as get:
+        first._get("/v3/reference/tickers/AAPL")
+        second._get("/v3/reference/tickers/MSFT")
+
+    assert sleeps == [12.5]
+    assert get.call_count == 2
+
+
+def test_massive_request_limiter_rejects_negative_interval():
+    with pytest.raises(
+        Exception,
+        match="MASSIVE_REQUEST_INTERVAL_SECONDS cannot be negative",
+    ):
+        MassiveRequestLimiter(-0.1)
 
 
 def test_massive_http_429_raises_rate_limit_error_with_retry_after(client):

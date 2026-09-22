@@ -14,6 +14,7 @@ def make_service():
     service.provider = Mock()
     service.provider.SOURCE = "SEC"
     service.security_repo = Mock()
+    service.listing_identity_service = Mock()
     service.filing_repo = Mock()
     service.fact_repo = Mock()
     service.fact_repo.get_by_identity_hashes.return_value = {}
@@ -69,6 +70,19 @@ def test_sync_facts_creates_and_keeps_accession_revision_identity():
     assert first_kwargs["source"] is DataSource.SEC
     db.commit.assert_called_once()
     service.filing_repo.get_by_accessions.assert_called_once()
+
+
+def test_sync_facts_can_defer_commit_to_orchestrator():
+    service, db = make_service()
+    security, company = make_security_and_company()
+    service.security_repo.get_by_symbol.return_value = security
+    incoming = make_fact("0000320193-24-000123", "100")
+    service.provider.get_sec_xbrl_fact_observations.return_value = [incoming]
+
+    result = service.sync_facts("AAPL", commit=False)
+
+    assert result == SECXBRLFactSyncResult(created=1, unchanged=0, records_processed=1)
+    db.commit.assert_not_called()
 
 
 def test_sync_facts_is_idempotent():
@@ -138,13 +152,17 @@ def test_sync_facts_rolls_back_on_provider_error():
 def test_get_facts_as_of_timestamp_uses_timestamp_pit_repository():
     service, _ = make_service()
     security, company = make_security_and_company()
-    service.security_repo.get_by_symbol.return_value = security
+    service.listing_identity_service.resolve_company_as_of.return_value = company
     service.fact_repo.get_latest_for_company_as_of_timestamp.return_value = ["fact"]
 
     as_of = datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc)
     result = service.get_facts_as_of_timestamp("AAPL", as_of)
 
     assert result == ["fact"]
+    service.listing_identity_service.resolve_company_as_of.assert_called_once_with(
+        "AAPL",
+        as_of=as_of,
+    )
     service.fact_repo.get_latest_for_company_as_of_timestamp.assert_called_once_with(
         company.id,
         as_of,

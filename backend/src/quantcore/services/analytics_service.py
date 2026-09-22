@@ -49,12 +49,14 @@ from quantcore.repositories.price_observation_revision_repository import (
 )
 from quantcore.repositories.price_repository import PriceRepository
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 
 
 class AnalyticsService:
 
     def __init__(self, db: Session):
         self.security_repo = SecurityRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
         self.price_repo = PriceRepository(db)
         self.revision_repo = PriceObservationRevisionRepository(db)
 
@@ -71,22 +73,24 @@ class AnalyticsService:
                 "Symbol must not be empty."
             )
 
-        security = self.security_repo.get_by_symbol(
-            symbol
-        )
-
-        if security is None:
-            raise ResourceNotFoundError(
-                f"Security '{symbol}' not found."
-            )
-
         if as_of is None:
-            return self.price_repo.get_for_security(
-                security.id
-            )
+            security = self.security_repo.get_by_symbol(symbol)
+            if security is None:
+                raise ResourceNotFoundError(
+                    f"Security '{symbol}' not found."
+                )
+            return self.price_repo.get_for_security(security.id)
 
         if as_of.tzinfo is None:
             as_of = as_of.replace(tzinfo=timezone.utc)
+        if as_of > datetime.now(timezone.utc):
+            raise InvalidInputError("As-of timestamp must not be in the future.")
+
+        security = self.listing_identity_service.resolve_as_of(
+            symbol,
+            effective_on=as_of.date(),
+            known_at=as_of,
+        ).security
 
         return self.revision_repo.get_latest_for_security_as_of(
             security.id,

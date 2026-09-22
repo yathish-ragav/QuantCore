@@ -158,25 +158,27 @@ class SecurityIdentityTransitionService:
                 "Target identifier already exists with incompatible transition metadata."
             )
 
-        if old_symbol != security.symbol or old_exchange != security.exchange:
-            raise DataValidationError(
-                "Security identity transition is stale: its old identity does not "
-                "match the security's current identity."
-            )
-
-        current = self.identifier_history_repo.get_current(
+        visible_rows = self.identifier_history_repo.get_for_security_as_of(
             security.id,
-            old_symbol,
-            old_exchange,
+            effective_on=revision.effective_date,
+            known_at=revision.known_at,
+        )
+        current = next(
+            (
+                row
+                for row in visible_rows
+                if row.symbol == old_symbol and row.exchange == old_exchange
+            ),
+            None,
         )
         if current is None:
             raise DataValidationError(
-                "Security identity transition requires a current identifier-history "
-                "row matching the old security identity."
+                "Security identity transition requires an identifier-history row "
+                "matching the old identity at the event's effective/known boundary."
             )
         if revision.effective_date <= current.effective_from:
             raise DataValidationError(
-                "Transition effective_date must be after the current identifier's effective_from."
+                "Transition effective_date must be after the old identifier's effective_from."
             )
 
         conflicting = self.security_repo.get_by_company_symbol_exchange(
@@ -190,11 +192,12 @@ class SecurityIdentityTransitionService:
                 "identity transitions never merge securities implicitly."
             )
 
-        self.identifier_history_repo.close_current(
-            security.id,
-            old_symbol,
-            old_exchange,
+        self.identifier_history_repo.revise_interval_with_effective_to(
+            current,
             effective_to=revision.effective_date,
+            known_at=revision.known_at,
+            source=revision.source.value if hasattr(revision.source, "value") else str(revision.source),
+            source_reference=revision.source_reference,
         )
 
         from quantcore.models.security_identifier_history import SecurityIdentifierHistory
@@ -215,8 +218,18 @@ class SecurityIdentityTransitionService:
             )
         )
 
-        security.symbol = new_symbol
-        security.exchange = new_exchange
+        # A backdated transition can be learned after a later identity is
+        # already current. Only move the mutable current Security identity when
+        # this transition is at least as recent as the currently-effective
+        # listing; otherwise preserve the later current identity.
+        current_identity = self.identifier_history_repo.get_current(
+            security.id,
+            security.symbol,
+            security.exchange,
+        )
+        if current_identity is None or current_identity.effective_from <= revision.effective_date:
+            security.symbol = new_symbol
+            security.exchange = new_exchange
 
         return SecurityIdentityTransitionResult(
             security_id=security.id,

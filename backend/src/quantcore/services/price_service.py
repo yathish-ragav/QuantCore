@@ -18,6 +18,7 @@ from quantcore.repositories.price_observation_revision_repository import (
 )
 from quantcore.repositories.price_repository import PriceRepository
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 
 
 @dataclass(frozen=True)
@@ -40,6 +41,7 @@ class PriceService:
         self.client = ProviderFactory.get_provider()
 
         self.security_repo = SecurityRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
         self.price_repo = PriceRepository(db)
         self.revision_repo = PriceObservationRevisionRepository(db)
 
@@ -268,11 +270,12 @@ class PriceService:
         as_of: datetime,
     ):
         """Return all price revisions known by ``as_of`` for PIT backtest valuation."""
-        security = self.get_security(symbol)
         if not isinstance(as_of, datetime):
             raise InvalidInputError("Price revision as_of must be a datetime.")
-        if as_of.tzinfo is None:
-            as_of = as_of.replace(tzinfo=timezone.utc)
+        security = self.listing_identity_service.resolve_security_as_of(
+            symbol,
+            as_of=as_of,
+        )
 
         return self.revision_repo.get_revisions_for_security_known_as_of(
             security.id,
@@ -284,9 +287,10 @@ class PriceService:
         symbol: str,
         as_of: datetime,
     ):
-        security = self.get_security(symbol)
-        if as_of.tzinfo is None:
-            as_of = as_of.replace(tzinfo=timezone.utc)
+        security = self.listing_identity_service.resolve_security_as_of(
+            symbol,
+            as_of=as_of,
+        )
 
         return self.revision_repo.get_latest_for_security_as_of(
             security.id,

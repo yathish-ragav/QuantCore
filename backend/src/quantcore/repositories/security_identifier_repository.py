@@ -41,6 +41,10 @@ class SecurityIdentifierRepository:
         effective_on: date,
         known_at: datetime,
     ) -> list[SecurityIdentifier]:
+        # Select the latest known revision of each effective interval first.
+        # A later-known correction may backdate ``valid_to``; applying the
+        # effective-date predicate inside the ranking query would discard that
+        # correction and leak the older open-ended mapping into PIT reads.
         ranked = (
             select(
                 SecurityIdentifier.id.label("identifier_id"),
@@ -48,19 +52,16 @@ class SecurityIdentifierRepository:
                     partition_by=(
                         SecurityIdentifier.identifier_type,
                         SecurityIdentifier.namespace,
+                        SecurityIdentifier.valid_from,
                     ),
                     order_by=(
                         SecurityIdentifier.known_at.desc(),
-                        SecurityIdentifier.valid_from.desc(),
                         SecurityIdentifier.id.desc(),
                     ),
                 ).label("revision_rank"),
             )
             .where(
                 SecurityIdentifier.security_id == security_id,
-                SecurityIdentifier.valid_from <= effective_on,
-                (SecurityIdentifier.valid_to.is_(None))
-                | (SecurityIdentifier.valid_to > effective_on),
                 SecurityIdentifier.known_at <= known_at,
             )
             .subquery()
@@ -68,7 +69,12 @@ class SecurityIdentifierRepository:
         stmt = (
             select(SecurityIdentifier)
             .join(ranked, SecurityIdentifier.id == ranked.c.identifier_id)
-            .where(ranked.c.revision_rank == 1)
+            .where(
+                ranked.c.revision_rank == 1,
+                SecurityIdentifier.valid_from <= effective_on,
+                (SecurityIdentifier.valid_to.is_(None))
+                | (SecurityIdentifier.valid_to > effective_on),
+            )
             .order_by(SecurityIdentifier.identifier_type.asc())
         )
         return list(self.db.scalars(stmt).all())
@@ -82,16 +88,39 @@ class SecurityIdentifierRepository:
         effective_on: date,
         known_at: datetime,
     ) -> SecurityIdentifier | None:
+        # The effective interval is evaluated only after selecting the latest
+        # known revision for the requested identifier value/interval.
+        ranked = (
+            select(
+                SecurityIdentifier.id.label("identifier_id"),
+                func.row_number().over(
+                    partition_by=(
+                        SecurityIdentifier.security_id,
+                        SecurityIdentifier.valid_from,
+                    ),
+                    order_by=(
+                        SecurityIdentifier.known_at.desc(),
+                        SecurityIdentifier.id.desc(),
+                    ),
+                ).label("revision_rank"),
+            )
+            .where(
+                SecurityIdentifier.identifier_type == identifier_type.value,
+                SecurityIdentifier.namespace == namespace,
+                SecurityIdentifier.value == value,
+                SecurityIdentifier.known_at <= known_at,
+            )
+            .subquery()
+        )
         candidates = list(
             self.db.scalars(
-                select(SecurityIdentifier).where(
-                    SecurityIdentifier.identifier_type == identifier_type.value,
-                    SecurityIdentifier.namespace == namespace,
-                    SecurityIdentifier.value == value,
+                select(SecurityIdentifier)
+                .join(ranked, SecurityIdentifier.id == ranked.c.identifier_id)
+                .where(
+                    ranked.c.revision_rank == 1,
                     SecurityIdentifier.valid_from <= effective_on,
                     (SecurityIdentifier.valid_to.is_(None))
                     | (SecurityIdentifier.valid_to > effective_on),
-                    SecurityIdentifier.known_at <= known_at,
                 )
             ).all()
         )

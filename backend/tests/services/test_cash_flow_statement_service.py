@@ -1,5 +1,5 @@
 from datetime import date, datetime, timezone
-from unittest.mock import Mock
+from unittest.mock import ANY, Mock
 
 import pytest
 
@@ -66,6 +66,7 @@ def make_service():
     service.provider = Mock()
     service.provider.SOURCE = "FMP"
     service.security_repo = Mock()
+    service.listing_identity_service = Mock()
     service.statement_repo = Mock()
     service.revision_repo = Mock()
     service.filing_repo = Mock()
@@ -345,7 +346,7 @@ def test_sync_cash_flow_statements_rejects_empty_symbol():
 def test_get_cash_flow_statements_supports_as_of():
     service, _ = make_service()
     company = make_company()
-    service.security_repo.get_by_symbol.return_value = make_security(company)
+    service.listing_identity_service.resolve_company_as_of.return_value = company
     revision = Mock()
     service.revision_repo.get_latest_for_company_as_of.return_value = [revision]
 
@@ -355,6 +356,10 @@ def test_get_cash_flow_statements_supports_as_of():
     )
 
     assert result == [revision]
+    service.listing_identity_service.resolve_company_as_of.assert_called_once_with(
+        "AAPL",
+        as_of=ANY,
+    )
     service.revision_repo.get_latest_for_company_as_of.assert_called_once()
 
 
@@ -380,3 +385,18 @@ def test_sync_cash_flow_statements_updates_changed_observation_and_creates_revis
     assert existing.operating_cash_flow == 1000.0
     service.revision_repo.create.assert_called_once()
     db.commit.assert_called_once()
+
+def test_sync_cash_flow_statements_can_defer_commit():
+    service, db = make_service()
+    company = make_company()
+    service.security_repo.get_by_symbol.return_value = make_security(company)
+    service.provider.get_cash_flow_statements.return_value = []
+    service.statement_repo.get_for_company.return_value = []
+
+    result = service.sync_cash_flow_statements("AAPL", commit=False)
+
+    assert result.records_processed == 0
+    db.commit.assert_not_called()
+    db.rollback.assert_not_called()
+
+

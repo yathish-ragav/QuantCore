@@ -1,9 +1,25 @@
 from dataclasses import dataclass
+import hashlib
+import json
 from datetime import date, datetime, timezone
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.repositories.research_universe_repository import ResearchUniverseRepository
+
+
+@dataclass(frozen=True)
+class ResearchCohort:
+    """Deterministic current cohort used for controlled production validation."""
+
+    security_ids: tuple[int, ...]
+    symbols: tuple[str, ...]
+    fingerprint: str
+    selection: str
+
+    @property
+    def size(self) -> int:
+        return len(self.security_ids)
 
 
 @dataclass(frozen=True)
@@ -24,6 +40,44 @@ class ResearchUniverseService:
 
     def __init__(self, db):
         self.repository = ResearchUniverseRepository(db)
+
+    def current_common_stock_cohort(self, *, size: int) -> ResearchCohort:
+        """Select a deterministic current cohort of classified common stocks.
+
+        This is intentionally separate from research readiness: the cohort is
+        used to bootstrap and benchmark data population before all required
+        datasets have been ingested. Membership requires a provider-owned
+        common-stock classification and an active security listing.
+        """
+        if size <= 0:
+            raise InvalidInputError("Research cohort size must be greater than zero.")
+
+        securities = self.repository.get_current_common_stock_cohort(size=size)
+        if len(securities) != size:
+            raise InvalidInputError(
+                f"Requested research cohort of {size}, but only "
+                f"{len(securities)} currently classified common stocks are available. "
+                "Run the security classification sync and resolve unmatched/unknown "
+                "securities before increasing the cohort."
+            )
+
+        members = tuple(
+            (security.id, security.symbol, security.exchange)
+            for security in securities
+        )
+        fingerprint = hashlib.sha256(
+            json.dumps(
+                members,
+                separators=(",", ":"),
+                ensure_ascii=True,
+            ).encode("utf-8")
+        ).hexdigest()
+        return ResearchCohort(
+            security_ids=tuple(member[0] for member in members),
+            symbols=tuple(member[1] for member in members),
+            fingerprint=fingerprint,
+            selection="CURRENT_CLASSIFIED_COMMON_STOCK_COHORT",
+        )
 
     def current_ready(
         self,

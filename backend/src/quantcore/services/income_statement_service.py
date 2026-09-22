@@ -22,6 +22,7 @@ from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.security_repository import (
     SecurityRepository,
 )
+from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 from quantcore.repositories.financial_statement_revision_repository import (
     FinancialStatementRevisionRepository,
 )
@@ -46,6 +47,7 @@ class IncomeStatementService:
         )
 
         self.security_repo = SecurityRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
 
         self.statement_repo = (
             IncomeStatementRepository(db)
@@ -86,9 +88,13 @@ class IncomeStatementService:
         symbol: str,
         as_of: datetime | None = None,
     ):
-        _, company = self.get_company_for_symbol(
-            symbol
-        )
+        if as_of is None:
+            _, company = self.get_company_for_symbol(symbol)
+        else:
+            company = self.listing_identity_service.resolve_company_as_of(
+                symbol,
+                as_of=as_of,
+            )
 
         if as_of is None:
             return self.statement_repo.get_for_company(
@@ -105,6 +111,8 @@ class IncomeStatementService:
     def sync_income_statements(
         self,
         symbol: str,
+        *,
+        commit: bool = True,
     ) -> FinancialStatementSyncResult:
 
         try:
@@ -273,7 +281,8 @@ class IncomeStatementService:
                         revision_number=next_revision_numbers[statement.id],
                     )
 
-            self.db.commit()
+            if commit:
+                self.db.commit()
 
             return FinancialStatementSyncResult(
                 created=created,

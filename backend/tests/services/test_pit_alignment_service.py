@@ -15,6 +15,7 @@ def make_service():
     service = PITAlignmentService.__new__(PITAlignmentService)
     service.db = Mock()
     service.security_repo = Mock()
+    service.listing_identity_service = Mock()
     service.price_revision_repo = Mock()
     service.financial_revision_repo = Mock()
     service.corporate_action_revision_repo = Mock()
@@ -42,7 +43,7 @@ def make_security():
 
 def test_get_snapshot_uses_one_shared_timestamp_for_all_pit_sources():
     service = make_service()
-    service.security_repo.get_by_symbol.return_value = make_security()
+    service.listing_identity_service.resolve_as_of.return_value = Mock(security=make_security())
 
     service.price_revision_repo.get_latest_for_security_as_of.return_value = [
         "price"
@@ -134,12 +135,12 @@ def test_get_snapshot_rejects_future_timestamp():
             as_of=future,
         )
 
-    service.security_repo.get_by_symbol.assert_not_called()
+    service.listing_identity_service.resolve_as_of.assert_not_called()
 
 
 def test_get_snapshot_requires_existing_security():
     service = make_service()
-    service.security_repo.get_by_symbol.return_value = None
+    service.listing_identity_service.resolve_as_of.side_effect = ResourceNotFoundError("missing")
 
     with pytest.raises(ResourceNotFoundError):
         service.get_snapshot(
@@ -155,7 +156,7 @@ def test_get_snapshot_requires_existing_security():
 
 def test_get_snapshot_interprets_naive_as_of_as_utc():
     service = make_service()
-    service.security_repo.get_by_symbol.return_value = make_security()
+    service.listing_identity_service.resolve_as_of.return_value = Mock(security=make_security())
 
     as_of = datetime(
         2026,
@@ -194,7 +195,7 @@ def test_get_snapshot_interprets_naive_as_of_as_utc():
 
 def test_get_snapshot_rejects_blank_macro_series_id():
     service = make_service()
-    service.security_repo.get_by_symbol.return_value = make_security()
+    service.listing_identity_service.resolve_as_of.return_value = Mock(security=make_security())
 
     with pytest.raises(InvalidInputError):
         service.get_snapshot(
@@ -213,7 +214,7 @@ def test_get_snapshot_rejects_blank_macro_series_id():
 
 def test_get_snapshot_rejects_missing_macro_series():
     service = make_service()
-    service.security_repo.get_by_symbol.return_value = make_security()
+    service.listing_identity_service.resolve_as_of.return_value = Mock(security=make_security())
     service.macro_repo.get_series.return_value = None
 
     with pytest.raises(ResourceNotFoundError):
@@ -233,7 +234,7 @@ def test_get_snapshot_rejects_missing_macro_series():
 
 def test_get_snapshot_without_macro_series_returns_empty_mapping():
     service = make_service()
-    service.security_repo.get_by_symbol.return_value = make_security()
+    service.listing_identity_service.resolve_as_of.return_value = Mock(security=make_security())
 
     result = service.get_snapshot(
         "AAPL",
@@ -254,7 +255,7 @@ def test_get_snapshot_without_macro_series_returns_empty_mapping():
 
 def test_get_snapshot_macro_observations_are_immutable():
     service = make_service()
-    service.security_repo.get_by_symbol.return_value = make_security()
+    service.listing_identity_service.resolve_as_of.return_value = Mock(security=make_security())
 
     series = Mock(id=7)
     service.macro_repo.get_series.return_value = series

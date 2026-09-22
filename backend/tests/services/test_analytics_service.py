@@ -34,6 +34,7 @@ def make_service():
     )
 
     service.security_repo = Mock()
+    service.listing_identity_service = Mock()
     service.price_repo = Mock()
     service.revision_repo = Mock()
 
@@ -74,6 +75,7 @@ def setup_service():
     prices = make_prices()
 
     service.security_repo.get_by_symbol.return_value = security
+    service.listing_identity_service.resolve_as_of.return_value = Mock(security=security)
     service.price_repo.get_for_security.return_value = prices
 
     return service, db, security, prices
@@ -110,6 +112,7 @@ def test_get_prices_uses_point_in_time_revisions():
 
     revisions = [make_price(datetime(2026, 1, 2))]
     service.security_repo.get_by_symbol.return_value = security
+    service.listing_identity_service.resolve_as_of.return_value = Mock(security=security)
     service.revision_repo.get_latest_for_security_as_of.return_value = revisions
 
     as_of = datetime(2026, 1, 5)

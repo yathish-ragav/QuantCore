@@ -3,7 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.services.research_observation_service import ResearchObservationService
 
 
@@ -12,6 +12,7 @@ def make_service():
     service.db = Mock()
     service.observation_repo = Mock()
     service.security_repo = Mock()
+    service.listing_identity_service = Mock()
     return service
 
 
@@ -198,13 +199,16 @@ def test_get_latest_for_security_as_of_rejects_future_timestamp():
 def test_get_for_symbol_as_of_normalizes_symbol():
     service = make_service()
     security = Mock(id=10)
-    service.security_repo.get_by_symbol.return_value = security
+    service.listing_identity_service.resolve_security_as_of.return_value = security
     service.observation_repo.get_for_security_as_of.return_value = ["observation"]
 
     as_of = datetime(2026, 8, 20, 15, 30)
     assert service.get_for_symbol_as_of(" aapl ", as_of=as_of) == ["observation"]
 
-    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
+    service.listing_identity_service.resolve_security_as_of.assert_called_once_with(
+        "AAPL",
+        as_of=as_of,
+    )
     service.observation_repo.get_for_security_as_of.assert_called_once_with(
         10,
         datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc),
@@ -214,13 +218,16 @@ def test_get_for_symbol_as_of_normalizes_symbol():
 def test_get_latest_for_symbol_as_of_resolves_security():
     service = make_service()
     security = Mock(id=10)
-    service.security_repo.get_by_symbol.return_value = security
+    service.listing_identity_service.resolve_security_as_of.return_value = security
     service.observation_repo.get_latest_for_security_as_of.return_value = ["observation"]
 
     as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)
     assert service.get_latest_for_symbol_as_of("aapl", as_of=as_of) == ["observation"]
 
-    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
+    service.listing_identity_service.resolve_security_as_of.assert_called_once_with(
+        "AAPL",
+        as_of=as_of,
+    )
     service.observation_repo.get_latest_for_security_as_of.assert_called_once_with(
         10,
         as_of,
@@ -229,9 +236,7 @@ def test_get_latest_for_symbol_as_of_resolves_security():
 
 def test_get_for_symbol_as_of_requires_existing_security():
     service = make_service()
-    service.security_repo.get_by_symbol.return_value = None
-
-    from quantcore.core.exceptions import ResourceNotFoundError
+    service.listing_identity_service.resolve_security_as_of.side_effect = ResourceNotFoundError("missing")
 
     with pytest.raises(ResourceNotFoundError):
         service.get_for_symbol_as_of(
@@ -239,4 +244,5 @@ def test_get_for_symbol_as_of_requires_existing_security():
             as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
         )
 
+    service.listing_identity_service.resolve_security_as_of.assert_called_once()
     service.observation_repo.get_for_security_as_of.assert_not_called()

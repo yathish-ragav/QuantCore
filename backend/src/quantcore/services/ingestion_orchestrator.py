@@ -130,9 +130,9 @@ class IngestionOrchestrator:
                 if not self.retry_policy.should_retry(exc, attempt):
                     raise
 
-                # Dataset services own their transaction boundaries. Roll back
-                # before retrying so a failed attempt cannot leak a partial
-                # transaction into the next attempt.
+                # The orchestrator owns the transaction for ingestion calls.
+                # Roll back before retrying so a failed attempt cannot leak a
+                # partial transaction into the next attempt.
                 self.db.rollback()
                 delay = self.retry_policy.delay_seconds(attempt, exc)
                 if delay > 0:
@@ -160,19 +160,19 @@ class IngestionOrchestrator:
             return service.sync_news(symbol)
 
         if dataset is IngestionDataset.INCOME_STATEMENT:
-            result = service.sync_income_statements(symbol)
+            result = service.sync_income_statements(symbol, commit=False)
             if isinstance(result, FinancialStatementSyncResult):
                 return result.records_processed
             return len(result)
 
         if dataset is IngestionDataset.CASH_FLOW_STATEMENT:
-            result = service.sync_cash_flow_statements(symbol)
+            result = service.sync_cash_flow_statements(symbol, commit=False)
             if isinstance(result, FinancialStatementSyncResult):
                 return result.records_processed
             return len(result)
 
         if dataset is IngestionDataset.BALANCE_SHEET:
-            result = service.sync_balance_sheets(symbol)
+            result = service.sync_balance_sheets(symbol, commit=False)
             if isinstance(result, FinancialStatementSyncResult):
                 return result.records_processed
             return len(result)
@@ -188,7 +188,7 @@ class IngestionOrchestrator:
             return result.records_processed
 
         if dataset is IngestionDataset.SEC_XBRL_FACTS:
-            result = service.sync_facts(symbol)
+            result = service.sync_facts(symbol, commit=False)
             if isinstance(result, SECXBRLFactSyncResult):
                 return result.records_processed
             return len(result)
@@ -253,6 +253,11 @@ class IngestionOrchestrator:
                 company_id=company_id,
                 security_id=security_id,
             )
+            current_source = None
+            if state is not None and state.last_success_at is not None:
+                current_source = self._source_for(
+                    self._service_for(self.db, dataset)
+                )
             views.append(
                 FreshnessView(
                     dataset=dataset,
@@ -273,7 +278,12 @@ class IngestionOrchestrator:
                         state.consecutive_failures if state else 0
                     ),
                     last_error=state.last_error if state else None,
-                    is_fresh=self._is_fresh(state, dataset, now),
+                    is_fresh=self._is_fresh(
+                        state,
+                        dataset,
+                        now,
+                        current_source=current_source,
+                    ),
                 )
             )
 

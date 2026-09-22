@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import time
 from datetime import date, datetime, timedelta, timezone
+from threading import Lock
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 import requests
@@ -24,6 +26,49 @@ from .base import MarketDataProvider
 from .quote_provider import QuoteProvider
 
 
+class MassiveRequestLimiter:
+    """Process-wide request pacer for Massive account-level API limits."""
+
+    def __init__(
+        self,
+        interval_seconds: float,
+        *,
+        sleep_fn=time.sleep,
+        monotonic_fn=time.monotonic,
+    ) -> None:
+        if interval_seconds < 0:
+            raise ConfigurationError(
+                "MASSIVE_REQUEST_INTERVAL_SECONDS cannot be negative."
+            )
+        self._interval_seconds = float(interval_seconds)
+        self._sleep = sleep_fn
+        self._monotonic = monotonic_fn
+        self._last_request_started_at: float | None = None
+        self._lock = Lock()
+
+    def wait_for_slot(self) -> None:
+        if self._interval_seconds <= 0:
+            return
+
+        # Hold the lock across the sleep so concurrent callers cannot reserve
+        # the same request slot and burst past the account-level quota.
+        with self._lock:
+            now = self._monotonic()
+            if self._last_request_started_at is not None:
+                elapsed = now - self._last_request_started_at
+                remaining = self._interval_seconds - elapsed
+                if remaining > 0:
+                    self._sleep(remaining)
+                    now = self._monotonic()
+            self._last_request_started_at = now
+
+
+# Dataset services construct their providers independently. The limiter must
+# therefore be shared across MassiveClient instances within the process, or
+# the first request of each dataset could immediately reset the pacing window.
+_MASSIVE_REQUEST_LIMITER = MassiveRequestLimiter(0.0)
+
+
 class MassiveClient(MarketDataProvider, QuoteProvider):
     """Production-oriented U.S. equity data adapter for Massive."""
 
@@ -42,12 +87,37 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
         "10y": 3700,
     }
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        request_limiter: MassiveRequestLimiter | None = None,
+    ) -> None:
         self.api_key = settings.MASSIVE_API_KEY.strip()
         if not self.api_key:
             raise ConfigurationError(
                 "MASSIVE_API_KEY is required for the Massive provider."
             )
+        global _MASSIVE_REQUEST_LIMITER
+        if request_limiter is None:
+            interval_seconds = settings.MASSIVE_REQUEST_INTERVAL_SECONDS
+            if interval_seconds < 0:
+                raise ConfigurationError(
+                    "MASSIVE_REQUEST_INTERVAL_SECONDS cannot be negative."
+                )
+            # Keep the production limiter aligned with runtime configuration.
+            # Reconfiguration is intentionally only performed when the value
+            # changes; this preserves the request timestamp across dataset
+            # service instances.
+            if (
+                _MASSIVE_REQUEST_LIMITER._interval_seconds
+                != float(interval_seconds)
+            ):
+                _MASSIVE_REQUEST_LIMITER = MassiveRequestLimiter(
+                    float(interval_seconds)
+                )
+            self._request_limiter = _MASSIVE_REQUEST_LIMITER
+        else:
+            self._request_limiter = request_limiter
 
     def _get(
         self,
@@ -66,6 +136,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
         existing = parse_qs(parsed.query)
         if "apiKey" not in existing:
             query["apiKey"] = self.api_key
+        self._request_limiter.wait_for_slot()
         try:
             response = requests.get(
                 url,

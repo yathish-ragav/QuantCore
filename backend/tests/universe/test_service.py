@@ -184,6 +184,9 @@ def test_sync_retires_old_listing_when_exchange_changes():
     assert result == 1
 
     assert existing_security.status == SecurityStatus.INACTIVE
+    service.identifier_history_repo.mark_all_not_current.assert_called_once_with(
+        existing_security.id,
+    )
 
     service.security_repo.create.assert_called_once_with(
         company_id=1,

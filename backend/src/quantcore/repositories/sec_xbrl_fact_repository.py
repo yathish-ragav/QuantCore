@@ -126,9 +126,12 @@ class SECXBRLFactRepository:
     ) -> list[SECXBRLFactObservation]:
         """Return the latest SEC fact known by an exact PIT timestamp.
 
-        Accepted filing timestamps are authoritative when present. For legacy
-        observations without an accepted timestamp, the filed date is used as
-        the available temporal boundary.
+        An exact timestamp query must never fall back to ``filed_at``. The
+        filing date is only a calendar-day boundary and cannot establish the
+        time during that day when the information became public. Legacy facts
+        without ``accepted_at`` therefore remain stored but are excluded from
+        exact-timestamp PIT reads until their filing acceptance timestamp can
+        be resolved.
         """
         ranked = (
             select(
@@ -155,15 +158,8 @@ class SECXBRLFactRepository:
             )
             .where(
                 SECXBRLFactObservation.company_id == company_id,
-                (
-                    SECXBRLFactObservation.accepted_at <= as_of
-                )
-                | (
-                    SECXBRLFactObservation.accepted_at.is_(None)
-                    & (
-                        SECXBRLFactObservation.filed_at <= as_of.date()
-                    )
-                ),
+                SECXBRLFactObservation.accepted_at.is_not(None),
+                SECXBRLFactObservation.accepted_at <= as_of,
             )
             .subquery()
         )

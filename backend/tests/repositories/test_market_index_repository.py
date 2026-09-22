@@ -192,3 +192,46 @@ def test_get_constituents_as_of_uses_latest_known_revision():
     finally:
         session.close()
         engine.dispose()
+
+
+def test_get_constituents_as_of_applies_latest_known_backdated_removal_after_revision_selection():
+    engine, session = make_session()
+    try:
+        company = Company(cik="0000000004", name="Example", sector="", industry="", country="", website="")
+        session.add(company)
+        session.flush()
+        security = Security(company_id=company.id, symbol="TEST", exchange="NASDAQ", status=SecurityStatus.ACTIVE)
+        session.add(security)
+        session.flush()
+        index = MarketIndex(key="TEST4", name="Test Index 4", provider="provider")
+        session.add(index)
+        session.flush()
+        early = datetime(2020, 1, 2, tzinfo=timezone.utc)
+        late = datetime(2025, 7, 1, tzinfo=timezone.utc)
+        session.add_all([
+            MarketIndexConstituent(
+                index_id=index.id, security_id=security.id, effective_from=date(2020, 1, 1),
+                effective_to=None, known_at=early, observed_at=early,
+            ),
+            MarketIndexConstituent(
+                index_id=index.id, security_id=security.id, effective_from=date(2020, 1, 1),
+                effective_to=date(2025, 6, 2), known_at=late, observed_at=late,
+            ),
+        ])
+        session.commit()
+        repository = MarketIndexRepository(session)
+
+        before = repository.get_constituents_as_of(
+            index.id, effective_on=date(2025, 6, 15),
+            known_at=datetime(2025, 6, 15, tzinfo=timezone.utc),
+        )
+        after = repository.get_constituents_as_of(
+            index.id, effective_on=date(2025, 6, 15),
+            known_at=datetime(2025, 7, 2, tzinfo=timezone.utc),
+        )
+
+        assert len(before) == 1
+        assert after == []
+    finally:
+        session.close()
+        engine.dispose()

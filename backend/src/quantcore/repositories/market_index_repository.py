@@ -53,6 +53,9 @@ class MarketIndexRepository:
         effective_on: date,
         known_at: datetime,
     ) -> list[MarketIndexConstituent]:
+        # Select the latest known revision of each effective membership interval
+        # before evaluating the effective date. A later-known backdated removal
+        # must not be discarded by an early effective-date filter.
         ranked = (
             select(
                 MarketIndexConstituent.id.label("id"),
@@ -72,9 +75,6 @@ class MarketIndexRepository:
             )
             .where(
                 MarketIndexConstituent.index_id == index_id,
-                MarketIndexConstituent.effective_from <= effective_on,
-                (MarketIndexConstituent.effective_to.is_(None))
-                | (MarketIndexConstituent.effective_to > effective_on),
                 MarketIndexConstituent.known_at <= known_at,
             )
             .subquery()
@@ -82,7 +82,12 @@ class MarketIndexRepository:
         stmt = (
             select(MarketIndexConstituent)
             .join(ranked, MarketIndexConstituent.id == ranked.c.id)
-            .where(ranked.c.revision_rank == 1)
+            .where(
+                ranked.c.revision_rank == 1,
+                MarketIndexConstituent.effective_from <= effective_on,
+                (MarketIndexConstituent.effective_to.is_(None))
+                | (MarketIndexConstituent.effective_to > effective_on),
+            )
             .order_by(
                 MarketIndexConstituent.security_id.asc(),
                 MarketIndexConstituent.id.asc(),

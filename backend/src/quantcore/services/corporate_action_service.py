@@ -18,6 +18,7 @@ from quantcore.repositories.corporate_action_revision_repository import (
     CorporateActionRevisionRepository,
 )
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 from quantcore.schemas.corporate_action import CorporateActionData
 
 
@@ -38,6 +39,7 @@ class CorporateActionService:
         self.db = db
         self.client = ProviderFactory.get_provider()
         self.security_repo = SecurityRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
         self.action_repo = CorporateActionRepository(db)
         self.revision_repo = CorporateActionRevisionRepository(db)
 
@@ -58,13 +60,14 @@ class CorporateActionService:
         symbol: str,
         as_of: datetime | None = None,
     ):
-        security = self.get_security(symbol)
         if as_of is None:
+            security = self.get_security(symbol)
             return self.action_repo.get_for_security(security.id)
-        if as_of.tzinfo is None:
-            as_of = as_of.replace(tzinfo=timezone.utc)
-        if as_of > datetime.now(timezone.utc):
-            raise InvalidInputError("As-of timestamp must not be in the future.")
+
+        security = self.listing_identity_service.resolve_security_as_of(
+            symbol,
+            as_of=as_of,
+        )
         return self.revision_repo.get_latest_for_security_as_of(
             security.id,
             as_of,
@@ -83,6 +86,25 @@ class CorporateActionService:
             and existing.old_exchange == data.old_exchange
             and existing.new_exchange == data.new_exchange
         )
+
+    @staticmethod
+    def _event_identity(
+        effective_date,
+        action_type,
+        source: DataSource,
+        source_reference: str | None,
+    ) -> tuple[object, ...]:
+        """Return the stable provider-aware identity for a corporate action.
+
+        Provider references distinguish multiple economic events that can share
+        the same effective date and normalized action type (for example a
+        regular and special dividend on the same ex-dividend date). When a
+        provider has no reference, retain the legacy date/type identity so
+        providers without event IDs remain deterministic.
+        """
+        if source_reference:
+            return (effective_date, action_type, source, source_reference)
+        return (effective_date, action_type, None, None)
 
     def _create_revision(
         self,
@@ -131,8 +153,9 @@ class CorporateActionService:
                     f"Invalid corporate action data for '{symbol}'."
                 )
 
+            source = DataSource(self.client.SOURCE)
             normalized_actions: list[CorporateActionData] = []
-            seen_identities: set[tuple[object, object]] = set()
+            seen_identities: set[tuple[object, ...]] = set()
             seen_references: set[str] = set()
             for action in raw_actions:
                 if not isinstance(action, CorporateActionData):
@@ -140,7 +163,12 @@ class CorporateActionService:
                         "Market-data provider returned an invalid corporate action."
                     )
 
-                identity = (action.effective_date, action.action_type)
+                identity = self._event_identity(
+                    action.effective_date,
+                    action.action_type,
+                    source,
+                    action.source_reference,
+                )
                 if identity in seen_identities:
                     raise DataValidationError(
                         "Market-data provider returned duplicate corporate-action "
@@ -159,12 +187,26 @@ class CorporateActionService:
 
                 normalized_actions.append(action)
 
-            source = DataSource(self.client.SOURCE)
             fetched_at = datetime.now(timezone.utc)
-            existing_actions = {
-                (existing.effective_date, existing.action_type): existing
-                for existing in self.action_repo.get_for_security(security.id)
-            }
+            existing_actions: dict[tuple[object, ...], object] = {}
+            legacy_candidates: dict[tuple[object, object], list[object]] = {}
+            for existing in self.action_repo.get_for_security(security.id):
+                existing_source = (
+                    existing.source
+                    if isinstance(existing.source, DataSource)
+                    else source
+                )
+                identity = self._event_identity(
+                    existing.effective_date,
+                    existing.action_type,
+                    existing_source,
+                    existing.source_reference,
+                )
+                existing_actions[identity] = existing
+                legacy_candidates.setdefault(
+                    (existing.effective_date, existing.action_type),
+                    [],
+                ).append(existing)
 
             created = 0
             updated = 0
@@ -173,9 +215,25 @@ class CorporateActionService:
             new_actions: list[tuple[CorporateActionData, object]] = []
 
             for action in normalized_actions:
-                existing = existing_actions.get(
-                    (action.effective_date, action.action_type)
+                identity = self._event_identity(
+                    action.effective_date,
+                    action.action_type,
+                    source,
+                    action.source_reference,
                 )
+                existing = existing_actions.get(identity)
+                if existing is None:
+                    candidates = legacy_candidates.get(
+                        (action.effective_date, action.action_type),
+                        [],
+                    )
+                    if len(candidates) == 1:
+                        # Reconcile a legacy row that predates provider event IDs
+                        # or an event supplied by a provider without references.
+                        existing = candidates[0]
+                        if action.source_reference:
+                            existing.source = source
+                            existing.source_reference = action.source_reference
 
                 if existing is not None:
                     if self._matches(existing, action):

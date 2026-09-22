@@ -1,0 +1,147 @@
+{
+  "datasets": [
+    {
+      "attempted": 25,
+      "dataset": "income_statement",
+      "eligible": 25,
+      "errors": [],
+      "failed": 0,
+      "run_id": 70,
+      "skipped": 0,
+      "succeeded": 25
+    },
+    {
+      "attempted": 25,
+      "dataset": "balance_sheet",
+      "eligible": 25,
+      "errors": [],
+      "failed": 0,
+      "run_id": 71,
+      "skipped": 0,
+      "succeeded": 25
+    },
+    {
+      "attempted": 25,
+      "dataset": "cash_flow_statement",
+      "eligible": 25,
+      "errors": [],
+      "failed": 0,
+      "run_id": 72,
+      "skipped": 0,
+      "succeeded": 25
+    },
+    {
+      "attempted": 25,
+      "dataset": "sec_xbrl_facts",
+      "eligible": 25,
+      "errors": [],
+      "failed": 0,
+      "run_id": 73,
+      "skipped": 0,
+      "succeeded": 25
+    },
+    {
+      "attempted": 25,
+      "dataset": "company",
+      "eligible": 25,
+      "errors": [],
+      "failed": 0,
+      "run_id": 74,
+      "skipped": 0,
+      "succeeded": 25
+    },
+    {
+      "attempted": 25,
+      "dataset": "price_history",
+      "eligible": 25,
+      "errors": [],
+      "failed": 0,
+      "run_id": 75,
+      "skipped": 0,
+      "succeeded": 25
+    },
+    {
+      "attempted": 25,
+      "dataset": "corporate_actions",
+      "eligible": 25,
+      "errors": [],
+      "failed": 0,
+      "run_id": 76,
+      "skipped": 0,
+      "succeeded": 25
+    },
+    {
+      "attempted": 25,
+      "dataset": "sec_filings",
+      "eligible": 25,
+      "errors": [],
+      "failed": 0,
+      "run_id": 77,
+      "skipped": 0,
+      "succeeded": 25
+    }
+  ],
+  "elapsed_seconds": 1766.83318,
+  "peak_rss_kb": 449800,
+  "resource_usage": {
+    "commits": 413,
+    "companyfacts_requests": 25,
+    "dataset_seconds": {
+      "balance_sheet": 0.244392,
+      "cash_flow_statement": 0.153613,
+      "company": 265.38939,
+      "corporate_actions": 662.362897,
+      "income_statement": 19.592263,
+      "price_history": 745.205545,
+      "sec_filings": 28.549156,
+      "sec_xbrl_facts": 42.475827
+    },
+    "http_hosts": {
+      "api.massive.com": 170,
+      "data.sec.gov": 63,
+      "www.sec.gov": 1
+    },
+    "http_requests": 234,
+    "http_seconds": 211.380214,
+    "rollbacks": 25,
+    "sql_statement_types": {
+      "INSERT": 215,
+      "SELECT": 2470,
+      "UPDATE": 499
+    },
+    "sql_statements": 3184
+  },
+  "selection": {
+    "fingerprint": "0cc048e534028b1f18fb1ac8ab9e1bbcdde7e0284cf7b49c3172098bbc9464c2",
+    "size": 25,
+    "symbols": [
+      "AAPL",
+      "A",
+      "AA",
+      "AACI",
+      "AACO",
+      "AACP",
+      "AADX",
+      "AAL",
+      "AAME",
+      "AAMI",
+      "AAOI",
+      "AAON",
+      "AAP",
+      "AARD",
+      "AAT",
+      "AAUC",
+      "AB",
+      "ABAT",
+      "ABBV",
+      "ABCB",
+      "ABCL",
+      "ABEO",
+      "ABG",
+      "ABLV",
+      "ABM"
+    ],
+    "type": "deterministic_common_stock_cohort"
+  },
+  "started_at": "2026-09-20T13:29:49.639046+00:00"
+}

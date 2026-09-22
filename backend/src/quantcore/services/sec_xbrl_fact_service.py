@@ -11,6 +11,7 @@ from quantcore.models.sec_xbrl_fact import build_sec_xbrl_fact_identity_hash
 from quantcore.repositories.sec_xbrl_fact_repository import SECXBRLFactRepository
 from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 from quantcore.schemas.sec_xbrl_fact import SECXBRLFactObservationData
 
 
@@ -28,6 +29,7 @@ class SECXBRLFactService:
         self.db = db
         self.provider = RegulatoryProviderFactory.get_provider(db)
         self.security_repo = SecurityRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
         self.filing_repo = SECFilingRepository(db)
         self.fact_repo = SECXBRLFactRepository(db)
 
@@ -51,15 +53,21 @@ class SECXBRLFactService:
         return self.fact_repo.get_latest_for_company_as_of(company.id, as_of)
 
     def get_facts_as_of_timestamp(self, symbol: str, as_of: datetime):
-        _, company = self.get_company_for_symbol(symbol)
-        if as_of.tzinfo is None:
-            as_of = as_of.replace(tzinfo=timezone.utc)
+        company = self.listing_identity_service.resolve_company_as_of(
+            symbol,
+            as_of=as_of,
+        )
         return self.fact_repo.get_latest_for_company_as_of_timestamp(
             company.id,
             as_of,
         )
 
-    def sync_facts(self, symbol: str) -> SECXBRLFactSyncResult:
+    def sync_facts(
+        self,
+        symbol: str,
+        *,
+        commit: bool = True,
+    ) -> SECXBRLFactSyncResult:
         try:
             symbol = symbol.strip().upper()
             if not symbol:
@@ -142,7 +150,8 @@ class SECXBRLFactService:
                 )
                 created += 1
 
-            self.db.commit()
+            if commit:
+                self.db.commit()
             return SECXBRLFactSyncResult(
                 created=created,
                 unchanged=unchanged,

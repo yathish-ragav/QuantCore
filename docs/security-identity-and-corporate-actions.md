@@ -17,8 +17,10 @@ in `security_identifiers`. Each mapping has:
 Historical research must resolve identifiers using both the effective date and the knowledge timestamp.
 A mapping learned after the research cutoff must not leak into an earlier snapshot.
 
-The security universe sync closes effective listing intervals when a ticker/exchange association disappears.
-If the same listing later returns, a new effective interval is created instead of overwriting the old history.
+The security universe sync records current-source observation state when a ticker/exchange association
+disappears, but it does not infer the economic effective end date from that absence. If the same listing later
+returns, operational observation timestamps are reconciled without rewriting the historical effective interval.
+An effective end date is established only by an authoritative identity event.
 A repeated observation of an already-known listing updates operational observation timestamps only; it must not
 move `known_at` forward, because `known_at` is the bitemporal knowledge boundary used by historical research.
 

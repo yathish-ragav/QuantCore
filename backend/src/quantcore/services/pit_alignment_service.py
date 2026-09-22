@@ -20,6 +20,7 @@ from quantcore.repositories.price_observation_revision_repository import (
 )
 from quantcore.repositories.sec_xbrl_fact_repository import SECXBRLFactRepository
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,7 @@ class PITAlignmentService:
     def __init__(self, db: Session):
         self.db = db
         self.security_repo = SecurityRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
         self.price_revision_repo = PriceObservationRevisionRepository(db)
         self.financial_revision_repo = FinancialStatementRevisionRepository(db)
         self.corporate_action_revision_repo = CorporateActionRevisionRepository(db)
@@ -59,13 +61,18 @@ class PITAlignmentService:
             raise InvalidInputError("As-of timestamp must not be in the future.")
         return as_of
 
-    def _get_security(self, symbol: str):
+    def _get_security(self, symbol: str, *, as_of: datetime):
         normalized = symbol.strip().upper()
         if not normalized:
             raise InvalidInputError("Symbol must not be empty.")
-        security = self.security_repo.get_by_symbol(normalized)
-        if security is None or security.company is None:
-            raise ResourceNotFoundError(f"Security '{normalized}' not found.")
+        resolved = self.listing_identity_service.resolve_as_of(
+            normalized,
+            effective_on=as_of.date(),
+            known_at=as_of,
+        )
+        security = resolved.security
+        if security.company is None:
+            raise ResourceNotFoundError(f"Security '{normalized}' has no company identity.")
         return normalized, security
 
     def get_snapshot(
@@ -83,7 +90,7 @@ class PITAlignmentService:
         boundary is reduced to its calendar date for macro selection.
         """
         as_of = self._normalize_as_of(as_of)
-        normalized, security = self._get_security(symbol)
+        normalized, security = self._get_security(symbol, as_of=as_of)
         company_id = security.company_id
 
         macro_observations: dict[str, tuple] = {}

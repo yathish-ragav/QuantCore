@@ -21,6 +21,7 @@ def make_service():
     service.client = Mock()
     service.client.SOURCE = "YAHOO"
     service.security_repo = Mock()
+    service.listing_identity_service = Mock()
     service.price_repo = Mock()
     service.revision_repo = Mock()
     service.price_repo.get_for_security_and_dates.return_value = []
@@ -606,13 +607,16 @@ def test_get_price_history_as_of_uses_revision_repository():
     revisions = [Mock(), Mock()]
     as_of = datetime(2026, 1, 5, 12, 0, tzinfo=timezone.utc)
 
-    service.security_repo.get_by_symbol.return_value = security
+    service.listing_identity_service.resolve_security_as_of.return_value = security
     service.revision_repo.get_latest_for_security_as_of.return_value = revisions
 
     result = service.get_price_history_as_of("AAPL", as_of)
 
     assert result == revisions
-    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
+    service.listing_identity_service.resolve_security_as_of.assert_called_once_with(
+        "AAPL",
+        as_of=as_of,
+    )
     service.revision_repo.get_latest_for_security_as_of.assert_called_once_with(10, as_of)
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
@@ -711,13 +715,16 @@ def test_get_price_revision_history_known_as_of_uses_all_revision_repository():
     revisions = [Mock(), Mock()]
     as_of = datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc)
 
-    service.security_repo.get_by_symbol.return_value = security
+    service.listing_identity_service.resolve_security_as_of.return_value = security
     service.revision_repo.get_revisions_for_security_known_as_of.return_value = revisions
 
     result = service.get_price_revision_history_known_as_of("AAPL", as_of)
 
     assert result == revisions
-    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
+    service.listing_identity_service.resolve_security_as_of.assert_called_once_with(
+        "AAPL",
+        as_of=as_of,
+    )
     service.revision_repo.get_revisions_for_security_known_as_of.assert_called_once_with(
         10, as_of
     )

@@ -58,8 +58,24 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
     _ticker_to_cik: dict[str, str] | None = None
 
-    def __init__(self, *, company_facts_cache: SECCompanyFactsCache | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        company_facts_cache: SECCompanyFactsCache | None = None,
+        http_session: requests.Session | None = None,
+    ) -> None:
         self._company_facts_cache = company_facts_cache or SECCompanyFactsCache()
+        self._http_session = http_session
+
+    @staticmethod
+    def http_session_for_session(db) -> requests.Session:
+        """Return the pooled HTTP session owned by one SQLAlchemy session."""
+        key = "quantcore.sec_http_session"
+        session = db.info.get(key)
+        if session is None:
+            session = requests.Session()
+            db.info[key] = session
+        return session
 
     @staticmethod
     def cache_for_session(db) -> SECCompanyFactsCache:
@@ -70,6 +86,26 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             cache = SECCompanyFactsCache()
             db.info[key] = cache
         return cache
+
+    def _get(
+        self,
+        url: str,
+        *,
+        headers: dict[str, str],
+        timeout: int,
+    ) -> requests.Response:
+        """GET through the request-scoped pool when available."""
+        if self._http_session is not None:
+            return self._http_session.get(
+                url,
+                headers=headers,
+                timeout=timeout,
+            )
+        return requests.get(
+            url,
+            headers=headers,
+            timeout=timeout,
+        )
 
     def _get_company_facts(
         self,
@@ -83,7 +119,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             return cached
 
         try:
-            response = requests.get(
+            response = self._get(
                 f"{self.BASE_URL}/api/xbrl/companyfacts/CIK{cik}.json",
                 headers=self.HEADERS,
                 timeout=30,
@@ -116,7 +152,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             return SECProvider._ticker_to_cik
 
         try:
-            response = requests.get(
+            response = self._get(
                 self.TICKER_URL,
                 headers=self.HEADERS,
                 timeout=30,
@@ -203,7 +239,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         url = f"{self.BASE_URL}/submissions/CIK{cik}.json"
 
         try:
-            response = requests.get(
+            response = self._get(
                 url,
                 headers=self.HEADERS,
                 timeout=30,
@@ -247,7 +283,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
             historical_url = f"{self.BASE_URL}/submissions/{name}"
             try:
-                historical_response = requests.get(
+                historical_response = self._get(
                     historical_url,
                     headers=self.HEADERS,
                     timeout=30,

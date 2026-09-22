@@ -19,6 +19,7 @@ from quantcore.repositories.balance_sheet_repository import (
     BalanceSheetRepository,
 )
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.financial_statement_revision_repository import (
     FinancialStatementRevisionRepository,
@@ -39,6 +40,7 @@ class BalanceSheetService:
         self.db = db
         self.provider = FinancialProviderFactory.get_provider(db)
         self.security_repo = SecurityRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
         self.statement_repo = BalanceSheetRepository(db)
         self.revision_repo = FinancialStatementRevisionRepository(db)
         self.filing_repo = SECFilingRepository(db)
@@ -66,7 +68,13 @@ class BalanceSheetService:
         symbol: str,
         as_of: datetime | None = None,
     ):
-        _, company = self.get_company_for_symbol(symbol)
+        if as_of is None:
+            _, company = self.get_company_for_symbol(symbol)
+        else:
+            company = self.listing_identity_service.resolve_company_as_of(
+                symbol,
+                as_of=as_of,
+            )
 
         if as_of is None:
             return self.statement_repo.get_for_company(company.id)
@@ -78,7 +86,12 @@ class BalanceSheetService:
             as_of,
         )
 
-    def sync_balance_sheets(self, symbol: str) -> FinancialStatementSyncResult:
+    def sync_balance_sheets(
+        self,
+        symbol: str,
+        *,
+        commit: bool = True,
+    ) -> FinancialStatementSyncResult:
         try:
             symbol = DataCleaner.clean_symbol(symbol)
 
@@ -217,7 +230,8 @@ class BalanceSheetService:
                         revision_number=next_revision_numbers[statement.id],
                     )
 
-            self.db.commit()
+            if commit:
+                self.db.commit()
 
             return FinancialStatementSyncResult(
                 created=created,

@@ -1,0 +1,70 @@
+{
+  "datasets": [
+    {
+      "attempted": 1,
+      "dataset": "income_statement",
+      "eligible": 1,
+      "errors": [],
+      "failed": 0,
+      "run_id": 34,
+      "skipped": 0,
+      "succeeded": 1
+    },
+    {
+      "attempted": 1,
+      "dataset": "balance_sheet",
+      "eligible": 1,
+      "errors": [],
+      "failed": 0,
+      "run_id": 35,
+      "skipped": 0,
+      "succeeded": 1
+    },
+    {
+      "attempted": 1,
+      "dataset": "cash_flow_statement",
+      "eligible": 1,
+      "errors": [],
+      "failed": 0,
+      "run_id": 36,
+      "skipped": 0,
+      "succeeded": 1
+    },
+    {
+      "attempted": 1,
+      "dataset": "sec_xbrl_facts",
+      "eligible": 1,
+      "errors": [],
+      "failed": 0,
+      "run_id": 37,
+      "skipped": 0,
+      "succeeded": 1
+    }
+  ],
+  "elapsed_seconds": 6.052978,
+  "peak_rss_kb": 374888,
+  "resource_usage": {
+    "commits": 13,
+    "companyfacts_requests": 1,
+    "dataset_seconds": {
+      "balance_sheet": 0.017328,
+      "cash_flow_statement": 0.012018,
+      "income_statement": 2.62256,
+      "sec_xbrl_facts": 3.178011
+    },
+    "http_hosts": {
+      "data.sec.gov": 1,
+      "www.sec.gov": 1
+    },
+    "http_requests": 2,
+    "http_seconds": 2.48419,
+    "rollbacks": 0,
+    "sql_statement_types": {
+      "INSERT": 8,
+      "SELECT": 74,
+      "UPDATE": 13
+    },
+    "sql_statements": 95
+  },
+  "started_at": "2026-09-19T07:39:49.226443+00:00"
+}

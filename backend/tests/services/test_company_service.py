@@ -435,3 +435,26 @@ def test_sync_company_replaces_unknown_legacy_ownership():
         call.kwargs["field_name"] is CompanyField.SECTOR
         for call in service.provenance_repo.upsert.call_args_list
     )
+
+def test_sync_company_records_security_type_provenance():
+    from quantcore.core.enums import SecurityType
+
+    service, db = make_service()
+    company = make_company()
+    company.cik = "0000320193"
+    security = make_security(company)
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.SOURCE = "MASSIVE"
+    service.client.get_company_info.return_value = make_company_data().model_copy(
+        update={"security_type": SecurityType.COMMON_STOCK}
+    )
+    service.company_repo.update.return_value = company
+
+    service.sync_company("AAPL")
+
+    assert security.security_type is SecurityType.COMMON_STOCK
+    assert security.security_type_source is DataSource.MASSIVE
+    assert security.security_type_fetched_at is not None
+    assert security.security_type_source_reference == (
+        "MASSIVE:TICKER:AAPL:0000320193"
+    )

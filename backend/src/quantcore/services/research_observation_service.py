@@ -10,6 +10,7 @@ from quantcore.repositories.research_observation_repository import (
     ResearchObservationRepository,
 )
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 
 
 class ResearchObservationService:
@@ -19,6 +20,7 @@ class ResearchObservationService:
         self.db = db
         self.observation_repo = ResearchObservationRepository(db)
         self.security_repo = SecurityRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
 
     @staticmethod
     def _normalize_as_of(as_of: datetime) -> datetime:
@@ -136,13 +138,22 @@ class ResearchObservationService:
             )
         return security
 
+    def _get_security_as_of(self, symbol: str, as_of: datetime):
+        normalized = symbol.strip().upper()
+        if not normalized:
+            raise InvalidInputError("Symbol must not be empty.")
+        return self.listing_identity_service.resolve_security_as_of(
+            normalized,
+            as_of=as_of,
+        )
+
     def get_for_symbol_as_of(
         self,
         symbol: str,
         *,
         as_of: datetime,
     ):
-        security = self._get_security(symbol)
+        security = self._get_security_as_of(symbol, as_of)
         return self.get_for_security_as_of(
             security_id=security.id,
             as_of=as_of,
@@ -165,7 +176,7 @@ class ResearchObservationService:
         *,
         as_of: datetime,
     ):
-        security = self._get_security(symbol)
+        security = self._get_security_as_of(symbol, as_of)
         return self.get_latest_for_security_as_of(
             security_id=security.id,
             as_of=as_of,

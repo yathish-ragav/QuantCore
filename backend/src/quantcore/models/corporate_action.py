@@ -26,7 +26,9 @@ class CorporateAction(ProvenanceMixin, Base):
             "security_id",
             "effective_date",
             "action_type",
-            name="uq_corporate_action_identity",
+            "source",
+            "source_reference",
+            name="uq_corporate_action_provider_identity",
         ),
     )
 

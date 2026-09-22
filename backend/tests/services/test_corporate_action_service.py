@@ -27,6 +27,7 @@ def make_service():
     service.client = Mock()
     service.client.SOURCE = "YAHOO"
     service.security_repo = Mock()
+    service.listing_identity_service = Mock()
     service.action_repo = Mock()
     service.revision_repo = Mock()
     service.revision_repo.get_next_revision_number.return_value = 1
@@ -51,7 +52,7 @@ def make_actions():
 
 def test_get_actions_as_of_uses_revision_repository():
     service, _ = make_service()
-    service.security_repo.get_by_symbol.return_value = make_security()
+    service.listing_identity_service.resolve_security_as_of.return_value = make_security()
     service.revision_repo.get_latest_for_security_as_of.return_value = [Mock()]
 
     from datetime import datetime, timezone
@@ -60,6 +61,10 @@ def test_get_actions_as_of_uses_revision_repository():
     result = service.get_actions("AAPL", as_of=as_of)
 
     assert result == service.revision_repo.get_latest_for_security_as_of.return_value
+    service.listing_identity_service.resolve_security_as_of.assert_called_once_with(
+        "AAPL",
+        as_of=as_of,
+    )
     service.revision_repo.get_latest_for_security_as_of.assert_called_once_with(10, as_of)
 
 
@@ -156,6 +161,53 @@ def test_sync_changed_action_creates_revision():
     assert service.revision_repo.create.call_args.kwargs["amount"] == 0.30
     db.commit.assert_called_once()
 
+
+
+def test_sync_accepts_distinct_provider_events_on_same_date():
+    service, db = make_service()
+    service.security_repo.get_by_symbol.return_value = make_security()
+    service.client.SOURCE = "MASSIVE"
+    service.client.get_corporate_actions.return_value = [
+        CorporateActionData(
+            effective_date=date(2012, 11, 29),
+            action_type=CorporateActionType.DIVIDEND,
+            amount=0.12,
+            source_reference="MASSIVE:DIVIDEND:regular",
+        ),
+        CorporateActionData(
+            effective_date=date(2012, 11, 29),
+            action_type=CorporateActionType.DIVIDEND,
+            amount=0.12,
+            source_reference="MASSIVE:DIVIDEND:special",
+        ),
+    ]
+    service.action_repo.get_for_security.return_value = []
+
+    result = service.sync_corporate_actions("AAON")
+
+    assert result.created == 2
+    assert service.action_repo.create.call_count == 2
+    db.commit.assert_called_once()
+
+
+def test_sync_rejects_duplicate_provider_reference():
+    service, db = make_service()
+    service.security_repo.get_by_symbol.return_value = make_security()
+    duplicate = CorporateActionData(
+        effective_date=date(2012, 11, 29),
+        action_type=CorporateActionType.DIVIDEND,
+        amount=0.12,
+        source_reference="MASSIVE:DIVIDEND:duplicate",
+    )
+    service.client.SOURCE = "MASSIVE"
+    service.client.get_corporate_actions.return_value = [duplicate, duplicate.model_copy()]
+
+    with pytest.raises(DataValidationError, match="duplicate corporate-action identity"):
+        service.sync_corporate_actions("AAON")
+
+    service.action_repo.get_for_security.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
 
 def test_sync_rejects_duplicate_provider_identity_before_persistence():
     service, db = make_service()

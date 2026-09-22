@@ -26,6 +26,36 @@ def reset_sec_ticker_cache():
     SECProvider._ticker_to_cik = None
 
 
+
+def test_sec_uses_injected_http_session():
+    session = Mock(spec=requests.Session)
+    response = Mock()
+    session.get.return_value = response
+    provider = SECProvider(http_session=session)
+
+    provider._get(
+        "https://data.sec.gov/test",
+        headers=SECProvider.HEADERS,
+        timeout=30,
+    )
+
+    session.get.assert_called_once_with(
+        "https://data.sec.gov/test",
+        headers=SECProvider.HEADERS,
+        timeout=30,
+    )
+
+
+def test_sec_http_session_is_shared_by_sqlalchemy_session():
+    db = Mock()
+    db.info = {}
+
+    first = SECProvider.http_session_for_session(db)
+    second = SECProvider.http_session_for_session(db)
+
+    assert first is second
+    assert isinstance(first, requests.Session)
+
 # ---------------------------------------------------------------------------
 # Ticker map
 # ---------------------------------------------------------------------------

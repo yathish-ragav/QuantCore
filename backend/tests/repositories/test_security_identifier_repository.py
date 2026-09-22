@@ -76,3 +76,103 @@ def test_resolve_as_of_uses_latest_known_mapping():
     finally:
         session.close()
         engine.dispose()
+
+
+def test_get_for_security_as_of_applies_latest_known_backdated_closure_after_revision_selection():
+    engine, session = make_session()
+    try:
+        security = seed_security(session, "TEST")
+        early = datetime(2020, 1, 2, tzinfo=timezone.utc)
+        late = datetime(2025, 7, 1, tzinfo=timezone.utc)
+        session.add_all([
+            SecurityIdentifier(
+                security_id=security.id,
+                identifier_type=SecurityIdentifierType.ISIN,
+                namespace="ISIN",
+                value="US0000000001",
+                valid_from=date(2020, 1, 1),
+                valid_to=None,
+                known_at=early,
+                source="SEC",
+            ),
+            SecurityIdentifier(
+                security_id=security.id,
+                identifier_type=SecurityIdentifierType.ISIN,
+                namespace="ISIN",
+                value="US0000000001",
+                valid_from=date(2020, 1, 1),
+                valid_to=date(2025, 6, 2),
+                known_at=late,
+                source="SEC",
+            ),
+        ])
+        session.commit()
+        repo = SecurityIdentifierRepository(session)
+
+        before = repo.get_for_security_as_of(
+            security.id,
+            effective_on=date(2025, 6, 15),
+            known_at=datetime(2025, 6, 15, tzinfo=timezone.utc),
+        )
+        after = repo.get_for_security_as_of(
+            security.id,
+            effective_on=date(2025, 6, 15),
+            known_at=datetime(2025, 7, 2, tzinfo=timezone.utc),
+        )
+
+        assert len(before) == 1
+        assert before[0].valid_to is None
+        assert after == []
+    finally:
+        session.close()
+        engine.dispose()
+
+
+def test_resolve_as_of_applies_latest_known_backdated_closure_after_revision_selection():
+    engine, session = make_session()
+    try:
+        security = seed_security(session, "TEST")
+        early = datetime(2020, 1, 2, tzinfo=timezone.utc)
+        late = datetime(2025, 7, 1, tzinfo=timezone.utc)
+        session.add_all([
+            SecurityIdentifier(
+                security_id=security.id,
+                identifier_type=SecurityIdentifierType.ISIN,
+                namespace="ISIN",
+                value="US0000000001",
+                valid_from=date(2020, 1, 1),
+                valid_to=None,
+                known_at=early,
+                source="SEC",
+            ),
+            SecurityIdentifier(
+                security_id=security.id,
+                identifier_type=SecurityIdentifierType.ISIN,
+                namespace="ISIN",
+                value="US0000000001",
+                valid_from=date(2020, 1, 1),
+                valid_to=date(2025, 6, 2),
+                known_at=late,
+                source="SEC",
+            ),
+        ])
+        session.commit()
+        repo = SecurityIdentifierRepository(session)
+
+        before = repo.resolve_as_of(
+            SecurityIdentifierType.ISIN, "ISIN", "US0000000001",
+            effective_on=date(2025, 6, 15),
+            known_at=datetime(2025, 6, 15, tzinfo=timezone.utc),
+        )
+        after = repo.resolve_as_of(
+            SecurityIdentifierType.ISIN, "ISIN", "US0000000001",
+            effective_on=date(2025, 6, 15),
+            known_at=datetime(2025, 7, 2, tzinfo=timezone.utc),
+        )
+
+        assert before is not None
+        assert before.valid_to is None
+        assert after is None
+    finally:
+        session.close()
+        engine.dispose()

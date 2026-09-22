@@ -35,3 +35,5 @@ def test_financial_and_regulatory_factories_share_session_companyfacts_cache():
         regulatory = RegulatoryProviderFactory.get_provider(db)
 
     assert financial._company_facts_cache is regulatory._company_facts_cache
+    assert financial._http_session is regulatory._http_session
+    assert financial._http_session is not None

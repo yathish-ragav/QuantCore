@@ -6,6 +6,7 @@ from quantcore.core.production_data_policy import ProductionDataPolicy
 from quantcore.db.database import SessionLocal
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
+from quantcore.services.research_universe_service import ResearchUniverseService
 from quantcore.services.universe_sync_service import UniverseSyncService
 
 
@@ -34,7 +35,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--limit",
         type=int,
-        help="Maximum number of active securities to ingest.",
+        help="Maximum number of active securities to ingest (general-purpose mode).",
+    )
+    parser.add_argument(
+        "--cohort-size",
+        type=int,
+        help=(
+            "Deterministic active, provider-classified common-stock cohort "
+            "size for production validation."
+        ),
     )
     parser.add_argument(
         "--all",
@@ -54,10 +63,13 @@ def main() -> None:
 
     ProductionDataPolicy.validate_all()
 
-    if not args.symbols and args.limit is None and not args.skip_universe:
+    if args.cohort_size is not None and (args.symbols or args.limit is not None):
+        raise SystemExit("--cohort-size cannot be combined with --symbols or --limit.")
+
+    if not args.symbols and args.limit is None and args.cohort_size is None and not args.skip_universe:
         # Universe-only bootstrap is safe without a bounded market-data target.
         pass
-    elif not args.symbols and args.limit is None:
+    elif not args.symbols and args.limit is None and args.cohort_size is None:
         raise SystemExit(
             "Provide --symbols or --limit for dataset ingestion."
         )
@@ -69,14 +81,30 @@ def main() -> None:
             processed = UniverseSyncService(db).sync()
             print(f"SEC universe synchronization complete: {processed} records processed.")
 
-        if not args.skip_universe and not args.symbols and args.limit is None:
+        if (
+            not args.skip_universe
+            and not args.symbols
+            and args.limit is None
+            and args.cohort_size is None
+        ):
             return
 
         datasets = [IngestionDataset(value) for value in args.datasets]
+        symbols = args.symbols
+        limit = args.limit
+        if args.cohort_size is not None:
+            cohort = ResearchUniverseService(db).current_common_stock_cohort(
+                size=args.cohort_size
+            )
+            symbols = list(cohort.symbols)
+            print(
+                f"Selected production cohort: size={cohort.size} "
+                f"fingerprint={cohort.fingerprint}"
+            )
         results = IngestionOrchestrator(db).sync_market(
             datasets=datasets,
-            symbols=args.symbols,
-            limit=args.limit,
+            symbols=symbols,
+            limit=limit,
             only_stale=not args.all,
         )
 

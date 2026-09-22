@@ -76,7 +76,6 @@ class SecurityIdentifierHistoryRepository:
     def mark_all_not_current(
         self,
         security_id: int,
-        effective_to: date | None = None,
     ) -> None:
         rows = self.db.scalars(
             select(SecurityIdentifierHistory).where(
@@ -86,44 +85,79 @@ class SecurityIdentifierHistoryRepository:
         ).all()
 
         for row in rows:
+            # A current-source disappearance is an operational observation, not
+            # authoritative evidence of the economic effective end date.
+            # Never mutate effective_to here; authoritative identity events use
+            # revise_current_with_effective_to(), which preserves bitemporal
+            # knowledge history by appending a revision.
             row.is_current = False
-            if effective_to is not None and row.effective_to is None:
-                if effective_to > row.effective_from:
-                    row.effective_to = effective_to
 
-    def close_current(
+    def revise_interval_with_effective_to(
+        self,
+        history: SecurityIdentifierHistory,
+        *,
+        effective_to: date,
+        known_at: datetime,
+        source: str | None = None,
+        source_reference: str | None = None,
+    ) -> SecurityIdentifierHistory:
+        """Append a later-known closure revision without rewriting prior knowledge."""
+        if effective_to <= history.effective_from:
+            raise ValueError("effective_to must be after effective_from")
+        if history.effective_to is not None and effective_to >= history.effective_to:
+            raise ValueError("effective_to must revise an open or later-dated interval")
+        if known_at.tzinfo is None:
+            raise ValueError("known_at must be timezone-aware")
+        if known_at <= history.known_at:
+            raise ValueError("known_at must be later than the interval's prior knowledge boundary")
+
+        history.is_current = False
+        revised = SecurityIdentifierHistory(
+            security_id=history.security_id,
+            symbol=history.symbol,
+            exchange=history.exchange,
+            effective_from=history.effective_from,
+            effective_to=effective_to,
+            known_at=known_at,
+            source=source,
+            source_reference=source_reference,
+            first_seen_at=history.first_seen_at,
+            last_seen_at=max(history.last_seen_at, known_at),
+            is_current=False,
+        )
+        self.db.add(revised)
+        return revised
+
+    def revise_current_with_effective_to(
         self,
         security_id: int,
         symbol: str,
         exchange: str,
         *,
         effective_to: date,
+        known_at: datetime,
+        source: str | None = None,
+        source_reference: str | None = None,
     ) -> SecurityIdentifierHistory:
-        """Close exactly one current listing interval.
-
-        Identity transitions must not accidentally close another current
-        listing if a security temporarily has more than one provider-visible
-        listing. The effective end is exclusive.
-        """
+        """Record a later-known closure for the current listing interval."""
         history = self.get_current(security_id, symbol, exchange)
         if history is None:
             raise ValueError(
                 f"Current identifier '{symbol}' on '{exchange}' not found for security {security_id}."
             )
-        if effective_to <= history.effective_from:
-            raise ValueError("effective_to must be after effective_from")
-
-        history.is_current = False
-        history.effective_to = effective_to
-        return history
+        return self.revise_interval_with_effective_to(
+            history,
+            effective_to=effective_to,
+            known_at=known_at,
+            source=source,
+            source_reference=source_reference,
+        )
 
     def mark_not_current(
         self,
         security_id: int,
         except_symbol: str,
         except_exchange: str,
-        *,
-        effective_to: date | None = None,
     ) -> None:
         rows = self.db.scalars(
             select(SecurityIdentifierHistory).where(
@@ -137,10 +171,73 @@ class SecurityIdentifierHistoryRepository:
         ).all()
 
         for row in rows:
+            # A current-source identity difference is not enough to establish
+            # an economic effective end date. Preserve the open interval until
+            # an authoritative identity transition supplies one.
             row.is_current = False
-            if effective_to is not None and row.effective_to is None:
-                if effective_to > row.effective_from:
-                    row.effective_to = effective_to
+
+    def resolve_as_of(
+        self,
+        symbol: str,
+        *,
+        effective_on: date,
+        known_at: datetime,
+        exchange: str | None = None,
+    ) -> list[SecurityIdentifierHistory]:
+        """Resolve listing identity for one effective/knowledge boundary.
+
+        The query is deliberately against historical listing rows rather than
+        ``securities.symbol``. This makes a historical ticker change visible
+        at its effective date without allowing today's ticker to leak backward.
+        """
+        # Resolve the latest bitemporal revision for each effective interval
+        # before applying the effective-date predicate. A later-known revision
+        # may backdate an interval's effective_to date; filtering the effective
+        # interval first would let the older open-ended row leak into PIT reads.
+        revision_conditions = [
+            SecurityIdentifierHistory.symbol == symbol,
+            SecurityIdentifierHistory.known_at <= known_at,
+        ]
+        if exchange is not None:
+            revision_conditions.append(SecurityIdentifierHistory.exchange == exchange)
+
+        ranked = (
+            select(
+                SecurityIdentifierHistory.id.label("id"),
+                func.row_number()
+                .over(
+                    partition_by=(
+                        SecurityIdentifierHistory.security_id,
+                        SecurityIdentifierHistory.symbol,
+                        SecurityIdentifierHistory.exchange,
+                        SecurityIdentifierHistory.effective_from,
+                    ),
+                    order_by=(
+                        SecurityIdentifierHistory.known_at.desc(),
+                        SecurityIdentifierHistory.id.desc(),
+                    ),
+                )
+                .label("revision_rank"),
+            )
+            .where(*revision_conditions)
+            .subquery()
+        )
+
+        stmt = (
+            select(SecurityIdentifierHistory)
+            .join(ranked, ranked.c.id == SecurityIdentifierHistory.id)
+            .where(
+                ranked.c.revision_rank == 1,
+                SecurityIdentifierHistory.effective_from <= effective_on,
+                (SecurityIdentifierHistory.effective_to.is_(None))
+                | (SecurityIdentifierHistory.effective_to > effective_on),
+            )
+            .order_by(
+                SecurityIdentifierHistory.effective_from.desc(),
+                SecurityIdentifierHistory.id.desc(),
+            )
+        )
+        return list(self.db.scalars(stmt).all())
 
     def get_for_security_as_of(
         self,
@@ -156,15 +253,14 @@ class SecurityIdentifierHistoryRepository:
         symbol/exchange is selected. This prevents later observations from
         leaking into historical research snapshots.
         """
-        conditions = [
-            SecurityIdentifierHistory.security_id == security_id,
-            SecurityIdentifierHistory.effective_from <= effective_on,
-            (SecurityIdentifierHistory.effective_to.is_(None))
-            | (SecurityIdentifierHistory.effective_to > effective_on),
-        ]
+        revision_conditions = [SecurityIdentifierHistory.security_id == security_id]
         if known_at is not None:
-            conditions.append(SecurityIdentifierHistory.known_at <= known_at)
+            revision_conditions.append(SecurityIdentifierHistory.known_at <= known_at)
 
+        # First select the latest known revision of each effective interval.
+        # Only after that do we ask whether the selected revision was effective
+        # on the requested date. This preserves bitemporal semantics when a
+        # later source observation backdates an interval boundary.
         ranked = (
             select(
                 SecurityIdentifierHistory.id.label("id"),
@@ -173,22 +269,27 @@ class SecurityIdentifierHistoryRepository:
                     partition_by=(
                         SecurityIdentifierHistory.symbol,
                         SecurityIdentifierHistory.exchange,
+                        SecurityIdentifierHistory.effective_from,
                     ),
                     order_by=(
                         SecurityIdentifierHistory.known_at.desc(),
-                        SecurityIdentifierHistory.effective_from.desc(),
                         SecurityIdentifierHistory.id.desc(),
                     ),
                 )
                 .label("revision_rank"),
             )
-            .where(*conditions)
+            .where(*revision_conditions)
             .subquery()
         )
         stmt = (
             select(SecurityIdentifierHistory)
             .join(ranked, ranked.c.id == SecurityIdentifierHistory.id)
-            .where(ranked.c.revision_rank == 1)
+            .where(
+                ranked.c.revision_rank == 1,
+                SecurityIdentifierHistory.effective_from <= effective_on,
+                (SecurityIdentifierHistory.effective_to.is_(None))
+                | (SecurityIdentifierHistory.effective_to > effective_on),
+            )
             .order_by(SecurityIdentifierHistory.effective_from.desc())
         )
         return list(self.db.scalars(stmt).all())
