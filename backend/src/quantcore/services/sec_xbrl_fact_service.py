@@ -11,6 +11,7 @@ from quantcore.models.sec_xbrl_fact import build_sec_xbrl_fact_identity_hash
 from quantcore.repositories.sec_xbrl_fact_repository import SECXBRLFactRepository
 from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.security_repository import SecurityRepository
+from quantcore.services.sec_filing_service import SECFilingService
 from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 from quantcore.schemas.sec_xbrl_fact import SECXBRLFactObservationData
 
@@ -105,6 +106,18 @@ class SECXBRLFactService:
             existing_by_hash = self.fact_repo.get_by_identity_hashes(set(prepared))
             accessions = {data.accession_number for data in prepared.values()}
             filings_by_accession = self.filing_repo.get_by_accessions(accessions)
+
+            missing_accessions = {
+                accession
+                for accession in accessions
+                if accession not in filings_by_accession
+            }
+            if missing_accessions:
+                # CompanyFacts observations can arrive before the corresponding
+                # SEC filing metadata. Reconcile filing metadata before persisting
+                # the observations so filing_id/accepted_at are populated.
+                SECFilingService(self.db).sync_filings(symbol, commit=False)
+                filings_by_accession = self.filing_repo.get_by_accessions(accessions)
 
             created = unchanged = 0
             for identity_hash, data in prepared.items():

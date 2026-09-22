@@ -60,7 +60,12 @@ class SECFilingService:
         _, company = self.get_company_for_symbol(symbol)
         return self.filing_repo.get_events_for_company(company.id)
 
-    def sync_filings(self, symbol: str):
+    def sync_filings(
+        self,
+        symbol: str,
+        *,
+        commit: bool = True,
+    ):
         try:
             symbol = DataCleaner.clean_symbol(symbol)
             if not symbol:
@@ -190,7 +195,8 @@ class SECFilingService:
                 event_identities.add(identity)
                 events_created += 1
 
-            self.db.commit()
+            if commit:
+                self.db.commit()
             return SECFilingSyncResult(
                 created=created,
                 updated=updated,

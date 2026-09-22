@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from quantcore.models.provenance import DataSource
 from quantcore.schemas.sec_xbrl_fact import SECXBRLFactObservationData
@@ -46,6 +46,36 @@ def make_fact(accession, value):
     )
 
 
+def test_sync_facts_reconciles_missing_filing_metadata_before_create():
+    service, db = make_service()
+    security, company = make_security_and_company()
+    service.security_repo.get_by_symbol.return_value = security
+    incoming = make_fact("0000320193-24-000123", "100")
+    service.provider.get_sec_xbrl_fact_observations.return_value = [incoming]
+
+    filing = Mock(
+        id=55,
+        acceptance_datetime=datetime(2024, 11, 1, tzinfo=timezone.utc),
+    )
+    service.filing_repo.get_by_accessions.side_effect = [
+        {},
+        {incoming.accession_number: filing},
+    ]
+
+    with patch("quantcore.services.sec_xbrl_fact_service.SECFilingService") as filing_service_cls:
+        filing_service_cls.return_value.sync_filings.return_value = Mock()
+        result = service.sync_facts("AAPL")
+
+    assert result == SECXBRLFactSyncResult(created=1, unchanged=0, records_processed=1)
+    filing_service_cls.return_value.sync_filings.assert_called_once_with(
+        "AAPL", commit=False
+    )
+    kwargs = service.fact_repo.create.call_args.kwargs
+    assert kwargs["filing_id"] == 55
+    assert kwargs["accepted_at"] == filing.acceptance_datetime
+    db.commit.assert_called_once()
+
+
 def test_sync_facts_creates_and_keeps_accession_revision_identity():
     service, db = make_service()
     security, company = make_security_and_company()
@@ -79,9 +109,14 @@ def test_sync_facts_can_defer_commit_to_orchestrator():
     incoming = make_fact("0000320193-24-000123", "100")
     service.provider.get_sec_xbrl_fact_observations.return_value = [incoming]
 
-    result = service.sync_facts("AAPL", commit=False)
+    with patch("quantcore.services.sec_xbrl_fact_service.SECFilingService") as filing_service_cls:
+        filing_service_cls.return_value.sync_filings.return_value = Mock()
+        result = service.sync_facts("AAPL", commit=False)
 
     assert result == SECXBRLFactSyncResult(created=1, unchanged=0, records_processed=1)
+    filing_service_cls.return_value.sync_filings.assert_called_once_with(
+        "AAPL", commit=False
+    )
     db.commit.assert_not_called()
 
 
@@ -91,6 +126,13 @@ def test_sync_facts_is_idempotent():
     service.security_repo.get_by_symbol.return_value = security
     incoming = make_fact("0000320193-24-000123", "100")
     service.provider.get_sec_xbrl_fact_observations.return_value = [incoming]
+    filing = Mock(
+        id=55,
+        acceptance_datetime=datetime(2024, 11, 1, tzinfo=timezone.utc),
+    )
+    service.filing_repo.get_by_accessions.return_value = {
+        incoming.accession_number: filing,
+    }
     from quantcore.models.sec_xbrl_fact import build_sec_xbrl_fact_identity_hash
     existing = Mock()
     identity_hash = build_sec_xbrl_fact_identity_hash(

@@ -112,6 +112,26 @@ def test_sync_filings_creates_amendment_event():
     db.commit.assert_called_once()
 
 
+def test_sync_filings_can_defer_commit_to_orchestrator():
+    service, db = make_service()
+    company = make_company()
+    incoming = make_filing()
+    service.security_repo.get_by_symbol.return_value = make_security(company)
+    service.provider.get_sec_filings.return_value = [incoming]
+    service.filing_repo.get_by_accessions.return_value = {}
+
+    result = service.sync_filings("AAPL", commit=False)
+
+    assert result == SECFilingSyncResult(
+        created=1,
+        updated=0,
+        unchanged=0,
+        events_created=1,
+        records_processed=1,
+    )
+    db.commit.assert_not_called()
+
+
 def test_sync_filings_is_idempotent_for_existing_filing_and_event():
     service, db = make_service()
     company = make_company()
