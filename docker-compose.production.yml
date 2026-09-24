@@ -1,0 +1,65 @@
+name: quantcore
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
+    ports:
+      - "${QUANTCORE_API_PORT:-8000}:8000"
+    command:
+      - uvicorn
+      - quantcore.api.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --workers
+      - "2"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          import urllib.request;
+          urllib.request.urlopen('http://127.0.0.1:8000/health/live', timeout=3)
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
+    command:
+      - quantcore-ingestion-worker
+      - --poll-interval
+      - "2"
+      - --heartbeat-interval
+      - "30"
+      - --stale-after
+      - "300"
+      - --recovery-interval
+      - "30"
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
+    command:
+      - quantcore-ingestion-scheduler
+      - --poll-interval
+      - "5"
+      - --trigger-batch-size
+      - "100"
