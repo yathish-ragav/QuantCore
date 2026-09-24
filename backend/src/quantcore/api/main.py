@@ -1,4 +1,5 @@
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -9,13 +10,22 @@ from quantcore.api.errors import (
     validation_error_handler,
 )
 from quantcore.api.router import router
+from quantcore.core.production_data_policy import ProductionDataPolicy
 from quantcore.core.exceptions import QuantCoreError
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """Fail closed during production startup when the source policy is invalid."""
+    ProductionDataPolicy.validate_all()
+    yield
 
 
 app = FastAPI(
     title="QuantCore API",
     version="1.0.0",
     description="Point-in-time, reproducible quantitative equity research platform for US markets",
+    lifespan=lifespan,
 )
 
 
