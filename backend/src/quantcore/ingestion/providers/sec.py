@@ -300,17 +300,24 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                     "SEC historical submissions response must be an object."
                 )
 
-            historical_filings = historical_data.get("filings", {})
-            if not isinstance(historical_filings, dict):
+            # SEC continuation files use the submission columns at the
+            # top level (unlike the main CIK submissions response, which
+            # nests them under filings.recent). Keep support for the nested
+            # shape as a defensive compatibility path for fixtures/variants.
+            historical_filings = historical_data.get("filings")
+            if isinstance(historical_filings, dict):
+                historical_rows = historical_filings.get("recent")
+            else:
+                historical_rows = historical_data
+
+            if not isinstance(historical_rows, dict):
                 raise DataValidationError(
-                    "SEC historical submissions 'filings' field must be an object."
+                    "SEC historical submissions response must contain filing rows."
                 )
 
-            historical_recent = historical_filings.get("recent")
-            if isinstance(historical_recent, dict):
-                filing_rows.extend(
-                    self._submission_rows(historical_recent)
-                )
+            filing_rows.extend(
+                self._submission_rows(historical_rows)
+            )
 
         normalized: list[SECFilingData] = []
         for row in filing_rows:
@@ -473,17 +480,34 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                         if not accession or not filed or not form or not end or value is None:
                             continue
                         try:
+                            filed_date = date.fromisoformat(str(filed))
+                            period_end = date.fromisoformat(str(end))
+                            period_start = (
+                                date.fromisoformat(str(raw["start"]))
+                                if raw.get("start") else None
+                            )
+
+                            # A reported SEC fact cannot describe a period that
+                            # ends after the filing date. Treat this as provider
+                            # corruption/invalid source data instead of allowing
+                            # future observations into the PIT dataset.
+                            if period_end > filed_date:
+                                raise DataValidationError(
+                                    "SEC XBRL fact period_end cannot be after filed_at."
+                                )
+                            if period_start is not None and period_start > period_end:
+                                raise DataValidationError(
+                                    "SEC XBRL fact period_start cannot be after period_end."
+                                )
+
                             observation = SECXBRLFactObservationData(
                                 taxonomy=taxonomy,
                                 concept=concept,
                                 unit=unit,
                                 value=Decimal(str(value)),
-                                period_start=(
-                                    date.fromisoformat(str(raw["start"]))
-                                    if raw.get("start") else None
-                                ),
-                                period_end=date.fromisoformat(str(end)),
-                                filed_at=date.fromisoformat(str(filed)),
+                                period_start=period_start,
+                                period_end=period_end,
+                                filed_at=filed_date,
                                 accession_number=accession,
                                 form=form,
                                 fiscal_year=(
@@ -502,6 +526,8 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                                     str(raw["decimals"]) if raw.get("decimals") is not None else None
                                 ),
                             )
+                        except DataValidationError:
+                            raise
                         except (TypeError, ValueError, InvalidOperation) as exc:
                             raise DataValidationError(
                                 "Invalid SEC XBRL fact observation."
@@ -563,43 +589,55 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             raise DataValidationError(
                 "SEC CompanyFacts us-gaap data must be an object."
             )
+        ifrs_full = facts.get("ifrs-full", {})
+        if not isinstance(ifrs_full, dict):
+            ifrs_full = {}
 
-        revenue = self._get_fact(
-            us_gaap,
+        revenue = self._get_fact_from_taxonomies(
             [
-                "RevenueFromContractWithCustomerExcludingAssessedTax",
-                "Revenues",
-                "SalesRevenueNet",
+                (us_gaap, [
+                    "RevenueFromContractWithCustomerExcludingAssessedTax",
+                    "Revenues",
+                    "SalesRevenueNet",
+                ]),
+                (ifrs_full, ["Revenue", "RevenueFromContractsWithCustomers"]),
             ],
             preferred_unit="USD",
         )
 
-        gross_profit = self._get_fact(
-            us_gaap,
-            ["GrossProfit"],
-            preferred_unit="USD",
-        )
-
-        operating_income = self._get_fact(
-            us_gaap,
-            ["OperatingIncomeLoss"],
-            preferred_unit="USD",
-        )
-
-        net_income = self._get_fact(
-            us_gaap,
+        gross_profit = self._get_fact_from_taxonomies(
             [
-                "NetIncomeLoss",
-                "ProfitLoss",
+                (us_gaap, ["GrossProfit"]),
+                (ifrs_full, ["GrossProfit"]),
             ],
             preferred_unit="USD",
         )
 
-        eps = self._get_fact(
-            us_gaap,
+        operating_income = self._get_fact_from_taxonomies(
             [
-                "EarningsPerShareDiluted",
-                "EarningsPerShareBasic",
+                (us_gaap, ["OperatingIncomeLoss"]),
+                (ifrs_full, ["ProfitLossFromOperatingActivities"]),
+            ],
+            preferred_unit="USD",
+        )
+
+        net_income = self._get_fact_from_taxonomies(
+            [
+                (us_gaap, ["NetIncomeLoss", "ProfitLoss"]),
+                (ifrs_full, ["ProfitLossAttributableToOwnersOfParent", "ProfitLoss"]),
+            ],
+            preferred_unit="USD",
+        )
+
+        eps = self._get_fact_from_taxonomies(
+            [
+                (us_gaap, ["EarningsPerShareDiluted", "EarningsPerShareBasic"]),
+                (ifrs_full, [
+                    "DilutedEarningsLossPerShare",
+                    "BasicEarningsLossPerShare",
+                    "DilutedEarningsLossPerShareFromContinuingOperations",
+                    "BasicEarningsLossPerShareFromContinuingOperations",
+                ]),
             ],
             preferred_unit="USD-per-shares",
         )
@@ -613,20 +651,31 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             ["EntityCommonStockSharesOutstanding"],
             preferred_unit="shares",
         )
-        weighted_average_shares = self._get_fact(
-            us_gaap,
+        weighted_average_shares = self._get_fact_from_taxonomies(
             [
-                "WeightedAverageNumberOfDilutedSharesOutstanding",
-                "WeightedAverageNumberOfSharesOutstandingBasic",
+                (us_gaap, [
+                    "WeightedAverageNumberOfDilutedSharesOutstanding",
+                    "WeightedAverageNumberOfSharesOutstandingBasic",
+                ]),
+                (ifrs_full, ["WeightedAverageNumberOfOrdinarySharesOutstanding"]),
             ],
             preferred_unit="shares",
         )
 
         # -------------------------------------------------
-        # 5. Determine annual fiscal dates from revenue.
+        # 5. Determine annual fiscal dates from every available
+        # income-statement fact. Revenue is not a universal anchor:
+        # some valid SEC issuers expose operating/net income without
+        # one of the revenue concepts above. Never discard an entire
+        # statement merely because one concept is absent.
         # -------------------------------------------------
-        fiscal_dates = self._get_fiscal_dates(
-            revenue
+        fiscal_dates = self._get_fiscal_dates_from_groups(
+            revenue,
+            gross_profit,
+            operating_income,
+            net_income,
+            eps,
+            weighted_average_shares,
         )
 
         # -------------------------------------------------
@@ -638,9 +687,9 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             statements.append(
                 IncomeStatementData(
                     fiscal_date=fiscal_date,
-                    **self._metadata_on_date(
-                        revenue,
-                        fiscal_date,
+                    **self._metadata_on_date_from_groups(
+                        revenue, gross_profit, operating_income, net_income, eps,
+                        weighted_average_shares, fiscal_date=fiscal_date,
                         period_type=FinancialPeriodType.ANNUAL,
                     ),
                     total_revenue=self._value_on_date(
@@ -729,12 +778,17 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             raise DataValidationError(
                 "SEC CompanyFacts us-gaap data must be an object."
             )
+        ifrs_full = facts.get("ifrs-full", {})
+        if not isinstance(ifrs_full, dict):
+            ifrs_full = {}
 
-        operating_cash_flow = self._get_fact(
-            us_gaap,
+        operating_cash_flow = self._get_fact_from_taxonomies(
             [
-                "NetCashProvidedByUsedInOperatingActivities",
-                "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+                (us_gaap, [
+                    "NetCashProvidedByUsedInOperatingActivities",
+                    "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+                ]),
+                (ifrs_full, ["CashFlowsFromUsedInOperatingActivities"]),
             ],
             preferred_unit="USD",
         )
@@ -743,73 +797,99 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         # figure (unlike FMP, which reports it as negative). This
         # sign difference is intentional and handled below when
         # deriving free cash flow.
-        capital_expenditure = self._get_fact(
-            us_gaap,
+        capital_expenditure = self._get_fact_from_taxonomies(
             [
-                "PaymentsToAcquirePropertyPlantAndEquipment",
-                "PaymentsForCapitalImprovements",
+                (us_gaap, [
+                    "PaymentsToAcquirePropertyPlantAndEquipment",
+                    "PaymentsForCapitalImprovements",
+                ]),
+                (ifrs_full, ["PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"]),
             ],
             preferred_unit="USD",
         )
 
-        investing_cash_flow = self._get_fact(
-            us_gaap,
-            ["NetCashProvidedByUsedInInvestingActivities"],
-            preferred_unit="USD",
-        )
-
-        financing_cash_flow = self._get_fact(
-            us_gaap,
-            ["NetCashProvidedByUsedInFinancingActivities"],
-            preferred_unit="USD",
-        )
-
-        depreciation_and_amortization = self._get_fact(
-            us_gaap,
+        investing_cash_flow = self._get_fact_from_taxonomies(
             [
-                "DepreciationDepletionAndAmortization",
-                "DepreciationAmortizationAndAccretionNet",
+                (us_gaap, ["NetCashProvidedByUsedInInvestingActivities"]),
+                (ifrs_full, ["CashFlowsFromUsedInInvestingActivities"]),
             ],
             preferred_unit="USD",
         )
 
-        stock_based_compensation = self._get_fact(
-            us_gaap,
-            ["ShareBasedCompensation"],
-            preferred_unit="USD",
-        )
-
-        dividends_paid = self._get_fact(
-            us_gaap,
+        financing_cash_flow = self._get_fact_from_taxonomies(
             [
-                "PaymentsOfDividends",
-                "PaymentsOfDividendsCommonStock",
+                (us_gaap, ["NetCashProvidedByUsedInFinancingActivities"]),
+                (ifrs_full, ["CashFlowsFromUsedInFinancingActivities"]),
             ],
             preferred_unit="USD",
         )
 
-        share_repurchases = self._get_fact(
-            us_gaap,
-            ["PaymentsForRepurchaseOfCommonStock"],
+        depreciation_and_amortization = self._get_fact_from_taxonomies(
+            [
+                (us_gaap, [
+                    "DepreciationDepletionAndAmortization",
+                    "DepreciationAmortizationAndAccretionNet",
+                ]),
+                (ifrs_full, ["DepreciationDepletionAndAmortisation", "DepreciationAndAmortisation"]),
+            ],
             preferred_unit="USD",
         )
 
-        net_change_in_cash = self._get_fact(
-            us_gaap,
+        stock_based_compensation = self._get_fact_from_taxonomies(
             [
-                "CashAndCashEquivalentsPeriodIncreaseDecrease",
-                "CashCashEquivalentsRestrictedCashAndRestrictedCash"
-                "EquivalentsPeriodIncreaseDecreaseIncludingExchange"
-                "RateEffect",
+                (us_gaap, ["ShareBasedCompensation"]),
+                (ifrs_full, ["ShareBasedPayments"]),
+            ],
+            preferred_unit="USD",
+        )
+
+        dividends_paid = self._get_fact_from_taxonomies(
+            [
+                (us_gaap, [
+                    "PaymentsOfDividends",
+                    "PaymentsOfDividendsCommonStock",
+                ]),
+                (ifrs_full, ["DividendsPaid"]),
+            ],
+            preferred_unit="USD",
+        )
+
+        share_repurchases = self._get_fact_from_taxonomies(
+            [
+                (us_gaap, ["PaymentsForRepurchaseOfCommonStock"]),
+                (ifrs_full, ["PaymentsForRepurchaseOfOrdinaryShares"]),
+            ],
+            preferred_unit="USD",
+        )
+
+        net_change_in_cash = self._get_fact_from_taxonomies(
+            [
+                (us_gaap, [
+                    "CashAndCashEquivalentsPeriodIncreaseDecrease",
+                    "CashCashEquivalentsRestrictedCashAndRestrictedCash"
+                    "EquivalentsPeriodIncreaseDecreaseIncludingExchange"
+                    "RateEffect",
+                ]),
+                (ifrs_full, ["IncreaseDecreaseInCashAndCashEquivalents"]),
             ],
             preferred_unit="USD",
         )
 
         # -------------------------------------------------
-        # 5. Determine annual fiscal dates from operating cash flow.
+        # 5. Determine annual fiscal dates from every available cash-flow
+        # fact. Operating cash flow is preferred when present, but it is
+        # not a universal anchor for every SEC issuer.
         # -------------------------------------------------
-        fiscal_dates = self._get_fiscal_dates(
-            operating_cash_flow
+        fiscal_dates = self._get_fiscal_dates_from_groups(
+            operating_cash_flow,
+            capital_expenditure,
+            investing_cash_flow,
+            financing_cash_flow,
+            depreciation_and_amortization,
+            stock_based_compensation,
+            dividends_paid,
+            share_repurchases,
+            net_change_in_cash,
         )
 
         # -------------------------------------------------
@@ -838,9 +918,11 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             statements.append(
                 CashFlowStatementData(
                     fiscal_date=fiscal_date,
-                    **self._metadata_on_date(
-                        operating_cash_flow,
-                        fiscal_date,
+                    **self._metadata_on_date_from_groups(
+                        operating_cash_flow, capital_expenditure, investing_cash_flow,
+                        financing_cash_flow, depreciation_and_amortization,
+                        stock_based_compensation, dividends_paid, share_repurchases,
+                        net_change_in_cash, fiscal_date=fiscal_date,
                         period_type=FinancialPeriodType.ANNUAL,
                     ),
                     operating_cash_flow=ocf_value,
@@ -915,113 +997,119 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             raise DataValidationError(
                 "SEC CompanyFacts us-gaap data must be an object."
             )
+        ifrs_full = facts.get("ifrs-full", {})
+        if not isinstance(ifrs_full, dict):
+            ifrs_full = {}
 
-        cash = self._get_fact(
-            us_gaap,
-            ["CashAndCashEquivalentsAtCarryingValue"],
+        cash = self._get_fact_from_taxonomies(
+            [(us_gaap, ["CashAndCashEquivalentsAtCarryingValue"]),
+             (ifrs_full, ["CashAndCashEquivalents"])],
             preferred_unit="USD",
         )
-        short_term_investments = self._get_fact(
-            us_gaap,
-            [
-                "ShortTermInvestments",
-                "MarketableSecuritiesCurrent",
-            ],
+        short_term_investments = self._get_fact_from_taxonomies(
+            [(us_gaap, ["ShortTermInvestments", "MarketableSecuritiesCurrent"]),
+             (ifrs_full, ["OtherCurrentFinancialAssets"])],
             preferred_unit="USD",
         )
-        accounts_receivable = self._get_fact(
-            us_gaap,
-            [
-                "AccountsReceivableNetCurrent",
-                "AccountsReceivableNet",
-            ],
+        accounts_receivable = self._get_fact_from_taxonomies(
+            [(us_gaap, ["AccountsReceivableNetCurrent", "AccountsReceivableNet"]),
+             (ifrs_full, ["TradeAndOtherCurrentReceivables"])],
             preferred_unit="USD",
         )
-        inventory = self._get_fact(
-            us_gaap,
-            ["InventoryNet"],
+        inventory = self._get_fact_from_taxonomies(
+            [(us_gaap, ["InventoryNet"]), (ifrs_full, ["Inventories"])],
             preferred_unit="USD",
         )
-        total_current_assets = self._get_fact(
-            us_gaap,
-            ["AssetsCurrent"],
+        total_current_assets = self._get_fact_from_taxonomies(
+            [(us_gaap, ["AssetsCurrent"]), (ifrs_full, ["CurrentAssets"])],
             preferred_unit="USD",
         )
-        property_plant_equipment_net = self._get_fact(
-            us_gaap,
-            [
+        property_plant_equipment_net = self._get_fact_from_taxonomies(
+            [(us_gaap, [
                 "PropertyPlantAndEquipmentNet",
                 "PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization",
-            ],
+            ]), (ifrs_full, ["PropertyPlantAndEquipment"])],
             preferred_unit="USD",
         )
-        goodwill = self._get_fact(
-            us_gaap,
-            ["Goodwill"],
+        goodwill = self._get_fact_from_taxonomies(
+            [(us_gaap, ["Goodwill"]), (ifrs_full, ["Goodwill"])],
             preferred_unit="USD",
         )
-        intangible_assets = self._get_fact(
-            us_gaap,
-            [
+        intangible_assets = self._get_fact_from_taxonomies(
+            [(us_gaap, [
                 "FiniteLivedIntangibleAssetsNet",
                 "IntangibleAssetsNetExcludingGoodwill",
-            ],
+            ]), (ifrs_full, ["IntangibleAssetsOtherThanGoodwill"])],
             preferred_unit="USD",
         )
-        total_assets = self._get_fact(
-            us_gaap,
-            ["Assets"],
+        total_assets = self._get_fact_from_taxonomies(
+            [(us_gaap, ["Assets"]), (ifrs_full, ["Assets"])],
             preferred_unit="USD",
         )
 
-        accounts_payable = self._get_fact(
-            us_gaap,
-            ["AccountsPayableCurrent"],
+        accounts_payable = self._get_fact_from_taxonomies(
+            [(us_gaap, ["AccountsPayableCurrent"]),
+             (ifrs_full, ["TradeAndOtherCurrentPayables"])],
             preferred_unit="USD",
         )
-        short_term_debt = self._get_fact(
-            us_gaap,
-            [
+        short_term_debt = self._get_fact_from_taxonomies(
+            [(us_gaap, [
                 "ShortTermBorrowings",
                 "ShortTermDebtCurrent",
                 "LongTermDebtCurrent",
-            ],
+            ]), (ifrs_full, ["CurrentPortionOfLongtermBorrowings"])],
             preferred_unit="USD",
         )
-        total_current_liabilities = self._get_fact(
-            us_gaap,
-            ["LiabilitiesCurrent"],
+        total_current_liabilities = self._get_fact_from_taxonomies(
+            [(us_gaap, ["LiabilitiesCurrent"]), (ifrs_full, ["CurrentLiabilities"])],
             preferred_unit="USD",
         )
-        long_term_debt = self._get_fact(
-            us_gaap,
-            [
+        long_term_debt = self._get_fact_from_taxonomies(
+            [(us_gaap, [
                 "LongTermDebtNoncurrent",
                 "LongTermDebtAndFinanceLeaseObligationsNoncurrent",
-            ],
+            ]), (ifrs_full, ["LongtermBorrowings"])],
             preferred_unit="USD",
         )
-        total_liabilities = self._get_fact(
-            us_gaap,
-            ["Liabilities"],
+        total_liabilities = self._get_fact_from_taxonomies(
+            [(us_gaap, ["Liabilities"]), (ifrs_full, ["Liabilities"])],
             preferred_unit="USD",
         )
-        total_equity = self._get_fact(
-            us_gaap,
-            [
+        total_equity = self._get_fact_from_taxonomies(
+            [(us_gaap, [
                 "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
                 "StockholdersEquity",
-            ],
+            ]), (ifrs_full, ["Equity"])],
             preferred_unit="USD",
         )
-        retained_earnings = self._get_fact(
-            us_gaap,
-            ["RetainedEarningsAccumulatedDeficit"],
+        retained_earnings = self._get_fact_from_taxonomies(
+            [(us_gaap, ["RetainedEarningsAccumulatedDeficit"]),
+             (ifrs_full, ["RetainedEarningsAccumulatedDeficit"])],
             preferred_unit="USD",
         )
 
-        anchor = total_assets or total_current_assets or total_liabilities
-        fiscal_dates = self._get_fiscal_dates(anchor)
+        # No single balance-sheet concept is guaranteed to exist for every
+        # issuer. Build the fiscal-date set from all available instant facts
+        # so a valid partial balance sheet is retained instead of becoming
+        # an empty statement.
+        fiscal_dates = self._get_fiscal_dates_from_groups(
+            cash,
+            short_term_investments,
+            accounts_receivable,
+            inventory,
+            total_current_assets,
+            property_plant_equipment_net,
+            goodwill,
+            intangible_assets,
+            total_assets,
+            accounts_payable,
+            short_term_debt,
+            total_current_liabilities,
+            long_term_debt,
+            total_liabilities,
+            total_equity,
+            retained_earnings,
+        )
 
         statements: list[BalanceSheetData] = []
 
@@ -1062,9 +1150,12 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             statements.append(
                 BalanceSheetData(
                     fiscal_date=fiscal_date,
-                    **self._metadata_on_date(
-                        anchor,
-                        fiscal_date,
+                    **self._metadata_on_date_from_groups(
+                        cash, short_term_investments, accounts_receivable, inventory,
+                        total_current_assets, property_plant_equipment_net, goodwill,
+                        intangible_assets, total_assets, accounts_payable, short_term_debt,
+                        total_current_liabilities, long_term_debt, total_liabilities,
+                        total_equity, retained_earnings, fiscal_date=fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     cash_and_cash_equivalents=cash_value,
@@ -1112,6 +1203,26 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         return statements
 
     @staticmethod
+    def _get_fact_from_taxonomies(
+        taxonomy_tags: list[tuple[dict[str, Any], list[str]]],
+        preferred_unit: str,
+    ) -> list[dict[str, Any]]:
+        """Return the first matching fact across ordered XBRL taxonomies.
+
+        US-GAAP remains preferred for consistency with the existing model.
+        IFRS Full is a deterministic fallback for SEC filings such as Form
+        20-F and Form 40-F whose primary financial statements use IFRS.
+        """
+
+        for taxonomy, tags in taxonomy_tags:
+            if not isinstance(taxonomy, dict):
+                continue
+            facts = SECProvider._get_fact(taxonomy, tags, preferred_unit)
+            if facts:
+                return facts
+        return []
+
+    @staticmethod
     def _get_fact(
         us_gaap: dict[str, Any],
         tags: list[str],
@@ -1142,13 +1253,64 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         fact: dict[str, Any],
     ) -> bool:
         """
-        Determine whether an XBRL fact represents an annual 10-K result.
+        Determine whether an XBRL fact represents an annual SEC filing.
+
+        QuantCore's US-equity universe includes US-listed foreign issuers.
+        Their annual reports can be filed on Forms 20-F or 40-F rather than
+        Form 10-K. Transition annual reports can also use 10-KT. Keep the
+        annual-form set explicit so quarterly/current-report facts are not
+        accidentally promoted into the annual statement datasets.
         """
 
+        annual_forms = {
+            "10-K",
+            "10-K/A",
+            "10-KT",
+            "10-KT/A",
+            "20-F",
+            "20-F/A",
+            "40-F",
+            "40-F/A",
+        }
+
         return (
-            fact.get("form") in {"10-K", "10-K/A"}
+            str(fact.get("form") or "").upper() in annual_forms
             and fact.get("fp") == "FY"
         )
+
+    @classmethod
+    def _metadata_on_date_from_groups(
+        cls,
+        *fact_groups: list[dict[str, Any]],
+        fiscal_date: date,
+        period_type: FinancialPeriodType,
+    ) -> dict[str, Any]:
+        """Return metadata from the latest matching fact across statement groups."""
+        matching = []
+        target = fiscal_date.isoformat()
+        for facts in fact_groups:
+            for fact in facts:
+                if cls._is_annual_fact(fact) and fact.get("end") == target:
+                    matching.append(fact)
+        if not matching:
+            return {"period_type": period_type}
+        latest = max(matching, key=lambda fact: fact.get("filed", ""))
+        def _parse_date(value):
+            if not value:
+                return None
+            try:
+                return date.fromisoformat(value)
+            except (TypeError, ValueError):
+                return None
+        return {
+            "period_start": _parse_date(latest.get("start")) if period_type is not FinancialPeriodType.INSTANT else None,
+            "fiscal_year": latest.get("fy"),
+            "fiscal_period": latest.get("fp"),
+            "period_type": period_type,
+            "filing_date": _parse_date(latest.get("filed")),
+            "filing_form": latest.get("form"),
+            "accession_number": latest.get("accn"),
+        }
 
     @classmethod
     def _metadata_on_date(
@@ -1198,6 +1360,37 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             "filing_form": latest.get("form"),
             "accession_number": latest.get("accn"),
         }
+
+    @classmethod
+    def _get_fiscal_dates_from_groups(
+        cls,
+        *fact_groups: list[dict[str, Any]],
+    ) -> list[date]:
+        """Return the union of annual/instant period-end dates.
+
+        SEC CompanyFacts is heterogeneous across issuers. A statement must
+        not depend on one canonical concept being present. Building the date
+        set from all available statement concepts preserves valid partial
+        statements while leaving unavailable fields as ``None``.
+        """
+
+        dates: set[date] = set()
+
+        for facts in fact_groups:
+            for fact in facts:
+                if not cls._is_annual_fact(fact):
+                    continue
+
+                end = fact.get("end")
+                if not end:
+                    continue
+
+                try:
+                    dates.add(date.fromisoformat(end))
+                except (TypeError, ValueError):
+                    continue
+
+        return sorted(dates)
 
     @classmethod
     def _get_fiscal_dates(

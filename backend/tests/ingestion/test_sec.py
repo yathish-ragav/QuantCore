@@ -5,6 +5,7 @@ import requests
 from unittest.mock import Mock, patch
 
 from quantcore.core.exceptions import (
+    DataValidationError,
     ExternalDataError,
     InvalidInputError,
 )
@@ -315,6 +316,86 @@ def test_sec_get_income_statements_success():
     assert result[0].eps == 6.08
     assert result[0].shares_outstanding == 15000000000
     assert result[0].weighted_average_shares_outstanding == 15408095000
+
+
+def test_sec_income_statement_dates_ignore_instant_share_facts():
+    """Instant share facts must not create synthetic income-statement periods."""
+    SECProvider._ticker_to_cik = {"TEST": "0001234567"}
+
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "OperatingIncomeLoss": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2024-01-01",
+                                "end": "2024-12-31",
+                                "val": 100,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "fy": 2024,
+                                "filed": "2025-03-01",
+                                "accn": "0001234567-25-000001",
+                            }
+                        ]
+                    }
+                },
+                "NetIncomeLoss": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2024-01-01",
+                                "end": "2024-12-31",
+                                "val": 80,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "fy": 2024,
+                                "filed": "2025-03-01",
+                                "accn": "0001234567-25-000001",
+                            }
+                        ]
+                    }
+                },
+            },
+            "dei": {
+                "EntityCommonStockSharesOutstanding": {
+                    "units": {
+                        "shares": [
+                            {
+                                "end": "2024-12-31",
+                                "val": 1000,
+                                "form": "10-K",
+                                "filed": "2025-03-01",
+                                "accn": "0001234567-25-000001",
+                            },
+                            {
+                                "end": "2025-03-15",
+                                "val": 1010,
+                                "form": "10-K",
+                                "filed": "2025-03-15",
+                                "accn": "0001234567-25-000002",
+                            },
+                        ]
+                    }
+                }
+            },
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        result = SECProvider().get_income_statements("TEST")
+
+    assert len(result) == 1
+    assert result[0].fiscal_date == date(2024, 12, 31)
+    assert result[0].period_start == date(2024, 1, 1)
+    assert result[0].filing_date == date(2025, 3, 1)
+    assert result[0].accession_number == "0001234567-25-000001"
+    assert result[0].shares_outstanding == 1000
 
 
 def test_sec_get_income_statements_empty_symbol():
@@ -772,3 +853,394 @@ def test_sec_cash_flow_http_error():
     ):
         with pytest.raises(ExternalDataError):
             SECProvider().get_cash_flow_statements("AAPL")
+
+
+def test_sec_get_income_statements_does_not_require_revenue_anchor():
+    """Valid SEC income facts must survive when revenue concepts are absent."""
+    SECProvider._ticker_to_cik = {"AARD": "0001234567"}
+
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "OperatingIncomeLoss": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-12-31",
+                                "val": -62725000,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-03-23",
+                                "accn": "0001193125-26-119770",
+                            }
+                        ]
+                    }
+                },
+                "NetIncomeLoss": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-12-31",
+                                "val": -57591000,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-03-23",
+                                "accn": "0001193125-26-119770",
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        result = SECProvider().get_income_statements("AARD")
+
+    assert len(result) == 1
+    assert result[0].fiscal_date == date(2025, 12, 31)
+    assert result[0].total_revenue is None
+    assert result[0].operating_income == -62725000
+    assert result[0].net_income == -57591000
+    assert result[0].filing_date == date(2026, 3, 23)
+    assert result[0].accession_number == "0001193125-26-119770"
+
+
+def test_sec_get_cash_flow_statements_does_not_require_operating_cash_flow_anchor():
+    """Valid annual cash-flow facts must survive when OCF is absent."""
+    SECProvider._ticker_to_cik = {"TEST": "0001234567"}
+
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "NetCashProvidedByUsedInInvestingActivities": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2025-12-31",
+                                "val": -1000000,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-03-23",
+                                "accn": "0001234567-26-000001",
+                            }
+                        ]
+                    }
+                },
+                "NetCashProvidedByUsedInFinancingActivities": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2025-12-31",
+                                "val": 500000,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-03-23",
+                                "accn": "0001234567-26-000001",
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        result = SECProvider().get_cash_flow_statements("TEST")
+
+    assert len(result) == 1
+    assert result[0].fiscal_date == date(2025, 12, 31)
+    assert result[0].operating_cash_flow is None
+    assert result[0].investing_cash_flow == -1000000
+    assert result[0].financing_cash_flow == 500000
+    assert result[0].filing_date == date(2026, 3, 23)
+    assert result[0].accession_number == "0001234567-26-000001"
+
+
+def test_sec_xbrl_rejects_period_ending_after_filing_date():
+    SECProvider._ticker_to_cik = {"AAL": "0000000001"}
+
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "Assets": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2027-07-17",
+                                "val": 100,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "fy": 2026,
+                                "filed": "2026-07-23",
+                                "accn": "0000000001-26-000001",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        with pytest.raises(DataValidationError, match="period_end"):
+            SECProvider().get_sec_xbrl_fact_observations("0000000001")
+
+
+@pytest.mark.parametrize("annual_form", ["20-F", "20-F/A", "40-F", "40-F/A", "10-KT", "10-KT/A"])
+def test_sec_annual_financial_facts_support_non_10k_annual_forms(annual_form):
+    """Annual US-listed foreign/transition filers must not be dropped by form filtering."""
+    SECProvider._ticker_to_cik = {"TEST": "0001234567"}
+
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "RevenueFromContractWithCustomerExcludingAssessedTax": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-12-31",
+                                "val": 1000000,
+                                "form": annual_form,
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-03-01",
+                                "accn": "0001234567-26-000001",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        result = SECProvider().get_income_statements("TEST")
+
+    assert len(result) == 1
+    assert result[0].fiscal_date == date(2025, 12, 31)
+    assert result[0].total_revenue == 1000000
+    assert result[0].filing_form == annual_form
+
+
+def test_sec_get_income_statements_falls_back_to_ifrs_full_for_40f():
+    """IFRS 40-F issuers must populate normalized income statements."""
+    SECProvider._ticker_to_cik = {"AAUC": "0001993344"}
+
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "ifrs-full": {
+                "RevenueFromContractsWithCustomers": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-12-31",
+                                "val": 1331824000,
+                                "form": "40-F",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-04-01",
+                                "accn": "0001628280-26-022512",
+                            }
+                        ]
+                    }
+                },
+                "ProfitLossAttributableToOwnersOfParent": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-12-31",
+                                "val": -51847000,
+                                "form": "40-F",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-04-01",
+                                "accn": "0001628280-26-022512",
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        result = SECProvider().get_income_statements("AAUC")
+
+    assert len(result) == 1
+    assert result[0].fiscal_date == date(2025, 12, 31)
+    assert result[0].total_revenue == 1331824000
+    assert result[0].net_income == -51847000
+    assert result[0].filing_form == "40-F"
+
+
+def test_sec_get_cash_flow_statements_falls_back_to_ifrs_full_for_40f():
+    """IFRS 40-F issuers must populate normalized cash-flow statements."""
+    SECProvider._ticker_to_cik = {"AAUC": "0001993344"}
+
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "ifrs-full": {
+                "CashFlowsFromUsedInOperatingActivities": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-12-31",
+                                "val": 513979000,
+                                "form": "40-F",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-04-01",
+                                "accn": "0001628280-26-022512",
+                            }
+                        ]
+                    }
+                },
+                "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2025-01-01",
+                                "end": "2025-12-31",
+                                "val": 408136000,
+                                "form": "40-F",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-04-01",
+                                "accn": "0001628280-26-022512",
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        result = SECProvider().get_cash_flow_statements("AAUC")
+
+    assert len(result) == 1
+    assert result[0].fiscal_date == date(2025, 12, 31)
+    assert result[0].operating_cash_flow == 513979000
+    assert result[0].capital_expenditure == 408136000
+    assert result[0].free_cash_flow == 105843000
+
+
+def test_sec_get_balance_sheets_falls_back_to_ifrs_full_for_40f():
+    """IFRS 40-F issuers must populate normalized balance sheets."""
+    SECProvider._ticker_to_cik = {"AAUC": "0001993344"}
+
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "ifrs-full": {
+                "CashAndCashEquivalents": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2025-12-31",
+                                "val": 479777000,
+                                "form": "40-F",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-04-01",
+                                "accn": "0001628280-26-022512",
+                            }
+                        ]
+                    }
+                },
+                "Assets": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2025-12-31",
+                                "val": 2500000000,
+                                "form": "40-F",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-04-01",
+                                "accn": "0001628280-26-022512",
+                            }
+                        ]
+                    }
+                },
+                "Liabilities": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2025-12-31",
+                                "val": 1500000000,
+                                "form": "40-F",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-04-01",
+                                "accn": "0001628280-26-022512",
+                            }
+                        ]
+                    }
+                },
+                "Equity": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2025-12-31",
+                                "val": 1000000000,
+                                "form": "40-F",
+                                "fp": "FY",
+                                "fy": 2025,
+                                "filed": "2026-04-01",
+                                "accn": "0001628280-26-022512",
+                            }
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=fake_response,
+    ):
+        result = SECProvider().get_balance_sheets("AAUC")
+
+    assert len(result) == 1
+    assert result[0].fiscal_date == date(2025, 12, 31)
+    assert result[0].cash_and_cash_equivalents == 479777000
+    assert result[0].total_assets == 2500000000
+    assert result[0].total_liabilities == 1500000000
+    assert result[0].total_equity == 1000000000

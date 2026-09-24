@@ -85,21 +85,17 @@ def test_get_sec_filings_follows_historical_submission_files():
     )
     historical = make_response(
         {
-            "filings": {
-                "recent": {
-                    "accessionNumber": ["0000320193-20-000001"],
-                    "filingDate": ["2020-11-01"],
-                    "reportDate": ["2020-09-26"],
-                    "acceptanceDateTime": ["2020-11-01T16:00:00.000Z"],
-                    "form": ["10-K/A"],
-                    "primaryDocument": ["aapl-20200926.htm"],
-                    "primaryDocDescription": ["10-K/A"],
-                    "isXBRL": [1],
-                    "isInlineXBRL": [1],
-                    "fiscalYear": [2020],
-                    "fiscalPeriod": ["FY"],
-                }
-            }
+            "accessionNumber": ["0000320193-20-000001"],
+            "filingDate": ["2020-11-01"],
+            "reportDate": ["2020-09-26"],
+            "acceptanceDateTime": ["2020-11-01T16:00:00.000Z"],
+            "form": ["10-K/A"],
+            "primaryDocument": ["aapl-20200926.htm"],
+            "primaryDocDescription": ["10-K/A"],
+            "isXBRL": [1],
+            "isInlineXBRL": [1],
+            "fiscalYear": [2020],
+            "fiscalPeriod": ["FY"],
         }
     )
 
