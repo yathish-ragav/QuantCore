@@ -5,7 +5,11 @@ import requests
 
 from quantcore.core.enums import CorporateActionType
 from quantcore.core.exceptions import ExternalDataError, RateLimitError
-from quantcore.ingestion.providers.massive import MassiveClient, MassiveRequestLimiter
+from quantcore.ingestion.providers.massive import (
+    MassiveClient,
+    MassiveRequestLimiter,
+    PostgresMassiveRequestLimiter,
+)
 
 
 @pytest.fixture
@@ -297,6 +301,48 @@ def test_massive_request_limiter_paces_requests_across_clients(monkeypatch):
 
     assert sleeps == [12.5]
     assert get.call_count == 2
+
+
+def test_postgres_massive_request_limiter_paces_through_advisory_lock():
+    db = Mock()
+    sleeps = []
+
+    limiter = PostgresMassiveRequestLimiter(
+        12.5,
+        session_factory=lambda: db,
+        sleep_fn=sleeps.append,
+    )
+
+    limiter.wait_for_slot()
+
+    statements = [str(call.args[0]) for call in db.execute.call_args_list]
+    assert statements == [
+        "SELECT pg_advisory_xact_lock(hashtext('quantcore:massive:request'))",
+    ]
+    assert sleeps == [12.5]
+    db.rollback.assert_called_once()
+    db.close.assert_called_once()
+
+
+def test_massive_client_uses_cluster_limiter_in_production():
+    import quantcore.ingestion.providers.massive as module
+
+    with patch.object(
+        module,
+        "_MASSIVE_REQUEST_LIMITER",
+        MassiveRequestLimiter(0.0),
+    ), patch.object(module.settings, "MASSIVE_API_KEY", "test-key"), patch.object(
+        module.settings,
+        "MASSIVE_REQUEST_INTERVAL_SECONDS",
+        12.5,
+    ), patch.object(module.settings, "ENVIRONMENT", "production"), patch.object(
+        module.settings,
+        "PRODUCTION_DATA_POLICY_ENFORCED",
+        True,
+    ):
+        client = MassiveClient()
+
+    assert isinstance(client._request_limiter, PostgresMassiveRequestLimiter)
 
 
 def test_massive_request_limiter_rejects_negative_interval():

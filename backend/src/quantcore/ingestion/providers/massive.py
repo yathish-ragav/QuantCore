@@ -6,8 +6,10 @@ from threading import Lock
 from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
 
 import requests
+from sqlalchemy import text
 
 from quantcore.core.config import settings
+from quantcore.db.database import SessionLocal
 from quantcore.core.enums import CorporateActionType, PriceBasis, SecurityType
 from quantcore.core.exceptions import (
     ConfigurationError,
@@ -24,6 +26,48 @@ from quantcore.schemas.quote import QuoteData
 
 from .base import MarketDataProvider
 from .quote_provider import QuoteProvider
+
+
+class PostgresMassiveRequestLimiter:
+    """Cluster-wide request pacer backed by PostgreSQL advisory locking.
+
+    The process-local limiter is sufficient for a single worker process, but
+    production workers may run as multiple containers. A PostgreSQL advisory
+    lock serializes the pacing window across those processes without adding a
+    new persistence table. The connection remains checked out only for the
+    short pacing interval and is released before the provider request starts.
+    """
+
+    _LOCK_SQL = "SELECT pg_advisory_xact_lock(hashtext('quantcore:massive:request'))"
+
+    def __init__(
+        self,
+        interval_seconds: float,
+        *,
+        session_factory=SessionLocal,
+        sleep_fn=time.sleep,
+    ) -> None:
+        if interval_seconds < 0:
+            raise ConfigurationError(
+                "MASSIVE_REQUEST_INTERVAL_SECONDS cannot be negative."
+            )
+        self._interval_seconds = float(interval_seconds)
+        self._session_factory = session_factory
+        self._sleep = sleep_fn
+
+    def wait_for_slot(self) -> None:
+        if self._interval_seconds <= 0:
+            return
+
+        db = self._session_factory()
+        try:
+            db.execute(text(self._LOCK_SQL))
+            self._sleep(self._interval_seconds)
+        finally:
+            # Transaction-scoped advisory locks are released by rollback even
+            # if the worker is interrupted while pacing.
+            db.rollback()
+            db.close()
 
 
 class MassiveRequestLimiter:
@@ -66,7 +110,9 @@ class MassiveRequestLimiter:
 # Dataset services construct their providers independently. The limiter must
 # therefore be shared across MassiveClient instances within the process, or
 # the first request of each dataset could immediately reset the pacing window.
-_MASSIVE_REQUEST_LIMITER = MassiveRequestLimiter(0.0)
+_MASSIVE_REQUEST_LIMITER: MassiveRequestLimiter | PostgresMassiveRequestLimiter = (
+    MassiveRequestLimiter(0.0)
+)
 
 
 class MassiveClient(MarketDataProvider, QuoteProvider):
@@ -108,11 +154,18 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
             # Reconfiguration is intentionally only performed when the value
             # changes; this preserves the request timestamp across dataset
             # service instances.
+            limiter_type = (
+                PostgresMassiveRequestLimiter
+                if settings.PRODUCTION_DATA_POLICY_ENFORCED
+                and settings.ENVIRONMENT.strip().lower() == "production"
+                else MassiveRequestLimiter
+            )
             if (
-                _MASSIVE_REQUEST_LIMITER._interval_seconds
+                not isinstance(_MASSIVE_REQUEST_LIMITER, limiter_type)
+                or _MASSIVE_REQUEST_LIMITER._interval_seconds
                 != float(interval_seconds)
             ):
-                _MASSIVE_REQUEST_LIMITER = MassiveRequestLimiter(
+                _MASSIVE_REQUEST_LIMITER = limiter_type(
                     float(interval_seconds)
                 )
             self._request_limiter = _MASSIVE_REQUEST_LIMITER
