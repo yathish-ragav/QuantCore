@@ -24,3 +24,9 @@ def test_provider_triggering_write_routes_require_authentication():
         response = client.request(method, path)
         assert response.status_code == 401, (method, path, response.text)
         assert response.json()["error"]["code"] == "AUTHENTICATION_REQUIRED"
+
+
+def test_quote_route_requires_authentication_before_provider_access():
+    response = client.get("/quotes/AAPL")
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "AUTHENTICATION_REQUIRED"
