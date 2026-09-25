@@ -1,8 +1,11 @@
 from datetime import date, datetime, timezone
 from unittest.mock import Mock, patch
 
+import pytest
+
 from fastapi.testclient import TestClient
 
+from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.core.enums import CorporateActionType
 from quantcore.services.corporate_action_service import (
@@ -11,6 +14,23 @@ from quantcore.services.corporate_action_service import (
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_ingestion_write_api():
+    def authenticated_principal() -> AuthenticatedPrincipal:
+        return AuthenticatedPrincipal(
+            subject="test-ingestion-user",
+            issuer="https://issuer.example",
+            claims={
+                "sub": "test-ingestion-user",
+                "scope": "ingestion:write",
+            },
+        )
+
+    app.dependency_overrides[get_current_principal] = authenticated_principal
+    yield
+    app.dependency_overrides.pop(get_current_principal, None)
 
 
 def test_get_corporate_actions():

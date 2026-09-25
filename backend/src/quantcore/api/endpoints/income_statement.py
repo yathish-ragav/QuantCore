@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
 from quantcore.api.dependencies import get_income_statement_service
 from quantcore.schemas.responses import (
     IncomeStatementResponse,
@@ -65,6 +66,7 @@ def get_income_statements(
 
 @router.post(
     "/{symbol}/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
     response_model=IncomeStatementSyncResponse,
 )
 def sync_income_statements(

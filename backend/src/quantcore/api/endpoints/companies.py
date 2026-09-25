@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Query
 
+from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
 from quantcore.api.dependencies import get_company_service
 from quantcore.schemas.responses import CompanyResponse, CompanySearchResult
 from quantcore.services.company_service import CompanyService
@@ -74,6 +75,7 @@ def get_company(
 
 @router.post(
     "/{symbol}/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
     response_model=CompanyResponse,
 )
 def sync_company(

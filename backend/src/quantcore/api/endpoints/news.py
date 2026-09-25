@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
 from quantcore.api.dependencies import get_news_service
 from quantcore.schemas.responses import (
     NewsResponse,
@@ -42,6 +43,7 @@ def get_news(
 
 @router.post(
     "/{symbol}/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
     response_model=NewsSyncResponse,
 )
 def sync_news(

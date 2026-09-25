@@ -8,6 +8,7 @@ from quantcore.core.resource_identity import ResourceOwner
 
 
 RESEARCH_READ_SCOPE = "research:read"
+INGESTION_WRITE_SCOPE = "ingestion:write"
 
 
 def _scopes(principal: AuthenticatedPrincipal) -> frozenset[str]:

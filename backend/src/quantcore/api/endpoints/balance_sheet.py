@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
 from quantcore.api.dependencies import get_balance_sheet_service
 from quantcore.schemas.responses import (
     BalanceSheetResponse,
@@ -80,6 +81,7 @@ def get_balance_sheets(
 
 @router.post(
     "/{symbol}/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
     response_model=BalanceSheetSyncResponse,
 )
 def sync_balance_sheets(

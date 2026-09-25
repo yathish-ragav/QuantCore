@@ -1,0 +1,104 @@
+name: QuantCore CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - phase-ix-index-universe
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.17"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Run test suite
+        run: uv run pytest -q
+
+  migrations:
+    name: PostgreSQL migrations
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: quantcore
+          POSTGRES_PASSWORD: quantcore
+          POSTGRES_DB: quantcore
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U quantcore -d quantcore"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgresql+psycopg://quantcore:quantcore@127.0.0.1:5432/quantcore
+      SECRET_KEY: ci-migration-secret
+      ENVIRONMENT: test
+      PRODUCTION_DATA_POLICY_ENFORCED: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.17"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Apply all Alembic migrations
+        run: uv run alembic upgrade head
+
+  container:
+    name: Container build
+    runs-on: ubuntu-latest
+    needs:
+      - test
+      - migrations
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build production image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: false
+          tags: quantcore:ci

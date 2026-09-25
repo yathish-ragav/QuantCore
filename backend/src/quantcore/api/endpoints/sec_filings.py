@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
 from quantcore.api.dependencies import get_sec_filing_service
 from quantcore.schemas.responses import (
     FilingEventResponse,
@@ -49,6 +50,7 @@ def get_sec_filing_events(
 
 @router.post(
     "/{symbol}/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
     response_model=SECFilingSyncResponse,
 )
 def sync_sec_filings(

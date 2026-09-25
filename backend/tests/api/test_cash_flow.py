@@ -1,13 +1,33 @@
 from datetime import date
 from unittest.mock import Mock, patch
 
+import pytest
+
 from fastapi.testclient import TestClient
 
+from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def _authenticated_ingestion_write_api():
+    def authenticated_principal() -> AuthenticatedPrincipal:
+        return AuthenticatedPrincipal(
+            subject="test-ingestion-user",
+            issuer="https://issuer.example",
+            claims={
+                "sub": "test-ingestion-user",
+                "scope": "ingestion:write",
+            },
+        )
+
+    app.dependency_overrides[get_current_principal] = authenticated_principal
+    yield
+    app.dependency_overrides.pop(get_current_principal, None)
 
 
 def make_statement(

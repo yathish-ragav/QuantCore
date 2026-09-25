@@ -11,6 +11,10 @@ class Base(DeclarativeBase):
 engine = create_engine(
     settings.DATABASE_URL,
     echo=settings.SQL_ECHO,
+    pool_pre_ping=True,
+    pool_recycle=settings.DB_POOL_RECYCLE_SECONDS,
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
 )
 
 

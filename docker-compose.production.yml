@@ -1,11 +1,26 @@
 name: quantcore
 
 services:
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: "no"
+    env_file:
+      - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
+    command:
+      - alembic
+      - upgrade
+      - head
+
   api:
     build:
       context: .
       dockerfile: docker/Dockerfile
     restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     ports:
@@ -37,6 +52,9 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
@@ -55,6 +73,9 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:

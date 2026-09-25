@@ -2,6 +2,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Query
 
+from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
 from quantcore.api.dependencies import get_macro_service, get_macro_ingestion_orchestrator
 from quantcore.schemas.responses import (
     MacroIngestionFreshnessResponse,
@@ -64,6 +65,7 @@ def get_macro_observations(
 
 @router.post(
     "/series/{series_id}/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
     response_model=MacroSyncResponse,
 )
 def sync_macro_series(
@@ -94,6 +96,7 @@ def get_macro_ingestion_freshness(
 
 @router.post(
     "/ingestion/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
     response_model=list[MacroIngestionSyncResponse],
 )
 def sync_macro_ingestion(

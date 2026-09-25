@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
 from quantcore.api.dependencies import get_cash_flow_statement_service
 from quantcore.schemas.responses import (
     CashFlowStatementResponse,
@@ -82,6 +83,7 @@ def get_cash_flow_statements(
 
 @router.post(
     "/{symbol}/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
     response_model=CashFlowStatementSyncResponse,
 )
 def sync_cash_flow_statements(

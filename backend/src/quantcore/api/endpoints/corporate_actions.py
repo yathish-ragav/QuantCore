@@ -2,6 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Query
 
+from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
 from quantcore.api.dependencies import get_corporate_action_service
 from quantcore.schemas.responses import CorporateActionResponse
 from quantcore.services.corporate_action_service import (
@@ -48,6 +49,7 @@ def get_corporate_actions(
 
 @router.post(
     "/{symbol}/sync",
+    dependencies=[Depends(require_scopes(INGESTION_WRITE_SCOPE))],
 )
 def sync_corporate_actions(
     symbol: str,

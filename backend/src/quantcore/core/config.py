@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     realtime_market_data_provider: str = "fmp"
     macro_data_provider: str = "fred"
     SQL_ECHO: bool = False
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_RECYCLE_SECONDS: int = 1800
 
     # Generic OIDC resource-server settings. Authentication is fail-closed
     # when these are not configured; no local token format is accepted.
