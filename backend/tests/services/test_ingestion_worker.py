@@ -5,6 +5,8 @@ from unittest.mock import Mock
 import pytest
 
 from quantcore.core.exceptions import InvalidInputError
+from quantcore.services.ingestion_orchestrator import IngestionResult
+from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.services.ingestion_worker import (
     IngestionWorker,
     IngestionWorkerConfig,
@@ -102,3 +104,56 @@ def test_worker_survives_transient_recovery_failure():
 
     worker.recover_stale.assert_called_once()
     worker.run_once.assert_called_once()
+
+
+def test_worker_logs_completed_job_metrics(caplog):
+    db = Mock()
+    factory = Mock(return_value=db)
+    service = Mock()
+    service.execute_claimed.return_value = IngestionResult(
+        dataset=IngestionDataset.PRICE_HISTORY,
+        eligible=100,
+        attempted=80,
+        succeeded=75,
+        skipped=20,
+        failed=5,
+        errors=("MSFT: provider unavailable",),
+        run_id=123,
+    )
+
+    class FakeThread:
+        def __init__(self, **_kwargs):
+            pass
+
+        def start(self):
+            pass
+
+        def join(self, **_kwargs):
+            pass
+
+    import quantcore.services.ingestion_worker as module
+    original_service = module.IngestionExecutionService
+    original_thread = module.threading.Thread
+    module.IngestionExecutionService = Mock(return_value=service)
+    module.threading.Thread = FakeThread
+    try:
+        worker = IngestionWorker(
+            session_factory=factory,
+            worker_id="worker-a",
+        )
+        with caplog.at_level("INFO", logger=module.logger.name):
+            worker._execute_with_heartbeat(41, 2)
+    finally:
+        module.IngestionExecutionService = original_service
+        module.threading.Thread = original_thread
+
+    message = " ".join(record.getMessage() for record in caplog.records)
+    assert "Ingestion job completed job_id=41" in message
+    assert "worker_id=worker-a" in message
+    assert "attempt=2" in message
+    assert "dataset=price_history" in message
+    assert "run_id=123" in message
+    assert "eligible=100" in message
+    assert "succeeded=75" in message
+    assert "failed=5" in message
+    assert "duration_ms=" in message

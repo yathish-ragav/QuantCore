@@ -4,6 +4,7 @@ import argparse
 import logging
 import signal
 import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
@@ -80,6 +81,12 @@ class IngestionWorker:
                 return False
             job_id = claimed.job_id
             attempt_number = claimed.attempt_count
+            logger.info(
+                "Claimed ingestion job job_id=%s worker_id=%s attempt=%s",
+                job_id,
+                self.worker_id,
+                attempt_number,
+            )
         finally:
             db.close()
 
@@ -116,12 +123,41 @@ class IngestionWorker:
             daemon=True,
         )
         heartbeat_thread.start()
+        started_monotonic = time.monotonic()
         db: Session = self.session_factory()
         try:
-            IngestionExecutionService(db).execute_claimed(
+            result = IngestionExecutionService(db).execute_claimed(
                 job_id,
                 worker_id=self.worker_id,
                 attempt_number=attempt_number,
+            )
+        except Exception:
+            duration_ms = round((time.monotonic() - started_monotonic) * 1000, 1)
+            logger.exception(
+                "Ingestion job failed job_id=%s worker_id=%s attempt=%s duration_ms=%s",
+                job_id,
+                self.worker_id,
+                attempt_number,
+                duration_ms,
+            )
+            raise
+        else:
+            duration_ms = round((time.monotonic() - started_monotonic) * 1000, 1)
+            logger.info(
+                "Ingestion job completed job_id=%s worker_id=%s attempt=%s "
+                "dataset=%s run_id=%s eligible=%s attempted=%s succeeded=%s "
+                "skipped=%s failed=%s duration_ms=%s",
+                job_id,
+                self.worker_id,
+                attempt_number,
+                result.dataset.value,
+                result.run_id,
+                result.eligible,
+                result.attempted,
+                result.succeeded,
+                result.skipped,
+                result.failed,
+                duration_ms,
             )
         finally:
             heartbeat_stop.set()
