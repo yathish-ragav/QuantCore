@@ -4,6 +4,7 @@ import pytest
 import requests
 from unittest.mock import Mock, patch
 
+from quantcore.core.enums import FinancialPeriodType
 from quantcore.core.exceptions import (
     DataValidationError,
     ExternalDataError,
@@ -564,6 +565,33 @@ def test_sec_is_annual_fact():
     ) is False
 
 
+def test_sec_quarterly_fact_requires_standalone_qtrs_one():
+    standalone = {
+        "start": "2026-01-01",
+        "end": "2026-03-31",
+        "form": "10-Q",
+        "fp": "Q1",
+        "qtrs": 1,
+    }
+    ytd = {**standalone, "end": "2026-06-30", "qtrs": 2, "fp": "Q2"}
+    amended = {**standalone, "form": "10-Q/A"}
+
+    assert SECProvider._is_quarterly_fact(standalone) is True
+    assert SECProvider._is_quarterly_fact(amended) is True
+    assert SECProvider._is_quarterly_fact(ytd) is False
+
+
+def test_sec_instant_fact_accepts_quarter_end_10q():
+    fact = {
+        "end": "2026-06-30",
+        "form": "10-Q",
+        "fp": "Q2",
+        "qtrs": 0,
+    }
+
+    assert SECProvider._is_instant_fact(fact) is True
+
+
 def test_sec_get_fiscal_dates():
 
     facts = [
@@ -679,6 +707,106 @@ def test_sec_integer_value_on_date_returns_none_when_missing():
     )
 
     assert result is None
+
+def test_sec_get_quarterly_income_statements_selects_standalone_fact():
+    SECProvider._ticker_to_cik = {"TEST": "0001234567"}
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "RevenueFromContractWithCustomerExcludingAssessedTax": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2026-01-01", "end": "2026-03-31", "val": 100,
+                                "form": "10-Q", "fp": "Q1", "qtrs": 1, "fy": 2026,
+                                "filed": "2026-05-01", "accn": "0001234567-26-000001",
+                            },
+                            {
+                                "start": "2026-01-01", "end": "2026-06-30", "val": 230,
+                                "form": "10-Q", "fp": "Q2", "qtrs": 2, "fy": 2026,
+                                "filed": "2026-08-01", "accn": "0001234567-26-000002",
+                            },
+                            {
+                                "start": "2026-04-01", "end": "2026-06-30", "val": 130,
+                                "form": "10-Q", "fp": "Q2", "qtrs": 1, "fy": 2026,
+                                "filed": "2026-08-01", "accn": "0001234567-26-000002",
+                            },
+                        ]
+                    }
+                },
+                "NetIncomeLoss": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2026-01-01", "end": "2026-03-31", "val": 20,
+                                "form": "10-Q", "fp": "Q1", "qtrs": 1, "fy": 2026,
+                                "filed": "2026-05-01", "accn": "0001234567-26-000001",
+                            },
+                            {
+                                "start": "2026-04-01", "end": "2026-06-30", "val": 25,
+                                "form": "10-Q", "fp": "Q2", "qtrs": 1, "fy": 2026,
+                                "filed": "2026-08-01", "accn": "0001234567-26-000002",
+                            },
+                        ]
+                    }
+                },
+            },
+            "dei": {
+                "EntityCommonStockSharesOutstanding": {
+                    "units": {
+                        "shares": [
+                            {"end": "2026-06-30", "val": 1000, "form": "10-Q", "fp": "Q2", "qtrs": 0, "filed": "2026-08-01", "accn": "0001234567-26-000002"}
+                        ]
+                    }
+                }
+            },
+        }
+    }
+
+    with patch("quantcore.ingestion.providers.sec.requests.get", return_value=fake_response):
+        result = SECProvider().get_quarterly_income_statements("TEST")
+
+    assert [(row.fiscal_date, row.total_revenue, row.net_income) for row in result] == [
+        (date(2026, 3, 31), 100.0, 20.0),
+        (date(2026, 6, 30), 130.0, 25.0),
+    ]
+    assert result[-1].shares_outstanding == 1000
+    assert result[-1].period_type.value == "QUARTERLY"
+
+
+def test_sec_get_balance_sheets_includes_quarter_end_instant_facts():
+    SECProvider._ticker_to_cik = {"TEST": "0001234567"}
+    fake_response = Mock()
+    fake_response.json.return_value = {
+        "facts": {
+            "us-gaap": {
+                "Assets": {
+                    "units": {
+                        "USD": [
+                            {"end": "2025-12-31", "val": 1000, "form": "10-K", "fp": "FY", "qtrs": 0, "filed": "2026-03-01"},
+                            {"end": "2026-06-30", "val": 1100, "form": "10-Q", "fp": "Q2", "qtrs": 0, "filed": "2026-08-01"},
+                        ]
+                    }
+                },
+                "CashAndCashEquivalentsAtCarryingValue": {
+                    "units": {
+                        "USD": [
+                            {"end": "2026-06-30", "val": 300, "form": "10-Q", "fp": "Q2", "qtrs": 0, "filed": "2026-08-01"},
+                        ]
+                    }
+                },
+            }
+        }
+    }
+
+    with patch("quantcore.ingestion.providers.sec.requests.get", return_value=fake_response):
+        result = SECProvider().get_balance_sheets("TEST")
+
+    assert [row.fiscal_date for row in result] == [date(2025, 12, 31), date(2026, 6, 30)]
+    assert result[-1].period_type is FinancialPeriodType.INSTANT
+    assert result[-1].total_assets == 1100.0
+
 
 # ---------------------------------------------------------------------------
 # Cash flow statements

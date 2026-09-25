@@ -539,10 +539,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     def get_income_statements(
         self,
         symbol: str,
+        *,
+        period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
     ) -> list[IncomeStatementData]:
-        """
-        Retrieve annual income statements from SEC XBRL CompanyFacts.
-        """
+        """Retrieve normalized income statements for one SEC period type."""
 
         # -------------------------------------------------
         # 1. Validate caller input.
@@ -603,6 +603,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["Revenue", "RevenueFromContractsWithCustomers"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         gross_profit = self._get_fact_from_taxonomies(
@@ -611,6 +612,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["GrossProfit"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         operating_income = self._get_fact_from_taxonomies(
@@ -619,6 +621,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["ProfitLossFromOperatingActivities"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         net_income = self._get_fact_from_taxonomies(
@@ -627,6 +630,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["ProfitLossAttributableToOwnersOfParent", "ProfitLoss"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         eps = self._get_fact_from_taxonomies(
@@ -640,6 +644,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 ]),
             ],
             preferred_unit="USD-per-shares",
+            period_type=period_type,
         )
 
         dei = facts.get("dei", {})
@@ -660,6 +665,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["WeightedAverageNumberOfOrdinarySharesOutstanding"]),
             ],
             preferred_unit="shares",
+            period_type=period_type,
         )
 
         # -------------------------------------------------
@@ -676,6 +682,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             net_income,
             eps,
             weighted_average_shares,
+            period_type=period_type,
         )
 
         # -------------------------------------------------
@@ -690,32 +697,37 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                     **self._metadata_on_date_from_groups(
                         revenue, gross_profit, operating_income, net_income, eps,
                         weighted_average_shares, fiscal_date=fiscal_date,
-                        period_type=FinancialPeriodType.ANNUAL,
+                        period_type=period_type,
                     ),
                     total_revenue=self._value_on_date(
                         revenue,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     gross_profit=self._value_on_date(
                         gross_profit,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     operating_income=self._value_on_date(
                         operating_income,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     net_income=self._value_on_date(
                         net_income,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     eps=self._value_on_date(
                         eps,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     shares_outstanding=self._integer_value_on_date(
                         shares,
                         fiscal_date,
-                        annual_only=False,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     weighted_average_shares_outstanding=(
                         self._integer_value_on_date(
@@ -731,10 +743,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     def get_cash_flow_statements(
         self,
         symbol: str,
+        *,
+        period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
     ) -> list[CashFlowStatementData]:
-        """
-        Retrieve annual cash flow statements from SEC XBRL CompanyFacts.
-        """
+        """Retrieve normalized cash-flow statements for one SEC period type."""
 
         # -------------------------------------------------
         # 1. Validate caller input.
@@ -791,6 +803,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["CashFlowsFromUsedInOperatingActivities"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         # SEC reports capital expenditure as a positive outflow
@@ -806,6 +819,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         investing_cash_flow = self._get_fact_from_taxonomies(
@@ -814,6 +828,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["CashFlowsFromUsedInInvestingActivities"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         financing_cash_flow = self._get_fact_from_taxonomies(
@@ -822,6 +837,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["CashFlowsFromUsedInFinancingActivities"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         depreciation_and_amortization = self._get_fact_from_taxonomies(
@@ -833,6 +849,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["DepreciationDepletionAndAmortisation", "DepreciationAndAmortisation"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         stock_based_compensation = self._get_fact_from_taxonomies(
@@ -841,6 +858,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["ShareBasedPayments"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         dividends_paid = self._get_fact_from_taxonomies(
@@ -852,6 +870,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["DividendsPaid"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         share_repurchases = self._get_fact_from_taxonomies(
@@ -860,6 +879,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["PaymentsForRepurchaseOfOrdinaryShares"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         net_change_in_cash = self._get_fact_from_taxonomies(
@@ -873,6 +893,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 (ifrs_full, ["IncreaseDecreaseInCashAndCashEquivalents"]),
             ],
             preferred_unit="USD",
+            period_type=period_type,
         )
 
         # -------------------------------------------------
@@ -890,6 +911,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             dividends_paid,
             share_repurchases,
             net_change_in_cash,
+            period_type=period_type,
         )
 
         # -------------------------------------------------
@@ -902,10 +924,12 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             ocf_value = self._value_on_date(
                 operating_cash_flow,
                 fiscal_date,
+                period_type=period_type,
             )
             capex_value = self._value_on_date(
                 capital_expenditure,
                 fiscal_date,
+                period_type=period_type,
             )
 
             free_cash_flow = (
@@ -923,7 +947,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                         financing_cash_flow, depreciation_and_amortization,
                         stock_based_compensation, dividends_paid, share_repurchases,
                         net_change_in_cash, fiscal_date=fiscal_date,
-                        period_type=FinancialPeriodType.ANNUAL,
+                        period_type=period_type,
                     ),
                     operating_cash_flow=ocf_value,
                     capital_expenditure=capex_value,
@@ -931,35 +955,60 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                     investing_cash_flow=self._value_on_date(
                         investing_cash_flow,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     financing_cash_flow=self._value_on_date(
                         financing_cash_flow,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     depreciation_and_amortization=self._value_on_date(
                         depreciation_and_amortization,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     stock_based_compensation=self._value_on_date(
                         stock_based_compensation,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     dividends_paid=self._value_on_date(
                         dividends_paid,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     share_repurchases=self._value_on_date(
                         share_repurchases,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                     net_change_in_cash=self._value_on_date(
                         net_change_in_cash,
                         fiscal_date,
+                        period_type=period_type,
                     ),
                 )
             )
 
         return statements
+
+    def get_quarterly_income_statements(
+        self,
+        symbol: str,
+    ) -> list[IncomeStatementData]:
+        return self.get_income_statements(
+            symbol,
+            period_type=FinancialPeriodType.QUARTERLY,
+        )
+
+    def get_quarterly_cash_flow_statements(
+        self,
+        symbol: str,
+    ) -> list[CashFlowStatementData]:
+        return self.get_cash_flow_statements(
+            symbol,
+            period_type=FinancialPeriodType.QUARTERLY,
+        )
 
     def get_balance_sheets(
         self,
@@ -1109,20 +1158,24 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             total_liabilities,
             total_equity,
             retained_earnings,
+            period_type=FinancialPeriodType.INSTANT,
         )
 
         statements: list[BalanceSheetData] = []
 
         for fiscal_date in fiscal_dates:
-            cash_value = self._value_on_date(cash, fiscal_date)
+            cash_value = self._value_on_date(cash, fiscal_date, period_type=FinancialPeriodType.INSTANT)
             sti_value = self._value_on_date(
-                short_term_investments, fiscal_date
+                short_term_investments, fiscal_date,
+                period_type=FinancialPeriodType.INSTANT,
             )
             std_value = self._value_on_date(
-                short_term_debt, fiscal_date
+                short_term_debt, fiscal_date,
+                period_type=FinancialPeriodType.INSTANT,
             )
             ltd_value = self._value_on_date(
-                long_term_debt, fiscal_date
+                long_term_debt, fiscal_date,
+                period_type=FinancialPeriodType.INSTANT,
             )
             total_debt = None
             if std_value is not None or ltd_value is not None:
@@ -1135,10 +1188,12 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             )
 
             current_assets_value = self._value_on_date(
-                total_current_assets, fiscal_date
+                total_current_assets, fiscal_date,
+                period_type=FinancialPeriodType.INSTANT,
             )
             current_liabilities_value = self._value_on_date(
-                total_current_liabilities, fiscal_date
+                total_current_liabilities, fiscal_date,
+                period_type=FinancialPeriodType.INSTANT,
             )
             working_capital = (
                 current_assets_value - current_liabilities_value
@@ -1161,38 +1216,48 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                     cash_and_cash_equivalents=cash_value,
                     short_term_investments=sti_value,
                     accounts_receivable=self._value_on_date(
-                        accounts_receivable, fiscal_date
+                        accounts_receivable, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     inventory=self._value_on_date(
-                        inventory, fiscal_date
+                        inventory, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     total_current_assets=current_assets_value,
                     property_plant_equipment_net=self._value_on_date(
-                        property_plant_equipment_net, fiscal_date
+                        property_plant_equipment_net, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     goodwill=self._value_on_date(
-                        goodwill, fiscal_date
+                        goodwill, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     intangible_assets=self._value_on_date(
-                        intangible_assets, fiscal_date
+                        intangible_assets, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     total_assets=self._value_on_date(
-                        total_assets, fiscal_date
+                        total_assets, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     accounts_payable=self._value_on_date(
-                        accounts_payable, fiscal_date
+                        accounts_payable, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     short_term_debt=std_value,
                     total_current_liabilities=current_liabilities_value,
                     long_term_debt=ltd_value,
                     total_liabilities=self._value_on_date(
-                        total_liabilities, fiscal_date
+                        total_liabilities, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     total_equity=self._value_on_date(
-                        total_equity, fiscal_date
+                        total_equity, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     retained_earnings=self._value_on_date(
-                        retained_earnings, fiscal_date
+                        retained_earnings, fiscal_date,
+                        period_type=FinancialPeriodType.INSTANT,
                     ),
                     total_debt=total_debt,
                     net_debt=net_debt,
@@ -1206,6 +1271,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     def _get_fact_from_taxonomies(
         taxonomy_tags: list[tuple[dict[str, Any], list[str]]],
         preferred_unit: str,
+        period_type: FinancialPeriodType | None = None,
     ) -> list[dict[str, Any]]:
         """Return the first matching fact across ordered XBRL taxonomies.
 
@@ -1217,7 +1283,12 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         for taxonomy, tags in taxonomy_tags:
             if not isinstance(taxonomy, dict):
                 continue
-            facts = SECProvider._get_fact(taxonomy, tags, preferred_unit)
+            facts = SECProvider._get_fact(
+                taxonomy,
+                tags,
+                preferred_unit,
+                period_type=period_type,
+            )
             if facts:
                 return facts
         return []
@@ -1227,6 +1298,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         us_gaap: dict[str, Any],
         tags: list[str],
         preferred_unit: str,
+        period_type: FinancialPeriodType | None = None,
     ) -> list[dict[str, Any]]:
         """
         Find the first available XBRL fact using the preferred unit.
@@ -1241,10 +1313,21 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             units = fact.get("units", {})
 
             if preferred_unit in units:
-                return units[preferred_unit]
+                facts = units[preferred_unit]
+            elif units:
+                facts = next(iter(units.values()))
+            else:
+                facts = []
 
-            if units:
-                return next(iter(units.values()))
+            if period_type is None:
+                return facts
+            filtered = [
+                fact
+                for fact in facts
+                if SECProvider._is_fact_for_period(fact, period_type)
+            ]
+            if filtered:
+                return filtered
 
         return []
 
@@ -1252,30 +1335,86 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     def _is_annual_fact(
         fact: dict[str, Any],
     ) -> bool:
-        """
-        Determine whether an XBRL fact represents an annual SEC filing.
-
-        QuantCore's US-equity universe includes US-listed foreign issuers.
-        Their annual reports can be filed on Forms 20-F or 40-F rather than
-        Form 10-K. Transition annual reports can also use 10-KT. Keep the
-        annual-form set explicit so quarterly/current-report facts are not
-        accidentally promoted into the annual statement datasets.
-        """
-
+        """Return True for annual periodic SEC financial facts."""
         annual_forms = {
-            "10-K",
-            "10-K/A",
-            "10-KT",
-            "10-KT/A",
-            "20-F",
-            "20-F/A",
-            "40-F",
-            "40-F/A",
+            "10-K", "10-K/A", "10-KT", "10-KT/A",
+            "20-F", "20-F/A", "40-F", "40-F/A",
         }
-
         return (
             str(fact.get("form") or "").upper() in annual_forms
             and fact.get("fp") == "FY"
+        )
+
+    @staticmethod
+    def _is_quarterly_fact(
+        fact: dict[str, Any],
+    ) -> bool:
+        """Return True only for standalone 10-Q duration facts.
+
+        SEC's ``qtrs`` field is the primary discriminator: qtrs=1 means the
+        fact represents one fiscal quarter, while qtrs=2/3 are cumulative
+        year-to-date values. The filing form/fiscal period are also required.
+        When a legacy CompanyFacts record omits qtrs, we accept only a
+        plausible duration and the explicit Q1-Q3 fiscal-period marker; we do
+        not infer quarters from calendar dates.
+        """
+        form = str(fact.get("form") or "").upper()
+        if form not in {"10-Q", "10-Q/A"}:
+            return False
+        if fact.get("fp") not in {"Q1", "Q2", "Q3"}:
+            return False
+        if not fact.get("start") or not fact.get("end"):
+            return False
+
+        qtrs = fact.get("qtrs")
+        if qtrs is not None:
+            try:
+                return int(qtrs) == 1
+            except (TypeError, ValueError):
+                return False
+
+        try:
+            duration = date.fromisoformat(str(fact["end"])) - date.fromisoformat(str(fact["start"]))
+        except (TypeError, ValueError):
+            return False
+        return 60 <= duration.days <= 120
+
+    @staticmethod
+    def _is_instant_fact(
+        fact: dict[str, Any],
+    ) -> bool:
+        """Return True for periodic filing instant facts used by balance sheets."""
+        periodic_forms = {
+            "10-K", "10-K/A", "10-KT", "10-KT/A",
+            "10-Q", "10-Q/A", "20-F", "20-F/A", "40-F", "40-F/A",
+        }
+        form = str(fact.get("form") or "").upper()
+        if form not in periodic_forms or not fact.get("end"):
+            return False
+        if fact.get("start") is not None:
+            return False
+        qtrs = fact.get("qtrs")
+        if qtrs is not None:
+            try:
+                return int(qtrs) == 0
+            except (TypeError, ValueError):
+                return False
+        return True
+
+    @classmethod
+    def _is_fact_for_period(
+        cls,
+        fact: dict[str, Any],
+        period_type: FinancialPeriodType,
+    ) -> bool:
+        if period_type is FinancialPeriodType.ANNUAL:
+            return cls._is_annual_fact(fact)
+        if period_type is FinancialPeriodType.QUARTERLY:
+            return cls._is_quarterly_fact(fact)
+        if period_type is FinancialPeriodType.INSTANT:
+            return cls._is_instant_fact(fact)
+        raise InvalidInputError(
+            f"SEC provider does not extract {period_type.value} facts directly."
         )
 
     @classmethod
@@ -1285,16 +1424,17 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         fiscal_date: date,
         period_type: FinancialPeriodType,
     ) -> dict[str, Any]:
-        """Return metadata from the latest matching fact across statement groups."""
+        """Return the latest matching SEC identity for the requested period."""
         matching = []
         target = fiscal_date.isoformat()
         for facts in fact_groups:
             for fact in facts:
-                if cls._is_annual_fact(fact) and fact.get("end") == target:
+                if cls._is_fact_for_period(fact, period_type) and fact.get("end") == target:
                     matching.append(fact)
         if not matching:
             return {"period_type": period_type}
         latest = max(matching, key=lambda fact: fact.get("filed", ""))
+
         def _parse_date(value):
             if not value:
                 return None
@@ -1302,6 +1442,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 return date.fromisoformat(value)
             except (TypeError, ValueError):
                 return None
+
         return {
             "period_start": _parse_date(latest.get("start")) if period_type is not FinancialPeriodType.INSTANT else None,
             "fiscal_year": latest.get("fy"),
@@ -1320,24 +1461,15 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         *,
         period_type: FinancialPeriodType,
     ) -> dict[str, Any]:
-        """Return the latest filed annual XBRL identity for a period end."""
-
         matching = [
             fact
             for fact in facts
-            if cls._is_annual_fact(fact)
+            if cls._is_fact_for_period(fact, period_type)
             and fact.get("end") == fiscal_date.isoformat()
         ]
-
         if not matching:
-            return {
-                "period_type": period_type,
-            }
-
-        latest = max(
-            matching,
-            key=lambda fact: fact.get("filed", ""),
-        )
+            return {"period_type": period_type}
+        latest = max(matching, key=lambda fact: fact.get("filed", ""))
 
         def _parse_date(value):
             if not value:
@@ -1348,11 +1480,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 return None
 
         return {
-            "period_start": (
-                _parse_date(latest.get("start"))
-                if period_type is not FinancialPeriodType.INSTANT
-                else None
-            ),
+            "period_start": _parse_date(latest.get("start")) if period_type is not FinancialPeriodType.INSTANT else None,
             "fiscal_year": latest.get("fy"),
             "fiscal_period": latest.get("fp"),
             "period_type": period_type,
@@ -1365,31 +1493,20 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     def _get_fiscal_dates_from_groups(
         cls,
         *fact_groups: list[dict[str, Any]],
+        period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
     ) -> list[date]:
-        """Return the union of annual/instant period-end dates.
-
-        SEC CompanyFacts is heterogeneous across issuers. A statement must
-        not depend on one canonical concept being present. Building the date
-        set from all available statement concepts preserves valid partial
-        statements while leaving unavailable fields as ``None``.
-        """
-
         dates: set[date] = set()
-
         for facts in fact_groups:
             for fact in facts:
-                if not cls._is_annual_fact(fact):
+                if not cls._is_fact_for_period(fact, period_type):
                     continue
-
                 end = fact.get("end")
                 if not end:
                     continue
-
                 try:
                     dates.add(date.fromisoformat(end))
                 except (TypeError, ValueError):
                     continue
-
         return sorted(dates)
 
     @classmethod
@@ -1397,59 +1514,26 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         cls,
         facts: list[dict[str, Any]],
     ) -> list[date]:
-        """
-        Extract unique annual fiscal year-end dates.
-        """
-
-        dates: set[date] = set()
-
-        for fact in facts:
-            if not cls._is_annual_fact(fact):
-                continue
-
-            end = fact.get("end")
-
-            if not end:
-                continue
-
-            dates.add(
-                date.fromisoformat(end)
-            )
-
-        return sorted(dates)
+        return cls._get_fiscal_dates_from_groups(facts, period_type=FinancialPeriodType.ANNUAL)
 
     @classmethod
     def _value_on_date(
         cls,
         facts: list[dict[str, Any]],
         fiscal_date: date,
+        *,
+        period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
     ) -> float | None:
-        """
-        Get the latest filed annual value for a fiscal date.
-        """
-
-        matching_facts: list[dict[str, Any]] = []
-
-        for fact in facts:
-            if not cls._is_annual_fact(fact):
-                continue
-
-            if fact.get("end") != fiscal_date.isoformat():
-                continue
-
-            if fact.get("val") is None:
-                continue
-
-            matching_facts.append(fact)
-
-        if not matching_facts:
+        matching = [
+            fact
+            for fact in facts
+            if cls._is_fact_for_period(fact, period_type)
+            and fact.get("end") == fiscal_date.isoformat()
+            and fact.get("val") is not None
+        ]
+        if not matching:
             return None
-
-        latest = max(
-            matching_facts,
-            key=lambda fact: fact.get("filed", ""),
-        )
-
+        latest = max(matching, key=lambda fact: fact.get("filed", ""))
         return float(latest["val"])
 
     @classmethod
@@ -1458,26 +1542,16 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         facts: list[dict[str, Any]],
         fiscal_date: date,
         *,
-        annual_only: bool = True,
+        period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
+        annual_only: bool | None = None,
     ) -> int | None:
-        """Get the latest integer XBRL value for a period-end date."""
-
-        if annual_only:
-            value = cls._value_on_date(facts, fiscal_date)
-        else:
-            matching = [
-                fact
-                for fact in facts
-                if fact.get("end") == fiscal_date.isoformat()
-                and fact.get("val") is not None
-                and str(fact.get("form") or "") in {"10-K", "10-K/A"}
-            ]
-            if not matching:
-                return None
-            latest = max(matching, key=lambda fact: fact.get("filed", ""))
-            value = latest.get("val")
-
-        if value is None:
-            return None
-
-        return int(value)
+        # ``annual_only`` is retained as a compatibility alias for existing
+        # callers/tests. New code should pass the explicit period_type.
+        if annual_only is False and period_type is FinancialPeriodType.ANNUAL:
+            period_type = FinancialPeriodType.INSTANT
+        value = cls._value_on_date(
+            facts,
+            fiscal_date,
+            period_type=period_type,
+        )
+        return int(value) if value is not None else None

@@ -26,6 +26,7 @@ from quantcore.services.security_listing_identity_service import SecurityListing
 from quantcore.repositories.financial_statement_revision_repository import (
     FinancialStatementRevisionRepository,
 )
+from quantcore.services.financial_period_materializer import FinancialPeriodMaterializer
 from quantcore.services.financial_statement_revision import (
     FinancialStatementSyncResult,
     apply_statement_data,
@@ -138,11 +139,11 @@ class IncomeStatementService:
             # -------------------------------------------------
             # 3. Fetch external financial data.
             # -------------------------------------------------
-            raw_statements = (
-                self.provider.get_income_statements(
-                    symbol
-                )
-            )
+            raw_statements = self.provider.get_income_statements(symbol)
+            quarterly_statements = []
+            if getattr(self.provider, "SOURCE", None) == DataSource.SEC.value:
+                quarterly_statements = self.provider.get_quarterly_income_statements(symbol)
+            raw_statements = [*raw_statements, *quarterly_statements]
 
             # -------------------------------------------------
             # 4. Transform.
@@ -280,6 +281,13 @@ class IncomeStatementService:
                         ),
                         revision_number=next_revision_numbers[statement.id],
                     )
+
+            if source is DataSource.SEC:
+                # SessionLocal disables autoflush in production. Flush the
+                # just-created/updated revisions before the materializer reads
+                # them back through the revision repository.
+                self.db.flush()
+                FinancialPeriodMaterializer(self.db).materialize_company(company.id)
 
             if commit:
                 self.db.commit()

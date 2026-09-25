@@ -1,9 +1,11 @@
 from datetime import date, datetime, timezone
-from unittest.mock import ANY, Mock
+from unittest.mock import ANY, Mock, patch
 
 import pytest
 
-from quantcore.core.enums import FinancialStatementType
+from quantcore.models.provenance import DataSource
+
+from quantcore.core.enums import FinancialStatementType, FinancialPeriodType
 from quantcore.schemas.cash_flow_statement import (
     CashFlowStatementData,
 )
@@ -112,6 +114,26 @@ def test_get_cash_flow_statements_company_not_found():
         service.get_cash_flow_statements("AAPL")
 
     service.statement_repo.get_for_company.assert_not_called()
+
+
+def test_sync_cash_flow_includes_sec_quarterly_rows():
+    service, db = make_service()
+    service.provider.SOURCE = DataSource.SEC.value
+    company = make_company()
+    service.security_repo.get_by_symbol.return_value = make_security(company)
+    annual = make_statement(date(2025, 12, 31))
+    quarterly = make_statement(date(2026, 3, 31))
+    quarterly.period_type = FinancialPeriodType.QUARTERLY
+    service.provider.get_cash_flow_statements.return_value = [annual]
+    service.provider.get_quarterly_cash_flow_statements.return_value = [quarterly]
+    service.statement_repo.get_for_company.return_value = []
+    with patch("quantcore.services.cash_flow_statement_service.FinancialPeriodMaterializer") as materializer:
+        result = service.sync_cash_flow_statements("AAPL")
+
+    assert result.records_processed == 2
+    assert service.statement_repo.create.call_count == 2
+    materializer.return_value.materialize_company.assert_called_once_with(company.id)
+    db.flush.assert_called()
 
 
 def test_sync_cash_flow_statements_creates_new_statements():

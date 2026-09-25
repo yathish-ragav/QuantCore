@@ -21,6 +21,25 @@ class FinancialDataProvider(ABC):
     ) -> list[CashFlowStatementData]:
         pass
 
+    def get_quarterly_income_statements(
+        self,
+        symbol: str,
+    ) -> list[IncomeStatementData]:
+        """Return normalized quarterly income statements when supported.
+
+        Providers that do not expose safe quarterly observations may return
+        an empty collection. The production SEC provider implements this
+        capability from 10-Q XBRL facts.
+        """
+        return []
+
+    def get_quarterly_cash_flow_statements(
+        self,
+        symbol: str,
+    ) -> list[CashFlowStatementData]:
+        """Return normalized quarterly cash-flow statements when supported."""
+        return []
+
     @abstractmethod
     def get_balance_sheets(
         self,
