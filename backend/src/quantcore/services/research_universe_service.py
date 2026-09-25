@@ -3,10 +3,13 @@ import hashlib
 import json
 from datetime import date, datetime, timezone
 
-from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.core.enums import FinancialPeriodType, FinancialStatementType
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.repositories.research_universe_repository import ResearchUniverseRepository
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
+)
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,7 @@ class ResearchUniverseService:
 
     def __init__(self, db):
         self.repository = ResearchUniverseRepository(db)
+        self.listing_identity_service = SecurityListingIdentityService(db)
 
     def current_common_stock_cohort(self, *, size: int) -> ResearchCohort:
         """Select a deterministic current cohort of classified common stocks.
@@ -135,6 +139,94 @@ class ResearchUniverseService:
             as_of=known_at,
             selection="HISTORICAL_PIT_ELIGIBLE",
         )
+
+    def validate_historical_symbols(
+        self,
+        symbols: tuple[str, ...] | list[str],
+        *,
+        as_ofs: tuple[datetime, ...] | list[datetime],
+        financial_requirements: tuple[
+            tuple[FinancialStatementType, FinancialPeriodType], ...
+        ] = (
+            (FinancialStatementType.INCOME, FinancialPeriodType.TTM),
+            (FinancialStatementType.CASH_FLOW, FinancialPeriodType.TTM),
+            (FinancialStatementType.BALANCE_SHEET, FinancialPeriodType.INSTANT),
+        ),
+        require_price_history: bool = True,
+    ) -> None:
+        """Validate requested symbols against the PIT research universe.
+
+        Every requested symbol must be a listed, common-stock security with
+        the required PIT financial and price revision coverage at every
+        requested boundary.  Current security state and ingestion freshness
+        are intentionally ignored.
+        """
+        normalized_symbols = tuple(
+            symbol.strip().upper()
+            for symbol in symbols
+            if isinstance(symbol, str) and symbol.strip()
+        )
+        if len(normalized_symbols) != len(tuple(symbols)):
+            raise InvalidInputError("Research symbols must be non-empty strings.")
+        if len(set(normalized_symbols)) != len(normalized_symbols):
+            raise InvalidInputError("Research symbols must not contain duplicates.")
+
+        normalized_as_ofs = tuple(as_ofs)
+        if not normalized_as_ofs:
+            raise InvalidInputError("At least one historical as-of timestamp is required.")
+
+        for as_of in normalized_as_ofs:
+            if as_of.tzinfo is None:
+                raise InvalidInputError(
+                    "Historical research as_of values must be timezone-aware."
+                )
+            resolved = {}
+            missing_listing: list[str] = []
+            for symbol in normalized_symbols:
+                try:
+                    listing = self.listing_identity_service.resolve_as_of(
+                        symbol,
+                        effective_on=as_of.date(),
+                        known_at=as_of,
+                    )
+                except ResourceNotFoundError:
+                    missing_listing.append(symbol)
+                    continue
+                resolved[symbol] = listing.security
+
+            if missing_listing:
+                raise InvalidInputError(
+                    "Historical PIT eligibility failed at "
+                    f"{as_of.isoformat()}: no valid listing for "
+                    + ", ".join(sorted(missing_listing))
+                    + "."
+                )
+
+            securities = list(resolved.values())
+            classified_ids = self.repository.get_common_stock_classification_as_of(
+                security_ids=tuple(security.id for security in securities),
+                effective_on=as_of.date(),
+                known_at=as_of,
+            )
+            eligible_ids = self.repository.get_historical_revision_eligible(
+                securities=securities,
+                effective_on=as_of.date(),
+                known_at=as_of,
+                financial_requirements=financial_requirements,
+                require_price_history=require_price_history,
+            )
+            missing = [
+                symbol
+                for symbol, security in resolved.items()
+                if security.id not in classified_ids or security.id not in eligible_ids
+            ]
+            if missing:
+                raise InvalidInputError(
+                    "Historical PIT eligibility failed at "
+                    f"{as_of.isoformat()} for: "
+                    + ", ".join(sorted(missing))
+                    + "."
+                )
 
     def listings_as_of(
         self,

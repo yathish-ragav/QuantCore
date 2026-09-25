@@ -11,6 +11,7 @@ from quantcore.services.research_dataset_service import (
     ResearchDatasetService,
     ResearchFeatureVector,
 )
+from quantcore.services.research_universe_service import ResearchUniverseService
 
 
 @dataclass(frozen=True)
@@ -105,6 +106,7 @@ class ResearchHistoricalAnalysisService:
     def __init__(self, db: Session):
         self.db = db
         self.dataset_service = ResearchDatasetService(db)
+        self.universe_service = ResearchUniverseService(db)
 
     @staticmethod
     def _normalize_symbols(symbols: Iterable[str]) -> tuple[str, ...]:
@@ -228,6 +230,16 @@ class ResearchHistoricalAnalysisService:
             normalized_dataset_identity = tuple(
                 value.strip() for value in dataset_identity
             )
+
+        # Historical research is only allowed to consume a security that was
+        # demonstrably eligible at every requested PIT boundary.  This gate
+        # composes listing identity, bitemporal instrument classification and
+        # revision-store coverage; it does not use current Security state or
+        # IngestionState freshness.
+        self.universe_service.validate_historical_symbols(
+            normalized_symbols,
+            as_ofs=tuple(sorted(normalized_as_ofs)),
+        )
 
         rows: list[ResearchHistoricalDatasetRow] = []
         for as_of in sorted(normalized_as_ofs):

@@ -27,6 +27,7 @@ def make_service():
     )
     service.db = Mock()
     service.dataset_service = Mock()
+    service.universe_service = Mock()
     return service
 
 
@@ -54,6 +55,10 @@ def test_build_historical_dataset_builds_deterministic_chronological_panel():
     ]
     assert all(isinstance(row, ResearchHistoricalDatasetRow) for row in result.rows)
     assert [row.security_id for row in result.rows] == [10, 20, 10, 20]
+    service.universe_service.validate_historical_symbols.assert_called_once_with(
+        ("MSFT", "AAPL"),
+        as_ofs=(first, second),
+    )
     assert service.dataset_service.build_feature_vector.call_count == 4
 
 

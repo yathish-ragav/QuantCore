@@ -453,3 +453,119 @@ def test_historical_pit_eligible_rejects_future_known_financial_revision(db_sess
         require_price_history=False,
     )
     assert result.security_ids == ()
+
+
+def test_validate_historical_symbols_requires_pit_classification_and_revisions(db_session):
+    security = _security(db_session, "ELIGIBLE")
+    known = datetime(2024, 2, 3, tzinfo=timezone.utc)
+    _seed_historical_inputs(
+        db_session,
+        security,
+        classification_known=known,
+        price_known=known,
+        financial_known=known,
+    )
+
+    ResearchUniverseService(db_session).validate_historical_symbols(
+        ("ELIGIBLE",),
+        as_ofs=(datetime(2024, 6, 1, tzinfo=timezone.utc),),
+    )
+
+
+def test_validate_historical_symbols_rejects_missing_classification(db_session):
+    security = _security(db_session, "NOCLASS")
+    known = datetime(2024, 2, 3, tzinfo=timezone.utc)
+    db_session.add(
+        SecurityIdentifierHistory(
+            security_id=security.id,
+            symbol=security.symbol,
+            exchange=security.exchange,
+            effective_from=date(2020, 1, 1),
+            effective_to=None,
+            known_at=known,
+            first_seen_at=known,
+            last_seen_at=known,
+            is_current=True,
+        )
+    )
+    db_session.commit()
+
+    with pytest.raises(InvalidInputError, match="NOCLASS"):
+        ResearchUniverseService(db_session).validate_historical_symbols(
+            ("NOCLASS",),
+            as_ofs=(datetime(2024, 6, 1, tzinfo=timezone.utc),),
+            financial_requirements=(),
+            require_price_history=False,
+        )
+
+
+def test_validate_historical_symbols_does_not_use_current_status_or_type(db_session):
+    security = _security(db_session, "DELISTED")
+    security.status = SecurityStatus.INACTIVE
+    security.security_type = SecurityType.ADR
+    known = datetime(2024, 2, 3, tzinfo=timezone.utc)
+    _seed_historical_inputs(
+        db_session,
+        security,
+        classification_known=known,
+        price_known=known,
+        financial_known=known,
+    )
+
+    ResearchUniverseService(db_session).validate_historical_symbols(
+        ("DELISTED",),
+        as_ofs=(datetime(2024, 6, 1, tzinfo=timezone.utc),),
+    )
+
+
+def test_validate_historical_symbols_rejects_future_revision_coverage(db_session):
+    security = _security(db_session, "FUTURECOVER")
+    listing_known = datetime(2024, 1, 1, tzinfo=timezone.utc)
+    future = datetime(2024, 7, 1, tzinfo=timezone.utc)
+    db_session.add(
+        SecurityIdentifierHistory(
+            security_id=security.id,
+            symbol=security.symbol,
+            exchange=security.exchange,
+            effective_from=date(2020, 1, 1),
+            effective_to=None,
+            known_at=listing_known,
+            first_seen_at=listing_known,
+            last_seen_at=listing_known,
+            is_current=True,
+        )
+    )
+    db_session.add(
+        SecurityClassificationHistory(
+            security_id=security.id,
+            security_type=SecurityType.COMMON_STOCK,
+            effective_from=date(2020, 1, 1),
+            effective_to=None,
+            known_at=listing_known,
+            source=DataSource.MASSIVE,
+            source_reference="test:classification",
+            first_seen_at=listing_known,
+            last_seen_at=listing_known,
+            is_current=True,
+        )
+    )
+    db_session.add(
+        FinancialStatementRevision(
+            statement_type=FinancialStatementType.INCOME,
+            statement_id=1,
+            company_id=security.company_id,
+            revision_number=1,
+            fiscal_date=date(2024, 6, 30),
+            period_type=FinancialPeriodType.TTM,
+            known_at=future,
+        )
+    )
+    db_session.commit()
+
+    with pytest.raises(InvalidInputError, match="FUTURECOVER"):
+        ResearchUniverseService(db_session).validate_historical_symbols(
+            ("FUTURECOVER",),
+            as_ofs=(datetime(2024, 6, 15, tzinfo=timezone.utc),),
+            financial_requirements=((FinancialStatementType.INCOME, FinancialPeriodType.TTM),),
+            require_price_history=False,
+        )
