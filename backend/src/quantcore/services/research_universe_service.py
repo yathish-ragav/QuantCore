@@ -4,6 +4,7 @@ import json
 from datetime import date, datetime, timezone
 
 from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.enums import FinancialPeriodType, FinancialStatementType
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.repositories.research_universe_repository import ResearchUniverseRepository
 
@@ -97,6 +98,42 @@ class ResearchUniverseService:
             security_ids=tuple(security.id for security in securities),
             as_of=as_of,
             selection="CURRENT_RESEARCH_READY",
+        )
+
+
+    def historical_pit_eligible(
+        self,
+        *,
+        effective_on: date,
+        known_at: datetime,
+        financial_requirements: tuple[tuple[FinancialStatementType, FinancialPeriodType], ...] = (
+            (FinancialStatementType.INCOME, FinancialPeriodType.TTM),
+            (FinancialStatementType.CASH_FLOW, FinancialPeriodType.TTM),
+            (FinancialStatementType.BALANCE_SHEET, FinancialPeriodType.INSTANT),
+        ),
+        require_price_history: bool = True,
+    ) -> ResearchUniverse:
+        """Resolve a historical common-stock universe using only PIT evidence.
+
+        This path deliberately ignores current ``Security.status``, current
+        ``Security.security_type`` and ``IngestionState``. Eligibility is the
+        intersection of PIT listing identity, bitemporal classification, and
+        actual revision-store coverage for the requested research capability.
+        """
+        if known_at.tzinfo is None:
+            raise InvalidInputError("Research universe known_at must be timezone-aware.")
+        if not isinstance(effective_on, date):
+            raise InvalidInputError("Research universe effective_on must be a date.")
+        securities = self.repository.get_historical_pit_eligible(
+            effective_on=effective_on,
+            known_at=known_at,
+            financial_requirements=financial_requirements,
+            require_price_history=require_price_history,
+        )
+        return ResearchUniverse(
+            security_ids=tuple(security.id for security in securities),
+            as_of=known_at,
+            selection="HISTORICAL_PIT_ELIGIBLE",
         )
 
     def listings_as_of(

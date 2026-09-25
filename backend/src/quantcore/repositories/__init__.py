@@ -17,6 +17,8 @@ __all__ = [
     "IngestionLineageRepository",
     "IngestionStateRepository",
     "IngestionScheduleRepository",
+    "SecurityClassificationHistoryRepository",
 ]
 
 from .ingestion_schedule_repository import IngestionScheduleRepository
+from .security_classification_history_repository import SecurityClassificationHistoryRepository

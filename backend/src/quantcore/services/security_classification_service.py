@@ -11,6 +11,9 @@ from quantcore.core.exceptions import DataValidationError
 from quantcore.models.company import Company
 from quantcore.models.provenance import DataSource
 from quantcore.models.security import Security, SecurityStatus
+from quantcore.repositories.security_classification_history_repository import (
+    SecurityClassificationHistoryRepository,
+)
 from quantcore.universe.providers.massive import MassiveUniverseProvider
 from quantcore.universe.symbol_reconciliation import symbol_aliases
 
@@ -33,6 +36,7 @@ class SecurityClassificationService:
     ) -> None:
         self.db = db
         self.provider = provider or MassiveUniverseProvider()
+        self.classification_history_repo = SecurityClassificationHistoryRepository(db)
 
     def sync(self) -> SecurityClassificationResult:
         securities = list(
@@ -102,9 +106,17 @@ class SecurityClassificationService:
                     unknown += 1
                     continue
 
+                observed_at = item.observed_at or fetched_at
+                self.classification_history_repo.record_observation(
+                    security.id,
+                    item.security_type,
+                    observed_at,
+                    source=DataSource.MASSIVE,
+                    source_reference=item.source_reference,
+                )
                 security.security_type = item.security_type
                 security.security_type_source = DataSource.MASSIVE
-                security.security_type_fetched_at = item.observed_at or fetched_at
+                security.security_type_fetched_at = observed_at
                 security.security_type_source_reference = item.source_reference
                 classified += 1
 

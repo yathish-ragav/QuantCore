@@ -26,10 +26,11 @@ class IngestionScope(str, Enum):
 
 @dataclass(frozen=True)
 class FreshnessPolicy:
-    """How long a successful ingestion remains fresh."""
+    """How long a successful ingestion remains fresh and whether persisted coverage is required."""
 
     max_age: timedelta
     description: str
+    requires_persisted_rows: bool = True
 
 
 DATASET_POLICIES: dict[IngestionDataset, FreshnessPolicy] = {
@@ -43,7 +44,8 @@ DATASET_POLICIES: dict[IngestionDataset, FreshnessPolicy] = {
     ),
     IngestionDataset.NEWS: FreshnessPolicy(
         max_age=timedelta(hours=6),
-        description="Company news is refreshed several times per day.",
+        description="Company news is refreshed several times per day; an empty result is valid.",
+        requires_persisted_rows=False,
     ),
     IngestionDataset.INCOME_STATEMENT: FreshnessPolicy(
         max_age=timedelta(days=1),
@@ -63,7 +65,8 @@ DATASET_POLICIES: dict[IngestionDataset, FreshnessPolicy] = {
     ),
     IngestionDataset.CORPORATE_ACTIONS: FreshnessPolicy(
         max_age=timedelta(days=1),
-        description="Corporate actions are checked daily for newly observed actions.",
+        description="Corporate actions are checked daily; an empty result is valid.",
+        requires_persisted_rows=False,
     ),
     IngestionDataset.SEC_XBRL_FACTS: FreshnessPolicy(
         max_age=timedelta(days=1),

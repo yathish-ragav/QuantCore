@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from quantcore.core.enums import SecurityType
 from quantcore.models.company import Company
 from quantcore.models.security import Security, SecurityStatus
+from quantcore.models.security_classification_history import SecurityClassificationHistory
 from quantcore.models.provenance import DataSource
 from quantcore.services.security_classification_service import (
     SecurityClassificationService,
@@ -66,6 +67,11 @@ def test_security_classification_updates_known_types_and_preserves_unknown():
         assert security.security_type_source_reference == (
             "MASSIVE:TICKER:AAPL:0000320193"
         )
+        history = db.query(SecurityClassificationHistory).all()
+        assert len(history) == 1
+        assert history[0].security_type is SecurityType.COMMON_STOCK
+        assert history[0].effective_from == observed_at.date()
+        assert history[0].known_at.replace(tzinfo=timezone.utc) == observed_at
     finally:
         db.close()
         engine.dispose()
@@ -199,6 +205,60 @@ def test_security_classification_does_not_use_ambiguous_symbol_alias():
         assert result.classified == 0
         assert result.unmatched == 1
         assert security.security_type is SecurityType.UNKNOWN
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def test_security_classification_records_type_transition_as_bitemporal_history():
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+    try:
+        company = Company(cik="0000320193", name="Apple Inc.")
+        db.add(company)
+        db.flush()
+        security = Security(
+            company_id=company.id,
+            symbol="AAPL",
+            exchange="NASDAQ",
+            security_type=SecurityType.UNKNOWN,
+        )
+        db.add(security)
+        db.commit()
+
+        first = datetime(2026, 1, 2, tzinfo=timezone.utc)
+        second = datetime(2026, 3, 2, tzinfo=timezone.utc)
+        provider = FakeProvider([
+            UniverseSecurityClassification(
+                "0000320193", "AAPL", SecurityType.COMMON_STOCK,
+                "MASSIVE", first, "ref-common", "CS",
+            )
+        ])
+        SecurityClassificationService(db, provider).sync()
+
+        provider.rows = [
+            UniverseSecurityClassification(
+                "0000320193", "AAPL", SecurityType.ADR,
+                "MASSIVE", second, "ref-adr", "ADR",
+            )
+        ]
+        SecurityClassificationService(db, provider).sync()
+
+        rows = db.query(SecurityClassificationHistory).order_by(
+            SecurityClassificationHistory.known_at
+        ).all()
+        assert len(rows) == 3
+        assert rows[0].security_type is SecurityType.COMMON_STOCK
+        assert rows[0].effective_to is None
+        assert rows[0].is_current is False
+        assert rows[1].security_type is SecurityType.COMMON_STOCK
+        assert rows[1].effective_to == second.date()
+        assert rows[1].known_at.replace(tzinfo=timezone.utc) == second
+        assert rows[2].security_type is SecurityType.ADR
+        assert rows[2].effective_from == second.date()
+        assert rows[2].is_current is True
     finally:
         db.close()
         engine.dispose()

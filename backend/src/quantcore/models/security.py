@@ -122,6 +122,12 @@ class Security(ProvenanceMixin, Base):
         cascade="all, delete-orphan",
     )
 
+    classification_history = relationship(
+        "SecurityClassificationHistory",
+        back_populates="security",
+        cascade="all, delete-orphan",
+    )
+
     corporate_actions = relationship(
         "CorporateAction",
         back_populates="security",
