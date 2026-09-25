@@ -119,7 +119,7 @@ def test_trigger_due_creates_job_and_advances_schedule():
     service.job_repository.create_job.assert_called_once_with(
         dataset=IngestionDataset.PRICE_HISTORY,
         symbols=["AAPL", "MSFT"],
-        limit=100,
+        limit=None,
         only_stale=True,
         idempotency_key=service._scheduled_idempotency_key(5, NOW),
         request_fingerprint="fingerprint",
@@ -201,3 +201,68 @@ def test_trigger_due_validates_limit():
     service = make_service()
     with pytest.raises(InvalidInputError, match="at least one"):
         service.trigger_due(now=NOW, limit=0)
+
+
+def test_trigger_due_shards_large_explicit_symbol_schedule():
+    service = make_service()
+    symbols = [f"S{index:03d}" for index in range(205)]
+    schedule = make_schedule(symbols=symbols, target_limit=None)
+    service.repository.get_due.return_value = [schedule]
+    service.job_repository.get_job_by_idempotency_key.return_value = None
+    service.orchestrator._request_fingerprint.side_effect = lambda dataset, symbols, limit, only_stale: f"{len(symbols)}:{symbols[0]}"
+    service.job_repository.create_job.side_effect = lambda **kwargs: make_job(
+        id=len(service.job_repository.create_job.call_args_list),
+        symbols=kwargs["symbols"],
+        idempotency_key=kwargs["idempotency_key"],
+        request_fingerprint=kwargs["request_fingerprint"],
+    )
+
+    triggers = service.trigger_due(now=NOW, job_shard_size=100)
+
+    assert len(triggers) == 3
+    assert [
+        len(call.kwargs["symbols"])
+        for call in service.job_repository.create_job.call_args_list
+    ] == [100, 100, 5]
+    assert [
+        call.kwargs["idempotency_key"]
+        for call in service.job_repository.create_job.call_args_list
+    ] == [
+        service._scheduled_idempotency_key(5, NOW, shard_index)
+        for shard_index in range(3)
+    ]
+    assert all(call.kwargs["limit"] is None for call in service.job_repository.create_job.call_args_list)
+    service.repository.advance.assert_called_once()
+
+
+def test_trigger_due_snapshots_unbounded_universe_into_bounded_jobs():
+    service = make_service()
+    schedule = make_schedule(symbols=None, target_limit=None)
+    securities = [
+        SimpleNamespace(id=index, symbol=f"S{index:03d}", company_id=index)
+        for index in range(205)
+    ]
+    service.repository.get_due.return_value = [schedule]
+    service.db.scalars.return_value.all.return_value = securities
+    service.job_repository.get_job_by_idempotency_key.return_value = None
+    service.orchestrator._request_fingerprint.return_value = "fingerprint"
+    service.job_repository.create_job.side_effect = lambda **kwargs: make_job(
+        id=len(service.job_repository.create_job.call_args_list),
+        symbols=kwargs["symbols"],
+        idempotency_key=kwargs["idempotency_key"],
+        request_fingerprint=kwargs["request_fingerprint"],
+    )
+
+    triggers = service.trigger_due(now=NOW, job_shard_size=100)
+
+    assert len(triggers) == 3
+    assert [len(call.kwargs["symbols"]) for call in service.job_repository.create_job.call_args_list] == [100, 100, 5]
+    assert service.job_repository.create_job.call_args_list[0].kwargs["symbols"] == [
+        f"S{index:03d}" for index in range(100)
+    ]
+
+
+def test_trigger_due_rejects_invalid_job_shard_size():
+    service = make_service()
+    with pytest.raises(InvalidInputError, match="Job shard size"):
+        service.trigger_due(now=NOW, job_shard_size=0)

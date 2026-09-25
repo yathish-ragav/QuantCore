@@ -11,7 +11,10 @@ from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.db.database import SessionLocal
-from quantcore.services.ingestion_schedule_service import IngestionScheduleService
+from quantcore.services.ingestion_schedule_service import (
+    DEFAULT_JOB_SHARD_SIZE,
+    IngestionScheduleService,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -22,12 +25,15 @@ class IngestionSchedulerConfig:
 
     poll_interval_seconds: float = 5.0
     trigger_batch_size: int = 100
+    job_shard_size: int = DEFAULT_JOB_SHARD_SIZE
 
     def __post_init__(self) -> None:
         if self.poll_interval_seconds <= 0:
             raise InvalidInputError("poll_interval_seconds must be greater than zero.")
         if self.trigger_batch_size < 1:
             raise InvalidInputError("trigger_batch_size must be at least one.")
+        if self.job_shard_size < 1:
+            raise InvalidInputError("job_shard_size must be at least one.")
 
 
 class IngestionScheduler:
@@ -58,6 +64,7 @@ class IngestionScheduler:
             triggers = IngestionScheduleService(db).trigger_due(
                 now=datetime.now(timezone.utc),
                 limit=self.config.trigger_batch_size,
+                job_shard_size=self.config.job_shard_size,
             )
             for trigger in triggers:
                 logger.info(
@@ -90,6 +97,7 @@ def main() -> None:
     )
     parser.add_argument("--poll-interval", type=float, default=5.0)
     parser.add_argument("--trigger-batch-size", type=int, default=100)
+    parser.add_argument("--job-shard-size", type=int, default=DEFAULT_JOB_SHARD_SIZE)
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -100,6 +108,7 @@ def main() -> None:
         config=IngestionSchedulerConfig(
             poll_interval_seconds=args.poll_interval,
             trigger_batch_size=args.trigger_batch_size,
+            job_shard_size=args.job_shard_size,
         )
     )
 

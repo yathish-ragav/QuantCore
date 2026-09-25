@@ -18,6 +18,8 @@ def test_scheduler_config_rejects_invalid_values():
         IngestionSchedulerConfig(poll_interval_seconds=0)
     with pytest.raises(InvalidInputError):
         IngestionSchedulerConfig(trigger_batch_size=0)
+    with pytest.raises(InvalidInputError):
+        IngestionSchedulerConfig(job_shard_size=0)
 
 
 def test_scheduler_stop_sets_shutdown_signal():
@@ -59,6 +61,7 @@ def test_scheduler_run_once_triggers_due_schedules_and_closes_session():
         service.trigger_due.assert_called_once()
         kwargs = service.trigger_due.call_args.kwargs
         assert kwargs["limit"] == 25
+        assert kwargs["job_shard_size"] == 100
         assert kwargs["now"].tzinfo is not None
         db.close.assert_called_once()
     finally:

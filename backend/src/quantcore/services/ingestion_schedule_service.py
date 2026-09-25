@@ -4,17 +4,26 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import InvalidInputError
-from quantcore.ingestion.datasets import IngestionDataset
+from quantcore.ingestion.datasets import (
+    DATASET_SCOPES,
+    IngestionDataset,
+    IngestionScope,
+)
 from quantcore.models.ingestion import IngestionJob
 from quantcore.models.ingestion_schedule import IngestionSchedule
+from quantcore.models.security import Security, SecurityStatus
 from quantcore.repositories.ingestion_schedule_repository import IngestionScheduleRepository
 from quantcore.repositories.ingestion_state_repository import IngestionStateRepository
 from quantcore.services.ingestion_execution_service import IngestionJobView
 from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
+
+
+DEFAULT_JOB_SHARD_SIZE = 100
 
 
 MIN_INTERVAL_SECONDS = 60
@@ -125,10 +134,82 @@ class IngestionScheduleService:
         )
 
     @staticmethod
-    def _scheduled_idempotency_key(schedule_id: int, scheduled_for: datetime) -> str:
+    def _scheduled_idempotency_key(
+        schedule_id: int,
+        scheduled_for: datetime,
+        shard_index: int = 0,
+    ) -> str:
         instant = scheduled_for.astimezone(timezone.utc).isoformat()
         digest = hashlib.sha256(instant.encode("utf-8")).hexdigest()[:32]
-        return f"schedule:{schedule_id}:{digest}"
+        if shard_index < 0:
+            raise InvalidInputError("Shard index must not be negative.")
+        if shard_index == 0:
+            return f"schedule:{schedule_id}:{digest}"
+        return f"schedule:{schedule_id}:{digest}:shard:{shard_index}"
+
+    def _symbols_for_sharding(self, schedule: IngestionSchedule) -> list[str]:
+        """Snapshot the scheduled universe before creating bounded child jobs.
+
+        Explicit symbol schedules retain their requested order. Universe schedules
+        use the same active-security ordering as the synchronous orchestrator.
+        Company-scoped datasets are reduced to one deterministic listing per
+        company so sharding does not cause the same issuer to be fetched again
+        in a different child job.
+        """
+        explicit_symbols = self._normalize_symbols(schedule.symbols)
+        if explicit_symbols is not None:
+            symbols = explicit_symbols
+            if schedule.target_limit is not None:
+                symbols = symbols[:schedule.target_limit]
+        else:
+            stmt = (
+                select(Security)
+                .where(Security.status == SecurityStatus.ACTIVE)
+                .order_by(Security.id)
+            )
+            if schedule.target_limit is not None:
+                stmt = stmt.limit(schedule.target_limit)
+            securities = list(self.db.scalars(stmt).all())
+            symbols = [security.symbol for security in securities]
+
+        if DATASET_SCOPES[schedule.dataset] is IngestionScope.COMPANY:
+            # Deduplicate by issuer while preserving the scheduled symbol order.
+            securities = list(
+                self.db.scalars(
+                    select(Security)
+                    .where(
+                        Security.status == SecurityStatus.ACTIVE,
+                        Security.symbol.in_(symbols),
+                    )
+                    .order_by(Security.id)
+                ).all()
+            ) if symbols else []
+            company_by_symbol: dict[str, int] = {}
+            for security in securities:
+                company_by_symbol.setdefault(security.symbol, security.company_id)
+            seen_companies: set[int] = set()
+            deduplicated: list[str] = []
+            for symbol in symbols:
+                company_id = company_by_symbol.get(symbol)
+                if company_id is None:
+                    deduplicated.append(symbol)
+                    continue
+                if company_id in seen_companies:
+                    continue
+                seen_companies.add(company_id)
+                deduplicated.append(symbol)
+            symbols = deduplicated
+
+        return symbols
+
+    @staticmethod
+    def _shards(symbols: list[str], shard_size: int) -> list[list[str]]:
+        if shard_size < 1:
+            raise InvalidInputError("Job shard size must be at least one.")
+        return [
+            symbols[index : index + shard_size]
+            for index in range(0, len(symbols), shard_size)
+        ]
 
     @staticmethod
     def _job_view(job: IngestionJob) -> IngestionJobView:
@@ -213,16 +294,20 @@ class IngestionScheduleService:
         *,
         now: datetime | None = None,
         limit: int = DEFAULT_TRIGGER_BATCH_SIZE,
+        job_shard_size: int = DEFAULT_JOB_SHARD_SIZE,
     ) -> list[ScheduledIngestionTrigger]:
-        """Create at most one job per due schedule invocation.
+        """Create bounded child jobs for each due schedule invocation.
 
-        The schedule and its queued job are committed together. The scheduled
-        timestamp is part of the job idempotency key, so a retried scheduler
-        invocation cannot create a second job for the same scheduled slot.
-        Missed intervals are coalesced rather than replayed as a burst.
+        The scheduled timestamp and shard index form the job idempotency key, so
+        a retried scheduler invocation cannot duplicate a shard. The universe is
+        snapshotted into explicit symbol lists before jobs are queued, preventing
+        workers from independently selecting different securities. Missed
+        intervals are coalesced rather than replayed as a burst.
         """
         if limit < 1:
             raise InvalidInputError("Trigger limit must be at least one.")
+        if job_shard_size < 1:
+            raise InvalidInputError("Job shard size must be at least one.")
         triggered_at = self._normalize_time(now or datetime.now(timezone.utc))
         schedules = self.repository.get_due(now=triggered_at, limit=limit)
         triggers: list[ScheduledIngestionTrigger] = []
@@ -230,36 +315,55 @@ class IngestionScheduleService:
         try:
             for schedule in schedules:
                 scheduled_for = self._normalize_time(schedule.next_run_at)
-                key = self._scheduled_idempotency_key(schedule.id, scheduled_for)
-                existing = self.job_repository.get_job_by_idempotency_key(key)
-
-                if existing is None:
-                    symbols = self._normalize_symbols(schedule.symbols)
+                symbols = self._symbols_for_sharding(schedule)
+                shards = self._shards(symbols, job_shard_size) if symbols else []
+                for shard_index, shard_symbols in enumerate(shards):
+                    key = self._scheduled_idempotency_key(
+                        schedule.id,
+                        scheduled_for,
+                        shard_index,
+                    )
                     fingerprint = self.orchestrator._request_fingerprint(
                         schedule.dataset,
-                        symbols,
-                        schedule.target_limit,
+                        shard_symbols,
+                        None,
                         schedule.only_stale,
                     )
-                    job = self.job_repository.create_job(
-                        dataset=schedule.dataset,
-                        symbols=symbols,
-                        limit=schedule.target_limit,
-                        only_stale=schedule.only_stale,
-                        idempotency_key=key,
-                        request_fingerprint=fingerprint,
-                    )
-                else:
-                    job = existing
-                    if job.request_fingerprint != self.orchestrator._request_fingerprint(
-                        schedule.dataset,
-                        self._normalize_symbols(schedule.symbols),
-                        schedule.target_limit,
-                        schedule.only_stale,
-                    ):
-                        raise InvalidInputError(
-                            "Scheduled idempotency key conflicts with a different ingestion request."
+                    existing = self.job_repository.get_job_by_idempotency_key(key)
+
+                    if existing is None:
+                        job = self.job_repository.create_job(
+                            dataset=schedule.dataset,
+                            symbols=shard_symbols,
+                            limit=None,
+                            only_stale=schedule.only_stale,
+                            idempotency_key=key,
+                            request_fingerprint=fingerprint,
                         )
+                    else:
+                        job = existing
+                        if job.request_fingerprint != fingerprint:
+                            legacy_fingerprint = self.orchestrator._request_fingerprint(
+                                schedule.dataset,
+                                self._normalize_symbols(schedule.symbols),
+                                schedule.target_limit,
+                                schedule.only_stale,
+                            )
+                            if not (
+                                shard_index == 0
+                                and job.request_fingerprint == legacy_fingerprint
+                            ):
+                                raise InvalidInputError(
+                                    "Scheduled idempotency key conflicts with a different ingestion request."
+                                )
+
+                    triggers.append(
+                        ScheduledIngestionTrigger(
+                            schedule_id=schedule.id,
+                            scheduled_for=scheduled_for,
+                            job=self._job_view(job),
+                        )
+                    )
 
                 next_run = self._next_run(
                     scheduled_for,
@@ -270,13 +374,6 @@ class IngestionScheduleService:
                     schedule,
                     triggered_at=triggered_at,
                     next_run_at=next_run,
-                )
-                triggers.append(
-                    ScheduledIngestionTrigger(
-                        schedule_id=schedule.id,
-                        scheduled_for=scheduled_for,
-                        job=self._job_view(job),
-                    )
                 )
 
             if schedules:

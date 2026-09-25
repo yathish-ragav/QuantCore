@@ -84,3 +84,5 @@ services:
       - "5"
       - --trigger-batch-size
       - "100"
+      - --job-shard-size
+      - "100"
