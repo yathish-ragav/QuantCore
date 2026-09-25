@@ -139,3 +139,82 @@ def test_materialize_family_never_derives_q4_from_annual():
     assert changed == 0
     service.income_repo.create.assert_not_called()
     service.cash_flow_repo.create.assert_not_called()
+
+
+def test_materialize_annual_as_exact_ttm_preserves_known_at():
+    service = FinancialPeriodMaterializer.__new__(FinancialPeriodMaterializer)
+    service.db = Mock()
+    service.revision_repo = Mock()
+    service.income_repo = Mock()
+    service.cash_flow_repo = Mock()
+
+    known = datetime(2027, 2, 15, tzinfo=timezone.utc)
+    annual = revision(
+        20,
+        date(2026, 12, 31),
+        date(2026, 1, 1),
+        FinancialPeriodType.ANNUAL,
+        known,
+        fiscal_year=2026,
+        total_revenue=1000.0,
+        gross_profit=400.0,
+        operating_income=200.0,
+        net_income=100.0,
+    )
+    service.income_repo.get_by_company_and_date.return_value = None
+
+    with patch(
+        "quantcore.services.financial_period_materializer.create_revision"
+    ) as create_revision:
+        changed = service._materialize_ttm_from_annual(
+            1,
+            FinancialStatementType.INCOME,
+            annual,
+        )
+
+    assert changed is True
+    created = service.income_repo.create.call_args.kwargs
+    assert created["period_type"] is FinancialPeriodType.TTM
+    assert created["fiscal_date"] == annual.fiscal_date
+    assert created["period_start"] == annual.period_start
+    assert created["total_revenue"] == 1000.0
+    assert created["net_income"] == 100.0
+    assert created["source_reference"] == "TTM_FROM_ANNUAL:INCOME:1020"
+    create_revision.assert_called_once()
+    assert create_revision.call_args.args[4] == known
+
+
+def test_annual_ttm_does_not_overwrite_four_quarter_ttm():
+    service = FinancialPeriodMaterializer.__new__(FinancialPeriodMaterializer)
+    service.db = Mock()
+    service.revision_repo = Mock()
+    service.income_repo = Mock()
+    service.cash_flow_repo = Mock()
+
+    known = datetime(2027, 2, 15, tzinfo=timezone.utc)
+    annual = revision(
+        20,
+        date(2026, 12, 31),
+        date(2026, 1, 1),
+        FinancialPeriodType.ANNUAL,
+        known,
+        fiscal_year=2026,
+        total_revenue=1000.0,
+        gross_profit=400.0,
+        operating_income=200.0,
+        net_income=100.0,
+    )
+    existing = SimpleNamespace(
+        source_reference="TTM:income:1001:1002:1003:1004",
+        total_revenue=1000.0,
+    )
+    service.income_repo.get_by_company_and_date.return_value = existing
+
+    changed = service._materialize_ttm_from_annual(
+        1,
+        FinancialStatementType.INCOME,
+        annual,
+    )
+
+    assert changed is False
+    service.income_repo.create.assert_not_called()
