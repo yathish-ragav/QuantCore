@@ -75,6 +75,10 @@ class FinancialPeriodMaterializer:
         *,
         now: datetime,
     ) -> int:
+        # Only provider-observed standalone quarterly rows are eligible inputs.
+        # Annual-minus-Q1-Q2-Q3 residuals are deliberately not synthesized:
+        # they are not independently known quarterly observations and would
+        # violate the PIT data contract.
         revisions = self.revision_repo.get_latest_for_company_as_of(
             company_id,
             statement_type,
@@ -85,49 +89,17 @@ class FinancialPeriodMaterializer:
                 revision
                 for revision in revisions
                 if revision.period_type is FinancialPeriodType.QUARTERLY
-            ),
-            key=lambda revision: revision.fiscal_date,
-        )
-        annuals = sorted(
-            (
-                revision
-                for revision in revisions
-                if revision.period_type is FinancialPeriodType.ANNUAL
+                and not str(getattr(revision, "source_reference", "") or "").startswith(
+                    "DERIVED_Q4:"
+                )
             ),
             key=lambda revision: revision.fiscal_date,
         )
 
         changed = 0
-        for annual in annuals:
-            q4_inputs = self._find_q4_inputs(annual, quarters)
-            if q4_inputs is None:
-                continue
-            q4_revision = self._materialize_q4(
-                company_id,
-                statement_type,
-                annual,
-                q4_inputs,
-            )
-            if q4_revision is not None:
-                changed += 1
-
-        # Re-read latest revisions because Q4 materialization may have created
-        # or revised quarterly observations. Every historical four-quarter
-        # window gets its own TTM row; this is required for PIT research.
-        revisions = self.revision_repo.get_latest_for_company_as_of(
-            company_id,
-            statement_type,
-            now,
-        )
-        quarters = sorted(
-            (
-                revision
-                for revision in revisions
-                if revision.period_type is FinancialPeriodType.QUARTERLY
-            ),
-            key=lambda revision: revision.fiscal_date,
-        )
-
+        # TTM is formed only from four structurally contiguous standalone
+        # quarters. Missing Q4 data therefore remains missing rather than being
+        # reconstructed from the annual filing.
         for index in range(3, len(quarters)):
             window = quarters[index - 3 : index + 1]
             if not self._quarters_contiguous(window):
@@ -145,123 +117,6 @@ class FinancialPeriodMaterializer:
             if previous.fiscal_date + timedelta(days=1) != current.period_start:
                 return False
         return True
-
-    @classmethod
-    def _find_q4_inputs(cls, annual, quarters):
-        same_year = [
-            revision
-            for revision in quarters
-            if revision.fiscal_date < annual.fiscal_date
-            and revision.fiscal_year == annual.fiscal_year
-        ]
-        if len(same_year) < 3:
-            return None
-        candidate = same_year[-3:]
-        if not cls._quarters_contiguous(candidate):
-            return None
-        first = candidate[0]
-        third = candidate[-1]
-        if first.period_start != annual.period_start:
-            return None
-        if third.fiscal_date >= annual.fiscal_date:
-            return None
-        return tuple(candidate)
-
-    def _materialize_q4(
-        self,
-        company_id: int,
-        statement_type: FinancialStatementType,
-        annual,
-        quarters,
-    ):
-        if statement_type is FinancialStatementType.INCOME:
-            repo = self.income_repo
-            values = {
-                field: self._residual(getattr(annual, field), [getattr(q, field) for q in quarters])
-                for field in INCOME_ADDITIVE_FIELDS
-            }
-            values.update({
-                "eps": None,
-                "shares_outstanding": None,
-                "weighted_average_shares_outstanding": None,
-            })
-        else:
-            repo = self.cash_flow_repo
-            values = {
-                field: self._residual(getattr(annual, field), [getattr(q, field) for q in quarters])
-                for field in CASH_FLOW_ADDITIVE_FIELDS
-            }
-            if values["operating_cash_flow"] is not None and values["capital_expenditure"] is not None:
-                values["free_cash_flow"] = (
-                    values["operating_cash_flow"] - values["capital_expenditure"]
-                )
-            else:
-                values["free_cash_flow"] = None
-
-        source_reference = (
-            f"DERIVED_Q4:{statement_type.value}:"
-            f"{annual.id}:" + ":".join(str(item.id) for item in quarters)
-        )
-        fiscal_date = annual.fiscal_date
-        existing = repo.get_by_company_and_date(
-            company_id,
-            fiscal_date,
-            FinancialPeriodType.QUARTERLY,
-        )
-        source = DataSource.SEC
-        known_at = max(
-            [annual.known_at, *(item.known_at for item in quarters)]
-        )
-        fetched_at = max(
-            (getattr(item, "fetched_at", None) for item in (annual, *quarters)),
-            default=None,
-        )
-        payload = {
-            "company_id": company_id,
-            "fiscal_date": fiscal_date,
-            "period_start": quarters[-1].fiscal_date + timedelta(days=1),
-            "fiscal_year": annual.fiscal_year,
-            "fiscal_period": "Q4",
-            "period_type": FinancialPeriodType.QUARTERLY,
-            "filing_date": annual.filing_date,
-            "filing_form": annual.filing_form,
-            "accession_number": annual.accession_number,
-            "source": source,
-            "fetched_at": fetched_at,
-            "source_reference": source_reference,
-            **values,
-        }
-
-        if existing is None:
-            statement = repo.create(**payload)
-            self.db.flush()
-            create_revision(
-                self.revision_repo,
-                statement,
-                statement_type,
-                source,
-                known_at,
-                revision_number=1,
-            )
-            return statement
-
-        if not self._row_matches(existing, payload):
-            for key, value in payload.items():
-                if key != "company_id":
-                    setattr(existing, key, value)
-            revision_number = self.revision_repo.get_next_revision_number(
-                statement_type, existing.id
-            )
-            create_revision(
-                self.revision_repo,
-                existing,
-                statement_type,
-                source,
-                known_at,
-                revision_number=revision_number,
-            )
-            return existing
-        return None
 
     def _materialize_ttm(
         self,
