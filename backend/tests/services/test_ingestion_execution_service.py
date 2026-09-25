@@ -181,6 +181,7 @@ def test_execute_finishes_job_from_deterministic_orchestrator_result():
         idempotency_key=service._run_key(running),
         job_id=7,
         attempt_number=1,
+        worker_id="worker-a",
     )
     service.repository.finish_owned_job.assert_called_once()
     assert service.repository.finish_owned_job.call_args.kwargs["status"] is IngestionJobStatus.COMPLETED_WITH_ERRORS

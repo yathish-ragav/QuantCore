@@ -240,6 +240,7 @@ class IngestionExecutionService:
                 idempotency_key=self._run_key(job),
                 job_id=job.id,
                 attempt_number=job.attempt_count,
+                worker_id=worker_id,
             )
             if len(results) != 1:
                 raise RuntimeError("Ingestion execution returned an invalid result count.")

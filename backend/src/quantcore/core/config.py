@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     MASSIVE_REFERENCE_REQUEST_INTERVAL_SECONDS: float = 12.5
     SEC_USER_AGENT: str = "QuantCore/1.0 contact: yathishragav@gmail.com"
     PRODUCTION_DATA_POLICY_ENFORCED: bool = True
+    QUANTCORE_INGESTION_SCHEDULES_JSON: str = ""
 
     market_data_provider: str = "yahoo"
     financial_data_provider: str = "fmp"

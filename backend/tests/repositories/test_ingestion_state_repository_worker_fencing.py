@@ -126,3 +126,70 @@ def test_stale_recovery_cannot_overwrite_fresh_heartbeat():
         assert current.status is IngestionJobStatus.RUNNING
         assert current.worker_id == "worker-a"
     engine.dispose()
+
+
+def test_run_completion_is_fenced_by_current_worker_lease():
+    from quantcore.models.ingestion import IngestionRun, IngestionRunStatus
+
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(
+        engine,
+        tables=[IngestionJob.__table__, IngestionRun.__table__],
+    )
+    with Session(engine) as db:
+        job = _job(
+            db,
+            status=IngestionJobStatus.RUNNING,
+            attempt_count=1,
+            heartbeat_at=NOW,
+        )
+        run = IngestionRun(
+            job_id=job.id,
+            attempt_number=1,
+            dataset=IngestionDataset.PRICE_HISTORY,
+            idempotency_key="run-fence",
+            request_fingerprint="f" * 64,
+            status=IngestionRunStatus.RUNNING,
+            started_at=NOW,
+        )
+        db.add(run)
+        db.commit()
+
+        repo = IngestionStateRepository(db)
+        assert repo.finish_owned_run(
+            run,
+            worker_id="worker-a",
+            attempt_number=1,
+            status=IngestionRunStatus.COMPLETED,
+            finished_at=NOW + timedelta(minutes=1),
+            attempted=1,
+            succeeded=1,
+            skipped=0,
+            failed=0,
+            eligible=1,
+        ) is True
+        db.commit()
+        assert db.get(IngestionRun, run.id).status is IngestionRunStatus.COMPLETED
+
+        # A recovered/reassigned job can never be completed by the stale worker.
+        job.status = IngestionJobStatus.RUNNING
+        job.worker_id = "worker-b"
+        job.attempt_count = 2
+        db.flush()
+        run.status = IngestionRunStatus.RUNNING
+        db.flush()
+
+        assert repo.finish_owned_run(
+            run,
+            worker_id="worker-a",
+            attempt_number=1,
+            status=IngestionRunStatus.COMPLETED,
+            finished_at=NOW + timedelta(minutes=2),
+            attempted=1,
+            succeeded=1,
+            skipped=0,
+            failed=0,
+            eligible=1,
+        ) is False
+        db.rollback()
+    engine.dispose()

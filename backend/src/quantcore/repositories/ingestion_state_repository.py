@@ -343,6 +343,60 @@ class IngestionStateRepository:
     def get_run(self, run_id: int) -> IngestionRun | None:
         return self.db.get(IngestionRun, run_id)
 
+    def finish_owned_run(
+        self,
+        run: IngestionRun,
+        *,
+        worker_id: str,
+        attempt_number: int,
+        status: IngestionRunStatus,
+        finished_at: datetime,
+        attempted: int,
+        succeeded: int,
+        skipped: int,
+        failed: int,
+        eligible: int = 0,
+        error_summary: str | None = None,
+    ) -> bool:
+        """Finish a job-backed run only while its worker lease is still valid.
+
+        A stale-job recovery pass can race a provider call that is still
+        unwinding. The run must not be allowed to report COMPLETED after the
+        corresponding job has already been fenced to another attempt.
+        """
+        owning_job = exists(
+            select(IngestionJob.id).where(
+                IngestionJob.id == IngestionRun.job_id,
+                IngestionJob.status == IngestionJobStatus.RUNNING,
+                IngestionJob.worker_id == worker_id,
+                IngestionJob.attempt_count == attempt_number,
+            )
+        )
+        result = self.db.execute(
+            update(IngestionRun)
+            .where(
+                IngestionRun.id == run.id,
+                IngestionRun.status == IngestionRunStatus.RUNNING,
+                IngestionRun.job_id.is_not(None),
+                IngestionRun.attempt_number == attempt_number,
+                owning_job,
+            )
+            .values(
+                status=status,
+                finished_at=finished_at,
+                attempted=attempted,
+                succeeded=succeeded,
+                skipped=skipped,
+                failed=failed,
+                eligible=eligible,
+                error_summary=error_summary[:4000] if error_summary else None,
+            )
+        )
+        if result.rowcount != 1:
+            return False
+        self.db.refresh(run)
+        return True
+
     def finish_run(
         self,
         run: IngestionRun,

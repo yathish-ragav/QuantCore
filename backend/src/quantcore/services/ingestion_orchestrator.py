@@ -428,6 +428,58 @@ class IngestionOrchestrator:
 
         return len(runs)
 
+    def _finish_run(
+        self,
+        run,
+        *,
+        status: IngestionRunStatus,
+        finished_at: datetime,
+        attempted: int,
+        succeeded: int,
+        skipped: int,
+        failed: int,
+        eligible: int,
+        error_summary: str | None,
+        worker_id: str | None,
+        attempt_number: int,
+    ) -> None:
+        """Finish a run, fencing job-backed executions to their worker lease."""
+        job_id = getattr(run, "job_id", None)
+        if isinstance(job_id, int):
+            if not worker_id:
+                raise InvalidInputError(
+                    "Worker id is required to finalize a job-backed ingestion run."
+                )
+            if not self.state_repo.finish_owned_run(
+                run,
+                worker_id=worker_id,
+                attempt_number=attempt_number,
+                status=status,
+                finished_at=finished_at,
+                attempted=attempted,
+                succeeded=succeeded,
+                skipped=skipped,
+                failed=failed,
+                eligible=eligible,
+                error_summary=error_summary,
+            ):
+                raise RuntimeError(
+                    "Ingestion execution lease was lost before run completion."
+                )
+            return
+
+        self.state_repo.finish_run(
+            run,
+            status=status,
+            finished_at=finished_at,
+            attempted=attempted,
+            succeeded=succeeded,
+            skipped=skipped,
+            failed=failed,
+            eligible=eligible,
+            error_summary=error_summary,
+        )
+
     def _sync_company_facts_group(
         self,
         *,
@@ -439,6 +491,7 @@ class IngestionOrchestrator:
         idempotency_key: str | None,
         job_id: int | None,
         attempt_number: int,
+        worker_id: str | None,
     ) -> list[IngestionResult]:
         """Process CompanyFacts-derived datasets issuer-first.
 
@@ -574,7 +627,7 @@ class IngestionOrchestrator:
                 run = context["run"]
                 failed = context["failed"]
                 finished_at = datetime.now(timezone.utc)
-                self.state_repo.finish_run(
+                self._finish_run(
                     run,
                     status=(
                         IngestionRunStatus.COMPLETED_WITH_ERRORS
@@ -588,6 +641,8 @@ class IngestionOrchestrator:
                     skipped=context["skipped"],
                     failed=failed,
                     error_summary=("; ".join(context["errors"]) if context["errors"] else None),
+                    worker_id=worker_id,
+                    attempt_number=attempt_number,
                 )
                 self.db.commit()
                 results_by_dataset[dataset] = IngestionResult(
@@ -605,17 +660,25 @@ class IngestionOrchestrator:
             for dataset, context in contexts.items():
                 run = self.state_repo.get_run(context["run"].id)
                 if run is not None and run.status is IngestionRunStatus.RUNNING:
-                    self.state_repo.finish_run(
-                        run,
-                        status=IngestionRunStatus.FAILED,
-                        finished_at=datetime.now(timezone.utc),
-                        eligible=len(context["seen_entities"]),
-                        attempted=context["attempted"],
-                        succeeded=context["succeeded"],
-                        skipped=context["skipped"],
-                        failed=context["failed"],
-                        error_summary=str(exc),
-                    )
+                    try:
+                        self._finish_run(
+                            run,
+                            status=IngestionRunStatus.FAILED,
+                            finished_at=datetime.now(timezone.utc),
+                            eligible=len(context["seen_entities"]),
+                            attempted=context["attempted"],
+                            succeeded=context["succeeded"],
+                            skipped=context["skipped"],
+                            failed=context["failed"],
+                            error_summary=str(exc),
+                            worker_id=worker_id,
+                            attempt_number=attempt_number,
+                        )
+                    except RuntimeError:
+                        # The execution lease may have been recovered by another
+                        # worker. Preserve the fenced terminal state instead of
+                        # overwriting it from this stale process.
+                        pass
             self.db.commit()
             raise
 
@@ -631,6 +694,7 @@ class IngestionOrchestrator:
         idempotency_key: str | None = None,
         job_id: int | None = None,
         attempt_number: int = 1,
+        worker_id: str | None = None,
     ) -> list[IngestionResult]:
         """Run selected datasets across the active managed security universe.
 
@@ -649,6 +713,12 @@ class IngestionOrchestrator:
 
         if job_id is not None and job_id <= 0:
             raise InvalidInputError("Job id must be greater than zero.")
+        if job_id is not None:
+            worker_id = (worker_id or "").strip()
+            if not worker_id or len(worker_id) > 128:
+                raise InvalidInputError(
+                    "Worker id is required for job-backed ingestion execution."
+                )
         if attempt_number < 1:
             raise InvalidInputError("Attempt number must be at least one.")
 
@@ -707,6 +777,7 @@ class IngestionOrchestrator:
                     idempotency_key=idempotency_key,
                     job_id=job_id,
                     attempt_number=attempt_number,
+                    worker_id=worker_id,
                 )
             )
 
@@ -870,7 +941,7 @@ class IngestionOrchestrator:
                     else IngestionRunStatus.COMPLETED
                 )
                 finished_at = datetime.now(timezone.utc)
-                self.state_repo.finish_run(
+                self._finish_run(
                     run,
                     status=status,
                     finished_at=finished_at,
@@ -880,6 +951,8 @@ class IngestionOrchestrator:
                     skipped=skipped,
                     failed=failed,
                     error_summary="; ".join(errors) if errors else None,
+                    worker_id=worker_id,
+                    attempt_number=attempt_number,
                 )
                 self.db.commit()
 
@@ -887,18 +960,23 @@ class IngestionOrchestrator:
                 self.db.rollback()
                 run = self.state_repo.get_run(run.id)
                 if run is not None:
-                    self.state_repo.finish_run(
-                        run,
-                        status=IngestionRunStatus.FAILED,
-                        finished_at=datetime.now(timezone.utc),
-                        eligible=len(seen_entities),
-                        attempted=attempted,
-                        succeeded=succeeded,
-                        skipped=skipped,
-                        failed=failed,
-                        error_summary=str(exc),
-                    )
-                    self.db.commit()
+                    try:
+                        self._finish_run(
+                            run,
+                            status=IngestionRunStatus.FAILED,
+                            finished_at=datetime.now(timezone.utc),
+                            eligible=len(seen_entities),
+                            attempted=attempted,
+                            succeeded=succeeded,
+                            skipped=skipped,
+                            failed=failed,
+                            error_summary=str(exc),
+                            worker_id=worker_id,
+                            attempt_number=attempt_number,
+                        )
+                        self.db.commit()
+                    except RuntimeError:
+                        self.db.rollback()
                 raise
 
             results.append(

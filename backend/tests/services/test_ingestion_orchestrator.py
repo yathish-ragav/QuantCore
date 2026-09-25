@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -691,3 +692,39 @@ def test_recover_stale_runs_rejects_non_positive_threshold():
 
     with pytest.raises(InvalidInputError, match="greater than zero"):
         service.recover_stale_runs(stale_after=timedelta(0))
+
+
+def test_job_backed_run_completion_is_fenced_by_worker_lease():
+    NOW = datetime.now(timezone.utc)
+    service = make_service()
+    run = SimpleNamespace(job_id=7)
+    service.state_repo.finish_owned_run.return_value = False
+
+    with pytest.raises(RuntimeError, match="lease was lost"):
+        service._finish_run(
+            run,
+            status=IngestionRunStatus.COMPLETED,
+            finished_at=NOW,
+            attempted=1,
+            succeeded=1,
+            skipped=0,
+            failed=0,
+            eligible=1,
+            error_summary=None,
+            worker_id="worker-a",
+            attempt_number=2,
+        )
+
+    service.state_repo.finish_owned_run.assert_called_once_with(
+        run,
+        worker_id="worker-a",
+        attempt_number=2,
+        status=IngestionRunStatus.COMPLETED,
+        finished_at=NOW,
+        attempted=1,
+        succeeded=1,
+        skipped=0,
+        failed=0,
+        eligible=1,
+        error_summary=None,
+    )

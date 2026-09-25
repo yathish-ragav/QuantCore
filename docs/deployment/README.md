@@ -125,3 +125,29 @@ financial datasets are complete.
 - Scale workers independently from API replicas.
 - Do not treat container health as a substitute for ingestion/data-quality
   monitoring.
+
+## Declarative ingestion schedules
+
+The scheduler is intentionally passive: it only creates durable jobs from
+rows already present in `ingestion_schedules`. Production deployments can
+bootstrap those rows from `QUANTCORE_INGESTION_SCHEDULES_JSON`.
+
+The variable is a JSON array. Each entry requires `name`, `dataset`, and
+`interval_seconds`; `symbols`, `limit`, `only_stale`, `enabled`, and a timezone-aware
+`next_run_at` are optional. For an unbounded schedule, omit `symbols` and `limit`;
+the scheduler snapshots the current active security universe and shards it into
+bounded jobs.
+
+Example:
+
+```text
+QUANTCORE_INGESTION_SCHEDULES_JSON=[{"name":"daily-price-history","dataset":"price_history","interval_seconds":86400,"only_stale":true,"enabled":true}]
+```
+
+The production Compose stack runs a one-shot `bootstrap` service after
+migrations and before the worker/scheduler. Existing schedules are left alone
+when their declared configuration matches. Configuration drift fails the
+bootstrap rather than silently mutating a live schedule.
+
+Keep the variable as `[]` until a production cadence has been deliberately
+selected and capacity-tested.
