@@ -601,6 +601,109 @@ def test_sync_price_history_updates_changed_observation_and_creates_revision():
     db.commit.assert_called_once()
 
 
+
+def test_sync_price_history_normalizes_daily_timestamp_to_midnight():
+    service, db = make_service()
+    security = make_security()
+    data = make_price_data(date=datetime(2024, 9, 20, 9, 30))
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_price_history.return_value = [data]
+    service.price_repo.get_for_security_and_dates.return_value = []
+    created_price = Mock()
+    created_price.id = 101
+    created_price.date = datetime(2024, 9, 20)
+    created_price.open = data.open
+    created_price.high = data.high
+    created_price.low = data.low
+    created_price.close = data.close
+    created_price.adjusted_close = data.adjusted_close
+    created_price.price_basis = data.price_basis
+    created_price.volume = data.volume
+    created_price.dividends = data.dividends
+    created_price.stock_splits = data.stock_splits
+    created_price.source_reference = None
+    service.price_repo.create.return_value = created_price
+
+    result = service.sync_price_history("AAPL")
+
+    assert result.created == 1
+    assert service.price_repo.get_for_security_and_dates.call_args.args == (
+        10,
+        [datetime(2024, 9, 20)],
+    )
+    assert service.price_repo.create.call_args.kwargs["date"] == datetime(
+        2024, 9, 20
+    )
+    assert service.revision_repo.create.call_args.kwargs["date"] == datetime(
+        2024, 9, 20
+    )
+    db.commit.assert_called_once()
+
+
+def test_sync_price_history_rejects_duplicate_calendar_days_from_provider():
+    service, db = make_service()
+    security = make_security()
+    first = make_price_data(date=datetime(2024, 9, 20, 4, 0))
+    second = make_price_data(date=datetime(2024, 9, 20, 9, 30))
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_price_history.return_value = [first, second]
+
+    with pytest.raises(ValueError, match="Invalid price data for 'AAPL'"):
+        service.sync_price_history("AAPL")
+
+    service.price_repo.get_for_security_and_dates.assert_not_called()
+    service.price_repo.create.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
+
+def test_sync_price_history_matches_legacy_timestamp_by_calendar_day():
+    service, db = make_service()
+    security = make_security()
+    data = make_price_data(date=datetime(2024, 9, 20, 4, 0))
+    existing = Mock()
+    existing.date = datetime(2024, 9, 20, 9, 30)
+    for field in (
+        "open", "high", "low", "close", "adjusted_close",
+        "price_basis", "volume", "dividends", "stock_splits",
+    ):
+        setattr(existing, field, getattr(data, field))
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_price_history.return_value = [data]
+    service.price_repo.get_for_security_and_dates.return_value = [existing]
+
+    result = service.sync_price_history("AAPL")
+
+    assert result.unchanged == 1
+    assert result.updated == 0
+    service.price_repo.create.assert_not_called()
+    service.revision_repo.create.assert_not_called()
+    db.commit.assert_called_once()
+
+
+def test_sync_price_history_fails_closed_on_legacy_duplicate_calendar_days():
+    service, db = make_service()
+    security = make_security()
+    data = make_price_data(date=datetime(2024, 9, 20))
+    first = Mock()
+    second = Mock()
+    first.date = datetime(2024, 9, 20, 4, 0)
+    second.date = datetime(2024, 9, 20, 9, 30)
+    service.security_repo.get_by_symbol.return_value = security
+    service.client.get_price_history.return_value = [data]
+    service.price_repo.get_for_security_and_dates.return_value = [first, second]
+
+    with pytest.raises(
+        ValueError,
+        match="Multiple stored daily price observations",
+    ):
+        service.sync_price_history("AAPL")
+
+    service.price_repo.create.assert_not_called()
+    service.revision_repo.create.assert_not_called()
+    db.commit.assert_not_called()
+    db.rollback.assert_called_once()
+
 def test_get_price_history_as_of_uses_revision_repository():
     service, db = make_service()
     security = make_security()

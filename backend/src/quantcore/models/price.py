@@ -6,6 +6,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    func,
     Enum as SQLAlchemyEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -88,6 +89,6 @@ class Price(ProvenanceMixin, Base):
 Index(
     "ix_prices_security_date",
     Price.security_id,
-    Price.date,
+    func.date(Price.date),
     unique=True,
 )

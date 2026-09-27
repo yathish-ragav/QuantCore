@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, time, timezone
 
 from sqlalchemy.orm import Session
 
@@ -70,10 +70,14 @@ class PriceService:
 
     @staticmethod
     def _matches(existing, data) -> bool:
+        # Legacy rows may retain a provider-specific time component. Daily
+        # identity is the calendar date; comparing the full timestamp would
+        # create a spurious revision on every sync.
+        if existing.date.date() != data.date.date():
+            return False
         return all(
             getattr(existing, field) == getattr(data, field)
             for field in (
-                "date",
                 "open",
                 "high",
                 "low",
@@ -137,10 +141,23 @@ class PriceService:
                 raw_history
             )
 
-            prices = [
-                DataCleaner.clean_price(price)
-                for price in prices
-            ]
+            normalized_prices = []
+            for price in prices:
+                cleaned = DataCleaner.clean_price(price)
+                normalized_prices.append(
+                    cleaned.model_copy(
+                        update={
+                            # Daily bars are identified by the provider's
+                            # calendar date, not by its timestamp. Persist a
+                            # stable, timezone-naive midnight value.
+                            "date": datetime.combine(
+                                cleaned.date.date(),
+                                time.min,
+                            )
+                        }
+                    )
+                )
+            prices = normalized_prices
 
             if not DataValidator.validate_prices(
                 prices
@@ -164,16 +181,22 @@ class PriceService:
                 security.id,
                 [price.date for price in prices],
             )
-            existing_by_date = {
-                price.date: price
-                for price in existing_prices
-            }
+            existing_by_date = {}
+            for existing in existing_prices:
+                observation_day = existing.date.date()
+                if observation_day in existing_by_date:
+                    raise DataValidationError(
+                        f"Multiple stored daily price observations for "
+                        f"'{symbol}' on {observation_day.isoformat()}; "
+                        "reconcile legacy duplicates before syncing."
+                    )
+                existing_by_date[observation_day] = existing
 
             new_prices = []
             changed_prices = []
 
             for data in prices:
-                existing = existing_by_date.get(data.date)
+                existing = existing_by_date.get(data.date.date())
 
                 if existing is None:
                     price = self.price_repo.create(

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import String, cast, func, select
 from sqlalchemy.orm import Session
 
 from quantcore.models.price import Price
@@ -40,11 +40,12 @@ class PriceRepository:
         if not dates:
             return []
 
+        calendar_dates = sorted({value.date().isoformat() for value in dates})
         stmt = (
             select(Price)
             .where(
                 Price.security_id == security_id,
-                Price.date.in_(dates),
+                cast(func.date(Price.date), String).in_(calendar_dates),
             )
             .order_by(Price.date)
         )
