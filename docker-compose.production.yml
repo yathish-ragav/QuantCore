@@ -6,6 +6,8 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     restart: "no"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
@@ -21,6 +23,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
@@ -34,6 +38,8 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     ports:
@@ -68,6 +74,8 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
@@ -89,6 +97,8 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
