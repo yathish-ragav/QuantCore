@@ -266,3 +266,21 @@ def test_trigger_due_rejects_invalid_job_shard_size():
     service = make_service()
     with pytest.raises(InvalidInputError, match="Job shard size"):
         service.trigger_due(now=NOW, job_shard_size=0)
+
+
+def test_trigger_due_logs_and_advances_empty_universe(caplog):
+    service = make_service()
+    schedule = make_schedule(symbols=None, target_limit=None)
+    service.repository.get_due.return_value = [schedule]
+    service.db.scalars.return_value.all.return_value = []
+
+    with caplog.at_level("WARNING", logger="quantcore.services.ingestion_schedule_service"):
+        triggers = service.trigger_due(now=NOW)
+
+    assert triggers == []
+    assert "empty universe" in caplog.records[0].message
+    assert caplog.records[0].schedule_id == schedule.id
+    assert caplog.records[0].dataset == schedule.dataset.value
+    service.job_repository.create_job.assert_not_called()
+    service.repository.advance.assert_called_once()
+    service.db.commit.assert_called_once()

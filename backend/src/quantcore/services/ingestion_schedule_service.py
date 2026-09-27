@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
@@ -21,6 +22,9 @@ from quantcore.repositories.ingestion_schedule_repository import IngestionSchedu
 from quantcore.repositories.ingestion_state_repository import IngestionStateRepository
 from quantcore.services.ingestion_execution_service import IngestionJobView
 from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
+
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_JOB_SHARD_SIZE = 100
@@ -317,6 +321,16 @@ class IngestionScheduleService:
                 scheduled_for = self._normalize_time(schedule.next_run_at)
                 symbols = self._symbols_for_sharding(schedule)
                 shards = self._shards(symbols, job_shard_size) if symbols else []
+                if not symbols:
+                    logger.warning(
+                        "Skipping scheduled ingestion invocation with an empty universe",
+                        extra={
+                            "schedule_id": schedule.id,
+                            "schedule_name": schedule.name,
+                            "dataset": schedule.dataset.value,
+                            "scheduled_for": scheduled_for.isoformat(),
+                        },
+                    )
                 for shard_index, shard_symbols in enumerate(shards):
                     key = self._scheduled_idempotency_key(
                         schedule.id,
