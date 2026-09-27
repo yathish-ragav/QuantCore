@@ -106,6 +106,38 @@ def test_worker_survives_transient_recovery_failure():
     worker.run_once.assert_called_once()
 
 
+
+def test_worker_stops_heartbeat_when_execution_session_creation_fails():
+    class FakeThread:
+        def __init__(self, **_kwargs):
+            self.started = False
+            self.joined = False
+
+        def start(self):
+            self.started = True
+
+        def join(self, **_kwargs):
+            self.joined = True
+
+    import quantcore.services.ingestion_worker as module
+
+    original_thread = module.threading.Thread
+    fake_thread = FakeThread()
+    module.threading.Thread = lambda **kwargs: fake_thread
+    try:
+        worker = IngestionWorker(
+            session_factory=Mock(side_effect=RuntimeError("database unavailable")),
+            worker_id="worker-a",
+        )
+
+        with pytest.raises(RuntimeError, match="database unavailable"):
+            worker._execute_with_heartbeat(41, 1)
+
+        assert fake_thread.started is True
+        assert fake_thread.joined is True
+    finally:
+        module.threading.Thread = original_thread
+
 def test_worker_logs_completed_job_metrics(caplog):
     db = Mock()
     factory = Mock(return_value=db)

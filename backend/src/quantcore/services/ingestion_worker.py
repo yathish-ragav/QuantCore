@@ -122,10 +122,13 @@ class IngestionWorker:
             name=f"quantcore-ingestion-heartbeat-{job_id}",
             daemon=True,
         )
-        heartbeat_thread.start()
         started_monotonic = time.monotonic()
-        db: Session = self.session_factory()
+        heartbeat_started = False
+        db: Session | None = None
         try:
+            heartbeat_thread.start()
+            heartbeat_started = True
+            db = self.session_factory()
             result = IngestionExecutionService(db).execute_claimed(
                 job_id,
                 worker_id=self.worker_id,
@@ -160,9 +163,16 @@ class IngestionWorker:
                 duration_ms,
             )
         finally:
+            # The execution session factory can fail before execute_claimed is
+            # entered. Always stop the heartbeat in that case; otherwise it can
+            # keep refreshing a lease for a job that no thread is executing.
             heartbeat_stop.set()
-            heartbeat_thread.join(timeout=self.config.heartbeat_interval_seconds)
-            db.close()
+            if heartbeat_started:
+                heartbeat_thread.join(
+                    timeout=self.config.heartbeat_interval_seconds
+                )
+            if db is not None:
+                db.close()
 
     def recover_stale(self) -> int:
         """Recover jobs whose heartbeat lease has expired."""
