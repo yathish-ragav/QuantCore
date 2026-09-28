@@ -14,10 +14,9 @@ class ProductionDataPolicy:
 
     @staticmethod
     def _enabled() -> bool:
-        return (
-            settings.PRODUCTION_DATA_POLICY_ENFORCED
-            and settings.ENVIRONMENT.strip().lower() == "production"
-        )
+        # Production is always fail-closed. The enforcement flag remains a
+        # required deployment assertion, but must never disable policy checks.
+        return settings.ENVIRONMENT.strip().lower() == "production"
 
     @classmethod
     def validate_market_provider(cls, provider: str) -> None:
@@ -78,6 +77,10 @@ class ProductionDataPolicy:
     def validate_all(cls) -> None:
         if not cls._enabled():
             return
+        if not settings.PRODUCTION_DATA_POLICY_ENFORCED:
+            raise ConfigurationError(
+                "PRODUCTION_DATA_POLICY_ENFORCED must be true in production."
+            )
         cls.validate_market_provider(settings.market_data_provider)
         cls.validate_realtime_provider(settings.realtime_market_data_provider)
         cls.validate_financial_provider(settings.financial_data_provider)

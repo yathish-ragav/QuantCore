@@ -71,3 +71,30 @@ def test_production_policy_accepts_documented_stack():
         "fred",
     ):
         ProductionDataPolicy.validate_all()
+
+
+def test_production_policy_cannot_be_disabled_in_production():
+    with patch(
+        "quantcore.core.production_data_policy.settings.ENVIRONMENT",
+        "production",
+    ), patch(
+        "quantcore.core.production_data_policy.settings.PRODUCTION_DATA_POLICY_ENFORCED",
+        False,
+    ):
+        with pytest.raises(ConfigurationError, match="must be true"):
+            ProductionDataPolicy.validate_all()
+
+
+def test_provider_validation_is_enforced_when_flag_is_false():
+    with patch(
+        "quantcore.core.production_data_policy.settings.ENVIRONMENT",
+        "production",
+    ), patch(
+        "quantcore.core.production_data_policy.settings.PRODUCTION_DATA_POLICY_ENFORCED",
+        False,
+    ), patch(
+        "quantcore.core.production_data_policy.settings.MASSIVE_API_KEY",
+        "key",
+    ):
+        with pytest.raises(ConfigurationError, match="Massive"):
+            ProductionDataPolicy.validate_market_provider("yahoo")

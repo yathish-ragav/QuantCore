@@ -44,6 +44,24 @@ PRODUCTION_DATA_POLICY_ENFORCED=true
 Development can continue to use existing provider adapters for testing, but those
 providers must not silently become the public production data source.
 
+## Read-only ingestion runtime audit
+
+Use the runtime audit before investigating scheduled ingestion or collecting
+production evidence. It reads schedules, recent jobs/runs, and aggregate ingestion
+state; it does not mutate records or print raw provider errors or credentials.
+Run it from the backend environment with the production database configuration:
+
+```bash
+cd ~/Developer/QuantCore/backend
+source .venv/bin/activate
+PYTHONPATH=src python ../scripts/audit_ingestion_runtime.py --latest 20
+```
+
+The command exits non-zero when it finds stale running jobs, delayed queued jobs,
+or enabled schedules that are overdue. Review the JSON alongside worker and
+scheduler logs; a clean database snapshot alone does not prove that provider data
+was fetched or persisted successfully.
+
 ## Historical data policy
 
 A successful API response is not itself proof of historical completeness.
