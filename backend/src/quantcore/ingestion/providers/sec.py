@@ -520,8 +520,14 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                                 filed_at=filed_date,
                                 accession_number=accession,
                                 form=form,
+                                # SEC CompanyFacts uses fy=0 for facts where
+                                # a fiscal year is not applicable or unavailable.
+                                # Keep the optional field null rather than
+                                # rejecting the entire company-facts response.
                                 fiscal_year=(
-                                    int(raw["fy"]) if raw.get("fy") is not None else None
+                                    int(raw["fy"])
+                                    if raw.get("fy") not in (None, 0, "0")
+                                    else None
                                 ),
                                 fiscal_period=(
                                     str(raw["fp"]) if raw.get("fp") is not None else None

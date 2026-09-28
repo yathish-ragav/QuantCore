@@ -212,3 +212,36 @@ def test_companyfacts_cache_can_be_shared_by_financial_and_regulatory_providers(
             "0000320193", error_message="boom"
         ) == payload
         mock_get.assert_called_once()
+
+def test_get_sec_xbrl_fact_observations_normalizes_zero_fiscal_year_to_none():
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "SomeConcept": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2024-09-28",
+                                "val": 123,
+                                "accn": "0000320193-24-000123",
+                                "fy": 0,
+                                "fp": "FY",
+                                "form": "10-K",
+                                "filed": "2024-11-01",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ):
+        result = SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+    assert len(result) == 1
+    assert result[0].fiscal_year is None
+
