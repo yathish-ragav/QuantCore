@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,9 +30,11 @@ class Settings(BaseSettings):
     realtime_market_data_provider: str = "fmp"
     macro_data_provider: str = "fred"
     SQL_ECHO: bool = False
-    DB_POOL_SIZE: int = 10
-    DB_MAX_OVERFLOW: int = 20
-    DB_POOL_RECYCLE_SECONDS: int = 1800
+    # Keep the default connection budget conservative across API workers and
+    # the separately running ingestion worker/scheduler processes.
+    DB_POOL_SIZE: int = Field(default=5, gt=0)
+    DB_MAX_OVERFLOW: int = Field(default=5, ge=0)
+    DB_POOL_RECYCLE_SECONDS: int = Field(default=1800, gt=0)
 
     # Generic OIDC resource-server settings. Authentication is fail-closed
     # when these are not configured; no local token format is accepted.

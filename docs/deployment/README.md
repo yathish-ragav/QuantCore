@@ -58,6 +58,15 @@ production deployment.
 The environment file must provide at least the settings required by
 `quantcore.core.config.Settings`, including:
 
+The SQLAlchemy pool is process-local. With the Compose defaults (two API
+workers, one ingestion worker, and one scheduler), `DB_POOL_SIZE=5` and
+`DB_MAX_OVERFLOW=5` permit up to 40 application connections in aggregate
+(4 processes × 10 connections). This is a ceiling, not expected steady-state
+usage. Reserve PostgreSQL connections for administration, migrations, and
+other applications; set lower values if the database connection limit requires
+it. Increase them only after measuring concurrency and confirming the database
+capacity.
+
 ```text
 DATABASE_URL=postgresql+psycopg://...
 SECRET_KEY=...
@@ -73,6 +82,9 @@ AUTH_ISSUER=...
 AUTH_AUDIENCE=...
 AUTH_JWKS_URL=...
 AUTH_ALGORITHMS=RS256
+DB_POOL_SIZE=5
+DB_MAX_OVERFLOW=5
+DB_POOL_RECYCLE_SECONDS=1800
 ```
 
 Production source policy is fail-closed. In particular, production market and
