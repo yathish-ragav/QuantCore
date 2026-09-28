@@ -32,3 +32,30 @@ def test_universe_status_maps_latest_run_and_coverage():
     assert response.latest_run.id == 1
     assert response.latest_run.status == "COMPLETED"
     assert response.coverage.active_securities == 10
+
+
+def test_universe_status_redacts_raw_sync_error():
+    run = UniverseSyncRun(
+        source="SEC",
+        status=UniverseSyncRunStatus.FAILED,
+        started_at=datetime.now(timezone.utc),
+        records_processed=0,
+        active_companies=0,
+        active_securities=0,
+        inactive_securities=0,
+        error="database password=secret traceback",
+    )
+    run.id = 2
+    service = Mock()
+    service.get_status.return_value = (
+        run,
+        {"active_companies": 0, "active_securities": 0, "inactive_securities": 0},
+    )
+
+    response = get_universe_status(service)
+
+    assert response.latest_run.error == (
+        "Universe synchronization failed; consult operational logs."
+    )
+    assert "secret" not in response.model_dump_json()
+    assert "traceback" not in response.model_dump_json()

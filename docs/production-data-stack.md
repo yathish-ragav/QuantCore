@@ -62,6 +62,10 @@ or enabled schedules that are overdue. Review the JSON alongside worker and
 scheduler logs; a clean database snapshot alone does not prove that provider data
 was fetched or persisted successfully.
 
+Public ingestion-freshness and universe-status responses expose only a generic failure
+message; raw provider/database exceptions belong in access-controlled operational
+logs and must not be returned by public API endpoints.
+
 ## Historical data policy
 
 A successful API response is not itself proof of historical completeness.

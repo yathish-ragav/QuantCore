@@ -91,7 +91,19 @@ def get_macro_ingestion_freshness(
     series_id: list[str] | None = Query(default=None),
     service: MacroIngestionOrchestrator = Depends(get_macro_ingestion_orchestrator),
 ):
-    return [MacroIngestionFreshnessResponse(**view.__dict__) for view in service.get_freshness(series_id)]
+    return [
+        MacroIngestionFreshnessResponse(
+            **{
+                **view.__dict__,
+                "last_error": (
+                    "Macro ingestion failed; consult operational logs."
+                    if view.last_error
+                    else None
+                ),
+            }
+        )
+        for view in service.get_freshness(series_id)
+    ]
 
 
 @router.post(

@@ -57,3 +57,28 @@ def test_get_ingestion_freshness_normalizes_symbol():
 
     assert response.status_code == 200
     service.get_freshness.assert_called_once_with("AAPL")
+
+
+def test_get_ingestion_freshness_redacts_raw_provider_error():
+    view = Mock()
+    view.dataset.value = "price_history"
+    view.scope.value = "security"
+    view.last_attempt_at = None
+    view.last_success_at = None
+    view.last_success_source = None
+    view.last_success_records = 0
+    view.consecutive_failures = 1
+    view.last_error = "SQL password=secret and provider traceback"
+    view.is_fresh = False
+
+    with patch("quantcore.api.dependencies.IngestionOrchestrator") as service_class:
+        service = Mock()
+        service_class.return_value = service
+        service.get_freshness.return_value = [view]
+        response = client.get("/ingestion/AAPL/freshness")
+
+    assert response.status_code == 200
+    payload = response.json()[0]
+    assert payload["last_error"] == "Ingestion failed; consult operational logs."
+    assert "secret" not in response.text
+    assert "traceback" not in response.text

@@ -32,7 +32,11 @@ def get_ingestion_freshness(
             last_success_source=view.last_success_source,
             last_success_records=view.last_success_records,
             consecutive_failures=view.consecutive_failures,
-            last_error=view.last_error,
+            last_error=(
+                "Ingestion failed; consult operational logs."
+                if view.last_error
+                else None
+            ),
             is_fresh=view.is_fresh,
         )
         for view in service.get_freshness(normalized_symbol)

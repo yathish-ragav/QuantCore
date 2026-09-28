@@ -45,7 +45,11 @@ def _run_response(run) -> UniverseSyncRunResponse:
         active_companies=run.active_companies,
         active_securities=run.active_securities,
         inactive_securities=run.inactive_securities,
-        error=run.error,
+        error=(
+            "Universe synchronization failed; consult operational logs."
+            if run.error
+            else None
+        ),
     )
 
 

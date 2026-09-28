@@ -89,3 +89,33 @@ def test_macro_ingestion_sync_endpoint():
         limit=None,
         vintage_date=None,
     )
+
+
+def test_macro_ingestion_freshness_redacts_raw_provider_error():
+    service = Mock()
+    service.get_freshness.return_value = [
+        MacroFreshnessView(
+            source="FRED",
+            series_id="GDP",
+            max_age_seconds=172800,
+            last_attempt_at=None,
+            last_success_at=None,
+            last_success_vintage=None,
+            last_success_records=0,
+            consecutive_failures=1,
+            last_error="database password=secret traceback",
+            is_fresh=False,
+        )
+    ]
+    app.dependency_overrides[get_macro_ingestion_orchestrator] = lambda: service
+    try:
+        response = client.get("/macro/ingestion/freshness?series_id=GDP")
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json()[0]["last_error"] == (
+        "Macro ingestion failed; consult operational logs."
+    )
+    assert "secret" not in response.text
+    assert "traceback" not in response.text
