@@ -126,6 +126,16 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             )
             response.raise_for_status()
             data = response.json()
+        except requests.HTTPError as exc:
+            # A 404 from CompanyFacts is an issuer/data-availability outcome,
+            # not a transient transport failure. Treat it as a terminal
+            # validation failure so the ingestion retry policy does not
+            # immediately retry an entity that has no CompanyFacts payload.
+            if exc.response is not None and exc.response.status_code == 404:
+                raise DataValidationError(
+                    "SEC CompanyFacts is not available for this CIK."
+                ) from exc
+            raise ExternalDataError(error_message) from exc
         except requests.RequestException as exc:
             raise ExternalDataError(error_message) from exc
 

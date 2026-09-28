@@ -140,6 +140,33 @@ def test_get_sec_xbrl_fact_observations_http_error():
             SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
+def test_companyfacts_http_404_is_terminal_data_availability_failure():
+    response = Mock()
+    response.status_code = 404
+    error = requests.HTTPError("404 Client Error", response=response)
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        side_effect=error,
+    ):
+        with pytest.raises(
+            DataValidationError,
+            match="SEC CompanyFacts is not available for this CIK",
+        ):
+            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+
+def test_companyfacts_non_404_http_error_remains_retryable():
+    response = Mock()
+    response.status_code = 503
+    error = requests.HTTPError("503 Server Error", response=response)
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        side_effect=error,
+    ):
+        with pytest.raises(ExternalDataError, match="XBRL fact observations"):
+            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+
 def test_companyfacts_cache_is_instance_scoped_and_reused():
     payload = {"facts": {"us-gaap": {}}}
     with patch(
