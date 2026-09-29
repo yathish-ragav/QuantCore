@@ -430,7 +430,7 @@ def test_sec_http_error():
             SECProvider().get_income_statements("AAPL")
 
     assert str(exc_info.value) == (
-        "Failed to retrieve income statement data from SEC."
+        "Failed to retrieve income statement data from SEC (HTTP error without status)."
     )
 
 
@@ -449,7 +449,7 @@ def test_sec_timeout():
             SECProvider().get_income_statements("AAPL")
 
     assert str(exc_info.value) == (
-        "Failed to retrieve income statement data from SEC."
+        "Failed to retrieve income statement data from SEC (transport: Timeout)."
     )
 
 
