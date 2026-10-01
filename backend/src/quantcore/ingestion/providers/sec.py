@@ -1456,6 +1456,24 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         return []
 
     @staticmethod
+    def _is_reported_period_by_filing(fact: dict[str, Any]) -> bool:
+        """Return True only when the reported period ended by its filing date.
+
+        CompanyFacts can retain forecasts and other facts describing future
+        periods. Those observations remain available in the raw observation
+        store, but normalized historical statements must not treat them as
+        reported results.
+        """
+        end = fact.get("end")
+        filed = fact.get("filed")
+        if not isinstance(end, str) or not isinstance(filed, str):
+            return False
+        try:
+            return date.fromisoformat(end) <= date.fromisoformat(filed)
+        except (TypeError, ValueError):
+            return False
+
+    @staticmethod
     def _is_annual_fact(
         fact: dict[str, Any],
     ) -> bool:
@@ -1467,6 +1485,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         return (
             str(fact.get("form") or "").upper() in annual_forms
             and fact.get("fp") == "FY"
+            and SECProvider._is_reported_period_by_filing(fact)
         )
 
     @staticmethod
@@ -1488,6 +1507,8 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         if fact.get("fp") not in {"Q1", "Q2", "Q3"}:
             return False
         if not fact.get("start") or not fact.get("end"):
+            return False
+        if not SECProvider._is_reported_period_by_filing(fact):
             return False
 
         qtrs = fact.get("qtrs")
@@ -1516,6 +1537,8 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         if form not in periodic_forms or not fact.get("end"):
             return False
         if fact.get("start") is not None:
+            return False
+        if not SECProvider._is_reported_period_by_filing(fact):
             return False
         qtrs = fact.get("qtrs")
         if qtrs is not None:

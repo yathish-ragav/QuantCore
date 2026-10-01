@@ -97,6 +97,39 @@ def test_get_sec_xbrl_fact_observations_preserves_revisions_and_taxonomies():
     assert result[2].qtrs == 0
 
 
+def test_get_sec_xbrl_fact_observations_preserves_future_period_disclosed_in_filing():
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "ProjectedRevenue": {
+                    "units": {
+                        "USD": [
+                            {
+                                "start": "2024-10-01",
+                                "end": "2025-09-30",
+                                "val": 125000000,
+                                "accn": "0000320193-24-000123",
+                                "form": "8-K",
+                                "filed": "2024-09-23",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ):
+        result = SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+    assert len(result) == 1
+    assert result[0].period_end == date(2025, 9, 30)
+    assert result[0].filed_at == date(2024, 9, 23)
+
+
 def test_get_sec_xbrl_fact_observations_rejects_invalid_value():
     payload = {
         "facts": {
@@ -126,17 +159,85 @@ def test_get_sec_xbrl_fact_observations_rejects_invalid_value():
             SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
+
+def test_invalid_xbrl_observation_error_includes_safe_source_identity():
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "Revenue": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2024-09-28",
+                                "val": "not-a-number",
+                                "accn": "0000320193-24-000123",
+                                "form": "10-K",
+                                "filed": "2024-11-01",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ):
+        with pytest.raises(DataValidationError) as exc_info:
+            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+    message = str(exc_info.value)
+    assert "taxonomy='us-gaap'" in message
+    assert "concept='Revenue'" in message
+    assert "unit='USD'" in message
+    assert "accession='0000320193-24-000123'" in message
+    assert "not-a-number" not in message
+
+
+def test_get_sec_xbrl_fact_observations_rejects_non_finite_values():
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "Revenue": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "2024-09-28",
+                                "val": "NaN",
+                                "accn": "0000320193-24-000123",
+                                "form": "10-K",
+                                "filed": "2024-11-01",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ):
+        with pytest.raises(DataValidationError, match="value must be finite"):
+            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
 def test_get_sec_xbrl_fact_observations_empty_cik():
     with pytest.raises(InvalidInputError, match="CIK must not be empty"):
         SECProvider().get_sec_xbrl_fact_observations("   ")
 
 
-def test_get_sec_xbrl_fact_observations_http_error():
+def test_get_sec_xbrl_fact_observations_transport_error_is_diagnostic():
     with patch(
         "quantcore.ingestion.providers.sec.requests.get",
-        side_effect=requests.RequestException("boom"),
+        side_effect=requests.Timeout("boom"),
     ):
-        with pytest.raises(ExternalDataError, match="XBRL fact observations"):
+        with pytest.raises(
+            ExternalDataError,
+            match=r"XBRL fact observations \(transport: Timeout\)",
+        ):
             SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
@@ -163,7 +264,10 @@ def test_companyfacts_non_404_http_error_remains_retryable():
         "quantcore.ingestion.providers.sec.requests.get",
         side_effect=error,
     ):
-        with pytest.raises(ExternalDataError, match="XBRL fact observations"):
+        with pytest.raises(
+            ExternalDataError,
+            match=r"XBRL fact observations \(HTTP 503\)",
+        ):
             SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
@@ -244,4 +348,104 @@ def test_get_sec_xbrl_fact_observations_normalizes_zero_fiscal_year_to_none():
 
     assert len(result) == 1
     assert result[0].fiscal_year is None
+
+
+def test_get_sec_xbrl_fact_observations_normalizes_malformed_optional_metadata():
+    payload = {
+        "facts": {
+            "dei": {
+                "EntityCommonStockSharesOutstanding": {
+                    "units": {
+                        "shares": [
+                            {
+                                "end": "2024-09-28",
+                                "val": 123,
+                                "accn": "0000320193-24-000123",
+                                "fy": "not-a-year",
+                                "qtrs": "not-a-quarter-count",
+                                "form": "10-K",
+                                "filed": "2024-11-01",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ):
+        result = SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+    assert len(result) == 1
+    assert result[0].fiscal_year is None
+    assert result[0].qtrs == 0
+
+def test_invalid_xbrl_schema_error_includes_field_and_validator_without_raw_value():
+    payload = {
+        "facts": {
+            "dei": {
+                "EntityCommonStockSharesOutstanding": {
+                    "units": {
+                        "shares": [
+                            {
+                                "end": "2024-09-28",
+                                "val": 123,
+                                "accn": "0000320193-24-000123",
+                                "form": "X" * 21,
+                                "filed": "2024-11-01",
+                                "fy": 1800,
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ):
+        with pytest.raises(DataValidationError) as exc_info:
+            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+    message = str(exc_info.value)
+    assert "form" in message
+    assert "string_too_long" in message
+    assert ("X" * 21) not in message
+
+def test_invalid_xbrl_date_error_identifies_field_without_raw_value():
+    payload = {
+        "facts": {
+            "us-gaap": {
+                "Revenue": {
+                    "units": {
+                        "USD": [
+                            {
+                                "end": "not-a-date",
+                                "val": 123,
+                                "accn": "0000320193-24-000123",
+                                "form": "10-K",
+                                "filed": "2024-11-01",
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    }
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=make_response(payload),
+    ):
+        with pytest.raises(DataValidationError) as exc_info:
+            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
+    message = str(exc_info.value)
+    assert "invalid period_end (ValueError)" in message
+    assert "not-a-date" not in message
 

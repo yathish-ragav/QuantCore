@@ -597,11 +597,15 @@ def test_sec_is_annual_fact():
     annual_fact = {
         "form": "10-K",
         "fp": "FY",
+        "end": "2024-09-28",
+        "filed": "2024-11-01",
     }
 
     amended_annual_fact = {
         "form": "10-K/A",
         "fp": "FY",
+        "end": "2024-09-28",
+        "filed": "2025-01-15",
     }
 
     quarterly_fact = {
@@ -629,8 +633,15 @@ def test_sec_quarterly_fact_requires_standalone_qtrs_one():
         "form": "10-Q",
         "fp": "Q1",
         "qtrs": 1,
+        "filed": "2026-04-30",
     }
-    ytd = {**standalone, "end": "2026-06-30", "qtrs": 2, "fp": "Q2"}
+    ytd = {
+        **standalone,
+        "end": "2026-06-30",
+        "qtrs": 2,
+        "fp": "Q2",
+        "filed": "2026-07-30",
+    }
     amended = {**standalone, "form": "10-Q/A"}
 
     assert SECProvider._is_quarterly_fact(standalone) is True
@@ -644,6 +655,7 @@ def test_sec_instant_fact_accepts_quarter_end_10q():
         "form": "10-Q",
         "fp": "Q2",
         "qtrs": 0,
+        "filed": "2026-07-30",
     }
 
     assert SECProvider._is_instant_fact(fact) is True
@@ -656,21 +668,25 @@ def test_sec_get_fiscal_dates():
             "end": "2024-09-28",
             "form": "10-K",
             "fp": "FY",
+            "filed": "2024-11-01",
         },
         {
             "end": "2023-09-30",
             "form": "10-K",
             "fp": "FY",
+            "filed": "2023-11-01",
         },
         {
             "end": "2024-06-29",
             "form": "10-Q",
             "fp": "Q3",
+            "filed": "2024-08-01",
         },
         {
             "end": "2024-09-28",
             "form": "10-K",
             "fp": "FY",
+            "filed": "2024-11-01",
         },
     ]
 
@@ -1433,3 +1449,82 @@ def test_sec_get_balance_sheets_falls_back_to_ifrs_full_for_40f():
     assert result[0].total_assets == 2500000000
     assert result[0].total_liabilities == 1500000000
     assert result[0].total_equity == 1000000000
+
+@pytest.mark.parametrize(
+    ("period_type", "fact"),
+    [
+        (
+            FinancialPeriodType.ANNUAL,
+            {
+                "form": "10-K",
+                "fp": "FY",
+                "end": "2027-07-17",
+                "filed": "2026-07-23",
+            },
+        ),
+        (
+            FinancialPeriodType.QUARTERLY,
+            {
+                "form": "10-Q",
+                "fp": "Q2",
+                "start": "2027-04-01",
+                "end": "2027-06-30",
+                "filed": "2027-06-15",
+                "qtrs": 1,
+            },
+        ),
+        (
+            FinancialPeriodType.INSTANT,
+            {
+                "form": "10-Q",
+                "end": "2027-07-17",
+                "filed": "2026-07-23",
+                "qtrs": 0,
+            },
+        ),
+    ],
+)
+def test_sec_normalized_statement_facts_exclude_periods_ending_after_filing(
+    period_type, fact
+):
+    assert not SECProvider._is_fact_for_period(fact, period_type)
+
+
+@pytest.mark.parametrize(
+    ("period_type", "fact"),
+    [
+        (
+            FinancialPeriodType.ANNUAL,
+            {
+                "form": "10-K",
+                "fp": "FY",
+                "end": "2025-12-31",
+                "filed": "2026-02-15",
+            },
+        ),
+        (
+            FinancialPeriodType.QUARTERLY,
+            {
+                "form": "10-Q",
+                "fp": "Q2",
+                "start": "2025-04-01",
+                "end": "2025-06-30",
+                "filed": "2025-07-25",
+                "qtrs": 1,
+            },
+        ),
+        (
+            FinancialPeriodType.INSTANT,
+            {
+                "form": "10-Q",
+                "end": "2025-06-30",
+                "filed": "2025-07-25",
+                "qtrs": 0,
+            },
+        ),
+    ],
+)
+def test_sec_normalized_statement_facts_accept_periods_ended_by_filing(
+    period_type, fact
+):
+    assert SECProvider._is_fact_for_period(fact, period_type)
