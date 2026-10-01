@@ -9,6 +9,7 @@ from quantcore.core.exceptions import (
     DataValidationError,
     ExternalDataError,
     InvalidInputError,
+    RateLimitError,
 )
 from quantcore.ingestion.providers.sec import SECProvider
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
@@ -432,6 +433,62 @@ def test_sec_http_error():
     assert str(exc_info.value) == (
         "Failed to retrieve income statement data from SEC (HTTP error without status)."
     )
+
+
+def test_sec_company_facts_http_429_honors_retry_after():
+    SECProvider._ticker_to_cik = {
+        "AAPL": "0000320193",
+    }
+    response = Mock(status_code=429, headers={"Retry-After": "17"})
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=response,
+    ):
+        with pytest.raises(RateLimitError) as exc_info:
+            SECProvider().get_income_statements("AAPL")
+
+    assert exc_info.value.retry_after_seconds == 17.0
+    assert str(exc_info.value) == "SEC CompanyFacts rate limit exceeded (HTTP 429)."
+
+
+def test_sec_company_facts_http_429_uses_safe_retry_after_fallback():
+    SECProvider._ticker_to_cik = {
+        "AAPL": "0000320193",
+    }
+    response = Mock(status_code=429, headers={})
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=response,
+    ):
+        with pytest.raises(RateLimitError) as exc_info:
+            SECProvider().get_income_statements("AAPL")
+
+    assert exc_info.value.retry_after_seconds == 60.0
+
+
+@pytest.mark.parametrize(
+    ("retry_after", "expected"),
+    [
+        ("Thu, 01 Jan 1970 00:00:00 GMT", 0.0),
+        ("not-a-date", 60.0),
+    ],
+)
+def test_sec_company_facts_http_429_parses_http_date_or_falls_back(
+    retry_after, expected
+):
+    SECProvider._ticker_to_cik = {"AAPL": "0000320193"}
+    response = Mock(status_code=429, headers={"Retry-After": retry_after})
+
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        return_value=response,
+    ):
+        with pytest.raises(RateLimitError) as exc_info:
+            SECProvider().get_income_statements("AAPL")
+
+    assert exc_info.value.retry_after_seconds == expected
 
 
 def test_sec_timeout():
@@ -1099,7 +1156,8 @@ def test_sec_get_cash_flow_statements_does_not_require_operating_cash_flow_ancho
     assert result[0].accession_number == "0001234567-26-000001"
 
 
-def test_sec_xbrl_rejects_period_ending_after_filing_date():
+def test_sec_xbrl_preserves_period_ending_after_filing_date():
+    """A disclosed future-period fact is valid and retains its filing date."""
     SECProvider._ticker_to_cik = {"AAL": "0000000001"}
 
     fake_response = Mock()
@@ -1129,8 +1187,11 @@ def test_sec_xbrl_rejects_period_ending_after_filing_date():
         "quantcore.ingestion.providers.sec.requests.get",
         return_value=fake_response,
     ):
-        with pytest.raises(DataValidationError, match="period_end"):
-            SECProvider().get_sec_xbrl_fact_observations("0000000001")
+        observations = SECProvider().get_sec_xbrl_fact_observations("0000000001")
+
+    assert len(observations) == 1
+    assert observations[0].period_end == date(2027, 7, 17)
+    assert observations[0].filed_at == date(2026, 7, 23)
 
 
 @pytest.mark.parametrize("annual_form", ["20-F", "20-F/A", "40-F", "40-F/A", "10-KT", "10-KT/A"])

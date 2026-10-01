@@ -1,7 +1,9 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Any
 
 import requests
+from pydantic import ValidationError
 
 from quantcore.core.config import settings
 from quantcore.core.enums import FinancialPeriodType
@@ -9,6 +11,7 @@ from quantcore.core.exceptions import (
     DataValidationError,
     ExternalDataError,
     InvalidInputError,
+    RateLimitError,
 )
 from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
@@ -107,6 +110,25 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             timeout=timeout,
         )
 
+    @staticmethod
+    def _retry_after_seconds(value: str | None) -> float:
+        """Parse Retry-After delta-seconds or HTTP-date, with a safe fallback."""
+        if value is None:
+            return 60.0
+        try:
+            return max(0.0, float(value))
+        except (TypeError, ValueError):
+            pass
+
+        try:
+            retry_at = parsedate_to_datetime(value)
+            if retry_at.tzinfo is None:
+                return 60.0
+            seconds = (retry_at - datetime.now(timezone.utc)).total_seconds()
+            return max(0.0, seconds)
+        except (TypeError, ValueError, OverflowError):
+            return 60.0
+
     def _get_company_facts(
         self,
         cik: str,
@@ -124,6 +146,14 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 headers=self.HEADERS,
                 timeout=30,
             )
+            if response.status_code == 429:
+                retry_after = self._retry_after_seconds(
+                    response.headers.get("Retry-After")
+                )
+                raise RateLimitError(
+                    "SEC CompanyFacts rate limit exceeded (HTTP 429).",
+                    retry_after_seconds=retry_after,
+                )
             response.raise_for_status()
             data = response.json()
         except requests.HTTPError as exc:
@@ -135,9 +165,21 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 raise DataValidationError(
                     "SEC CompanyFacts is not available for this CIK."
                 ) from exc
-            raise ExternalDataError(error_message) from exc
+            status_code = (
+                exc.response.status_code if exc.response is not None else None
+            )
+            message = error_message.rstrip(".")
+            detail = (
+                f"{message} (HTTP {status_code})."
+                if status_code is not None
+                else f"{message} (HTTP error without status)."
+            )
+            raise ExternalDataError(detail) from exc
         except requests.RequestException as exc:
-            raise ExternalDataError(error_message) from exc
+            # Keep diagnostics actionable without storing response content,
+            # request URLs, headers, or potentially sensitive exception text.
+            detail = f"{error_message.rstrip('.')} (transport: {type(exc).__name__})."
+            raise ExternalDataError(detail) from exc
 
         if not isinstance(data, dict):
             raise DataValidationError(
@@ -489,32 +531,81 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                         value = raw.get("val")
                         if not accession or not filed or not form or not end or value is None:
                             continue
+                        # Keep the source identity in validation errors. A single
+                        # malformed observation must be diagnosable without logging
+                        # its potentially sensitive/raw value or silently dropping it.
+                        fact_context = (
+                            f"taxonomy={taxonomy!r}, concept={concept!r}, "
+                            f"unit={unit!r}, accession={accession or '<missing>'!r}, "
+                            f"filed={filed!r}"
+                        )
+                        validation_stage = "filed_at"
                         try:
                             filed_date = date.fromisoformat(str(filed))
+                            validation_stage = "period_end"
                             period_end = date.fromisoformat(str(end))
+                            validation_stage = "period_start"
                             period_start = (
                                 date.fromisoformat(str(raw["start"]))
                                 if raw.get("start") else None
                             )
 
-                            # A reported SEC fact cannot describe a period that
-                            # ends after the filing date. Treat this as provider
-                            # corruption/invalid source data instead of allowing
-                            # future observations into the PIT dataset.
-                            if period_end > filed_date:
-                                raise DataValidationError(
-                                    "SEC XBRL fact period_end cannot be after filed_at."
-                                )
+                            # Do not require period_end <= filed_at here. SEC
+                            # CompanyFacts can contain facts about future periods
+                            # (for example, forecasts) that were disclosed in an
+                            # earlier filing. PIT availability is governed by the
+                            # filing's public-availability timestamp, not by the
+                            # period the fact describes. Research consumers must
+                            # separately decide whether a metric accepts projected
+                            # or not-yet-completed periods.
                             if period_start is not None and period_start > period_end:
                                 raise DataValidationError(
                                     "SEC XBRL fact period_start cannot be after period_end."
                                 )
 
+                            validation_stage = "value"
+                            numeric_value = Decimal(str(value))
+                            if not numeric_value.is_finite():
+                                raise DataValidationError(
+                                    "SEC XBRL fact value must be finite."
+                                )
+
+                            validation_stage = "fiscal_year"
+                            raw_fiscal_year = raw.get("fy")
+                            try:
+                                fiscal_year = (
+                                    int(raw_fiscal_year)
+                                    if raw_fiscal_year not in (None, 0, "0")
+                                    else None
+                                )
+                            except (TypeError, ValueError):
+                                fiscal_year = None
+                            # SEC CompanyFacts occasionally contains malformed
+                            # optional fiscal-year metadata (for example, 0,
+                            # out-of-range values, or non-numeric values). The
+                            # observation's filed/period dates remain usable;
+                            # preserve the fact while treating invalid metadata
+                            # as unknown.
+                            if fiscal_year is not None and not (
+                                1900 <= fiscal_year <= 2200
+                            ):
+                                fiscal_year = None
+
+                            validation_stage = "qtrs"
+                            raw_qtrs = raw.get("qtrs")
+                            try:
+                                qtrs = int(raw_qtrs) if raw_qtrs is not None else 0
+                            except (TypeError, ValueError):
+                                qtrs = 0
+                            if not 0 <= qtrs <= 100:
+                                qtrs = 0
+
+                            validation_stage = "schema"
                             observation = SECXBRLFactObservationData(
                                 taxonomy=taxonomy,
                                 concept=concept,
                                 unit=unit,
-                                value=Decimal(str(value)),
+                                value=numeric_value,
                                 period_start=period_start,
                                 period_end=period_end,
                                 filed_at=filed_date,
@@ -524,29 +615,46 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                                 # a fiscal year is not applicable or unavailable.
                                 # Keep the optional field null rather than
                                 # rejecting the entire company-facts response.
-                                fiscal_year=(
-                                    int(raw["fy"])
-                                    if raw.get("fy") not in (None, 0, "0")
-                                    else None
-                                ),
+                                fiscal_year=fiscal_year,
                                 fiscal_period=(
                                     str(raw["fp"]) if raw.get("fp") is not None else None
                                 ),
                                 frame=(
                                     str(raw["frame"]) if raw.get("frame") is not None else ""
                                 ),
-                                qtrs=(
-                                    int(raw["qtrs"]) if raw.get("qtrs") is not None else 0
-                                ),
+                                qtrs=qtrs,
                                 decimals=(
                                     str(raw["decimals"]) if raw.get("decimals") is not None else None
                                 ),
                             )
-                        except DataValidationError:
-                            raise
-                        except (TypeError, ValueError, InvalidOperation) as exc:
+                        except DataValidationError as exc:
                             raise DataValidationError(
-                                "Invalid SEC XBRL fact observation."
+                                f"Invalid SEC XBRL fact observation ({fact_context}): {exc}"
+                            ) from exc
+                        except ValidationError as exc:
+                            # Include only field paths and validator codes. Pydantic's
+                            # full error payload can contain the raw SEC value, so do
+                            # not include its input/context in operational diagnostics.
+                            issues = exc.errors(
+                                include_url=False,
+                                include_context=False,
+                                include_input=False,
+                            )
+                            fields = ", ".join(
+                                f"{'.'.join(str(part) for part in issue.get('loc', ())) or '<root>'} "
+                                f"({issue.get('type', 'validation_error')})"
+                                for issue in issues
+                            )
+                            raise DataValidationError(
+                                f"Invalid SEC XBRL fact observation ({fact_context}): "
+                                f"schema validation failed at {fields or 'an unknown field'}."
+                            ) from exc
+                        except (TypeError, ValueError, InvalidOperation) as exc:
+                            # Keep malformed provider data diagnosable without
+                            # exposing its raw value in ingestion state or logs.
+                            raise DataValidationError(
+                                f"Invalid SEC XBRL fact observation ({fact_context}): "
+                                f"invalid {validation_stage} ({type(exc).__name__})."
                             ) from exc
                         observations.append(observation)
 
