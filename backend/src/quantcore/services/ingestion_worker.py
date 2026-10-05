@@ -230,10 +230,7 @@ def main() -> None:
     parser.add_argument("--recovery-interval", type=float, default=30.0)
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    configure_logging()
     worker = IngestionWorker(
         config=IngestionWorkerConfig(
             poll_interval_seconds=args.poll_interval,

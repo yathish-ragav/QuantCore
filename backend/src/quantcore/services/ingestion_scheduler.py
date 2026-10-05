@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.logging import configure_logging
 from quantcore.db.database import SessionLocal
 from quantcore.services.ingestion_schedule_service import (
     DEFAULT_JOB_SHARD_SIZE,
@@ -100,10 +101,7 @@ def main() -> None:
     parser.add_argument("--job-shard-size", type=int, default=DEFAULT_JOB_SHARD_SIZE)
     args = parser.parse_args()
 
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    configure_logging()
     scheduler = IngestionScheduler(
         config=IngestionSchedulerConfig(
             poll_interval_seconds=args.poll_interval,

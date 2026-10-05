@@ -8,6 +8,7 @@ from typing import Any
 
 from quantcore.core.config import settings
 from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.logging import configure_logging
 from quantcore.db.database import SessionLocal
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.services.ingestion_schedule_service import IngestionScheduleService
@@ -178,10 +179,7 @@ def main() -> None:
         help=f"JSON schedule array; defaults to ${SCHEDULES_ENV}",
     )
     args = parser.parse_args()
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s %(message)s",
-    )
+    configure_logging()
     created = bootstrap_schedules(raw=args.schedules_json)
     logger.info("Ingestion schedule bootstrap complete created=%s", created)
 

@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     realtime_market_data_provider: str = "fmp"
     macro_data_provider: str = "fred"
     SQL_ECHO: bool = False
+    LOG_LEVEL: str = "INFO"
+    LOG_FORMAT: str = "json"
     # Keep the default connection budget conservative across API workers and
     # the separately running ingestion worker/scheduler processes.
     DB_POOL_SIZE: int = Field(default=5, gt=0)
