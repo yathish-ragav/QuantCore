@@ -33,10 +33,16 @@ def get_ingestion_freshness(
             last_success_records=view.last_success_records,
             consecutive_failures=view.consecutive_failures,
             last_error=(
-                "Ingestion failed; consult operational logs."
+                (
+                    "Dataset unavailable for this entity; next capability check is scheduled."
+                    if view.last_outcome is not None and view.last_outcome.value == "UNAVAILABLE"
+                    else "Ingestion failed; consult operational logs."
+                )
                 if view.last_error
                 else None
             ),
+            last_outcome=(view.last_outcome.value if view.last_outcome else None),
+            next_check_at=view.next_check_at,
             is_fresh=view.is_fresh,
         )
         for view in service.get_freshness(normalized_symbol)

@@ -1,0 +1,113 @@
+name: quantcore-local
+
+services:
+  db:
+    image: postgres:16-bookworm
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: quantcore
+      POSTGRES_USER: quantcore
+      POSTGRES_PASSWORD: quantcore_local_only
+    volumes:
+      - quantcore_local_pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:${QUANTCORE_POSTGRES_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U quantcore -d quantcore"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  migrate:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: "no"
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://quantcore:quantcore_local_only@db:5432/quantcore
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+
+  bootstrap:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: "no"
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://quantcore:quantcore_local_only@db:5432/quantcore
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["quantcore-ingestion-bootstrap"]
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://quantcore:quantcore_local_only@db:5432/quantcore
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    ports:
+      - "127.0.0.1:${QUANTCORE_API_PORT:-8000}:8000"
+    command: ["uvicorn", "quantcore.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/ready', timeout=3)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://quantcore:quantcore_local_only@db:5432/quantcore
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    command: ["quantcore-ingestion-worker", "--poll-interval", "2", "--heartbeat-interval", "30", "--stale-after", "300", "--recovery-interval", "30"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from quantcore.core.config import settings; from sqlalchemy import create_engine, text; e=create_engine(settings.DATABASE_URL, pool_pre_ping=True); c=e.connect(); c.execute(text('SELECT 1')); c.close(); e.dispose()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://quantcore:quantcore_local_only@db:5432/quantcore
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    command: ["quantcore-ingestion-scheduler", "--poll-interval", "5", "--trigger-batch-size", "100", "--job-shard-size", "100"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "from quantcore.core.config import settings; from sqlalchemy import create_engine, text; e=create_engine(settings.DATABASE_URL, pool_pre_ping=True); c=e.connect(); c.execute(text('SELECT 1')); c.close(); e.dispose()"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+volumes:
+  quantcore_local_pgdata:

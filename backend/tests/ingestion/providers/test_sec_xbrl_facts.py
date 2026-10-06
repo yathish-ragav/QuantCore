@@ -256,6 +256,22 @@ def test_companyfacts_http_404_is_terminal_data_availability_failure():
             SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
+def test_companyfacts_404_is_cached_as_unavailable_for_shared_issuer_cache():
+    response = Mock()
+    response.status_code = 404
+    error = requests.HTTPError("404 Client Error", response=response)
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get",
+        side_effect=error,
+    ) as mock_get:
+        provider = SECProvider()
+        with pytest.raises(DataValidationError):
+            provider._get_company_facts("0000320193", error_message="boom")
+        with pytest.raises(DataValidationError):
+            provider._get_company_facts("0000320193", error_message="boom")
+        mock_get.assert_called_once()
+
+
 def test_companyfacts_non_404_http_error_remains_retryable():
     response = Mock()
     response.status_code = 503

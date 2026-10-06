@@ -36,3 +36,6 @@ build/
 *.egg-info/
 # Local patch-transfer artifacts
 *.patch
+
+# Local Docker Compose environment
+.env.docker

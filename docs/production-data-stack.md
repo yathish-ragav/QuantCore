@@ -199,23 +199,22 @@ subsequent authoritative provider may replace `UNKNOWN` ownership and establish
 known provenance. QuantCore never fabricates a sector or other classification to
 fill a provider omission.
 
-## Local Docker Compose with host PostgreSQL (Linux)
+## Local and production deployment boundary
 
-When running the Compose stack on Linux while PostgreSQL runs directly on the
-Ubuntu host, `localhost` in `DATABASE_URL` refers to the container, not the host.
-The Compose services therefore provide the `host.docker.internal` host-gateway
-alias. For this local setup, use a URL of the form:
+Local development uses the root `docker-compose.yml` and `.env.docker` file.
+The local stack includes its own PostgreSQL container on a persistent named
+volume; application containers connect to the database over the Compose network.
+The database is optionally published to loopback port 5433 for host-side tools.
+This avoids relying on a host PostgreSQL service, host networking, or Docker
+bridge-gateway configuration. See the root README for the one-time setup command.
 
-```text
-DATABASE_URL=postgresql+psycopg://USER:PASSWORD@host.docker.internal:5432/quantcore
-```
+Production uses `docker-compose.production.yml` and an explicitly selected
+`QUANTCORE_ENV_FILE`. It does not start a PostgreSQL container: `DATABASE_URL`
+must point to the production database endpoint reachable from the Compose
+network. Services use Compose bridge networking. The API is bound to host
+loopback on `${QUANTCORE_API_PORT:-8000}` so a host TLS reverse proxy can route
+to it; configure the edge proxy and firewall before public exposure.
 
-The host PostgreSQL instance must listen on its Docker bridge gateway address
-and have a narrowly scoped `pg_hba.conf` rule for the Compose subnet, database,
-and application role. Determine the actual subnet and gateway with
-`docker network inspect quantcore_default`; do not assume the subnet is always
-`172.18.0.0/16`. Keep host firewall rules restrictive, and do not expose
-PostgreSQL publicly. After changing `listen_addresses`, restart PostgreSQL;
-changes to `pg_hba.conf` can be applied with a reload. This is a local-development
-connectivity setup, not a recommendation to expose a host database in a public
-production deployment.
+Do not use `.env.docker` or its local-only credentials in production. Keep
+production secrets in a secret-managed file outside the repository and pass its
+absolute path through `QUANTCORE_ENV_FILE`.

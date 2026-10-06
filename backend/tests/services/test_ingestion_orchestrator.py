@@ -4,7 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 
-from quantcore.core.exceptions import ExternalDataError, InvalidInputError
+from quantcore.core.exceptions import DataUnavailableError, ExternalDataError, InvalidInputError
 from quantcore.ingestion.retry import IngestionRetryPolicy
 from quantcore.ingestion.datasets import (
     DATASET_POLICIES,
@@ -12,7 +12,7 @@ from quantcore.ingestion.datasets import (
     IngestionDataset,
     IngestionScope,
 )
-from quantcore.models.ingestion import IngestionRunStatus
+from quantcore.models.ingestion import IngestionOutcome, IngestionRunStatus
 from quantcore.models.security import SecurityStatus
 from quantcore.services.ingestion_orchestrator import (
     IngestionOrchestrator,
@@ -52,6 +52,8 @@ def make_state(
     state.last_success_records = 1
     state.consecutive_failures = 0
     state.last_error = None
+    state.last_outcome = None
+    state.next_check_at = None
     return state
 
 
@@ -320,6 +322,65 @@ def test_sync_market_records_failure_without_stopping_other_symbols():
     service.state_repo.mark_failure.assert_called_once()
     service.state_repo.finish_run.assert_called_once()
     service.lineage_service.record_success.assert_called_once()
+
+
+def test_sync_market_marks_data_unavailable_without_counting_failure():
+    service = make_service()
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+
+    run = Mock()
+    run.id = 1
+    service.state_repo.create_run.return_value = run
+    state = make_state(IngestionDataset.BALANCE_SHEET, company_id=security.company_id)
+    service.state_repo.get.return_value = state
+    service.state_repo.get_or_create.return_value = state
+
+    fake_service = Mock()
+    fake_service.provider.SOURCE = "SEC"
+    fake_service.sync_balance_sheets.side_effect = DataUnavailableError(
+        "SEC CompanyFacts is not available for this CIK."
+    )
+    service._service_for = Mock(return_value=fake_service)
+
+    result = service.sync_market(
+        datasets=[IngestionDataset.BALANCE_SHEET],
+        only_stale=False,
+    )
+
+    assert result[0].attempted == 1
+    assert result[0].succeeded == 0
+    assert result[0].failed == 0
+    assert result[0].skipped == 1
+    service.state_repo.mark_failure.assert_not_called()
+    service.state_repo.mark_unavailable.assert_called_once()
+
+
+def test_sync_market_skips_unavailable_until_next_check_when_only_stale():
+    service = make_service()
+    security = make_security()
+    service.db.scalars.return_value.all.return_value = [security]
+
+    run = Mock()
+    run.id = 1
+    service.state_repo.create_run.return_value = run
+    state = make_state(IngestionDataset.BALANCE_SHEET, company_id=security.company_id)
+    state.last_outcome = IngestionOutcome.UNAVAILABLE
+    state.next_check_at = datetime.now(timezone.utc) + timedelta(days=1)
+    service.state_repo.get.return_value = state
+
+    fake_service = Mock()
+    fake_service.provider.SOURCE = "SEC"
+    service._service_for = Mock(return_value=fake_service)
+
+    result = service.sync_market(
+        datasets=[IngestionDataset.BALANCE_SHEET],
+        only_stale=True,
+    )
+
+    assert result[0].attempted == 0
+    assert result[0].skipped == 1
+    fake_service.sync_balance_sheets.assert_not_called()
 
 
 def test_sync_market_supports_sec_filing_dataset():

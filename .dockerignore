@@ -20,3 +20,6 @@ notebooks/
 .vscode/
 .idea/
 .DS_Store
+
+# Local Docker Compose secrets/config
+.env.docker

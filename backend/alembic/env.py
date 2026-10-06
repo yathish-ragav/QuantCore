@@ -1,6 +1,8 @@
 from logging.config import fileConfig
 
 from alembic import context
+from sqlalchemy import Enum as SQLAlchemyEnum
+from sqlalchemy import String
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
@@ -47,6 +49,31 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
+def _quantcore_compare_type(
+    context,
+    inspected_column,
+    metadata_column,
+    inspected_type,
+    metadata_type,
+):
+    # QuantCore stores SQLAlchemy enums as VARCHAR + CHECK (native_enum=False).
+    # PostgreSQL reflects those columns as VARCHAR; do not report a false
+    # VARCHAR -> Enum type change. Still report a real undersized VARCHAR.
+    if isinstance(metadata_type, SQLAlchemyEnum) and not metadata_type.native_enum:
+        if isinstance(inspected_type, String):
+            expected = metadata_type.length
+            if expected is None:
+                expected = max(
+                    (len(str(v)) for v in (metadata_type.enums or ())),
+                    default=0,
+                )
+            actual = inspected_type.length
+            if actual is None or actual >= expected:
+                return False
+            return True
+    return None
+
+
 target_metadata = Base.metadata
 
 
@@ -56,6 +83,7 @@ def run_migrations_offline() -> None:
     context.configure(
         url=url,
         target_metadata=target_metadata,
+        compare_type=_quantcore_compare_type,
         literal_binds=True,
         dialect_opts={
             "paramstyle": "named",
@@ -84,6 +112,7 @@ def run_migrations_online() -> None:
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
+            compare_type=_quantcore_compare_type,
         )
 
         with context.begin_transaction():

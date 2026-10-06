@@ -4,7 +4,7 @@ import argparse
 import json
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select, text
+from sqlalchemy import case, func, or_, select, text
 
 from quantcore.db.database import SessionLocal
 from quantcore.models.ingestion import (
@@ -12,6 +12,7 @@ from quantcore.models.ingestion import (
     IngestionJobStatus,
     IngestionRun,
     IngestionRunStatus,
+    IngestionOutcome,
     IngestionState,
 )
 from quantcore.models.ingestion_schedule import IngestionSchedule
@@ -53,6 +54,32 @@ def _error_category(error: str | None) -> str:
             return category
     return "other"
 
+
+
+def _error_category_expression():
+    """Categorize persisted error text in SQL without loading every state row."""
+    normalized = func.lower(func.coalesce(IngestionState.last_error, ""))
+    categories = (
+        (("timeout", "timed out", "readtimeout", "connecttimeout"), "timeout"),
+        (("429", "rate limit", "too many requests", "throttl"), "rate_limited"),
+        (("401", "unauthorized", "invalid api key", "authentication"), "authentication"),
+        (("403", "forbidden", "permission denied"), "authorization"),
+        (("404", "not found", "no data found"), "not_found_or_no_data"),
+        (("connection refused", "could not connect", "connectionerror", "connection reset"), "connection"),
+        (("ssl", "certificate verify", "tls"), "tls"),
+        (("integrityerror", "uniqueviolation", "foreignkeyviolation", "constraint"), "database_constraint"),
+        (("operationalerror", "sqlalchemy", "database", "postgres"), "database"),
+        (("validation", "invalid value", "schema error", "parse error"), "validation_or_parsing"),
+    )
+    whens = []
+    for markers, category in categories:
+        whens.append(
+            (
+                or_(*(normalized.like(f"%{marker}%") for marker in markers)),
+                category,
+            )
+        )
+    return case(*whens, else_="other")
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -155,6 +182,9 @@ def main() -> int:
                 func.count(IngestionState.id).filter(
                     IngestionState.consecutive_failures > 0
                 ),
+                func.count(IngestionState.id).filter(
+                    IngestionState.last_outcome == IngestionOutcome.UNAVAILABLE
+                ),
             )
         ).one()
         state_groups = db.execute(
@@ -168,6 +198,9 @@ def main() -> int:
                 func.count(IngestionState.id)
                 .filter(IngestionState.consecutive_failures > 0)
                 .label("with_consecutive_failures"),
+                func.count(IngestionState.id)
+                .filter(IngestionState.last_outcome == IngestionOutcome.UNAVAILABLE)
+                .label("unavailable"),
             )
             .group_by(IngestionState.dataset, IngestionState.scope)
             .order_by(IngestionState.dataset, IngestionState.scope)
@@ -176,7 +209,10 @@ def main() -> int:
             db.scalars(
                 select(IngestionState)
                 .where(
-                    (IngestionState.last_success_at.is_(None))
+                    (
+                        IngestionState.last_success_at.is_(None)
+                        & (IngestionState.last_outcome != IngestionOutcome.UNAVAILABLE)
+                    )
                     | (IngestionState.consecutive_failures > 0)
                 )
                 .order_by(
@@ -188,10 +224,39 @@ def main() -> int:
             ).all()
         )
 
+        # Aggregate the full unresolved population in the database. Only the
+        # bounded `problem_states` sample above is materialized in Python.
+        problem_state_filter = (
+            (
+                IngestionState.last_success_at.is_(None)
+                & (IngestionState.last_outcome != IngestionOutcome.UNAVAILABLE)
+            )
+            | (IngestionState.consecutive_failures > 0)
+        )
+        category_expression = _error_category_expression()
+        category_rows = db.execute(
+            select(
+                IngestionState.dataset,
+                category_expression.label("error_category"),
+                func.count(IngestionState.id).label("count"),
+            )
+            .where(problem_state_filter)
+            .group_by(IngestionState.dataset, category_expression)
+            .order_by(IngestionState.dataset, category_expression)
+        ).all()
         problem_error_categories: dict[str, int] = {}
-        for state in problem_states:
-            category = _error_category(state.last_error)
-            problem_error_categories[category] = problem_error_categories.get(category, 0) + 1
+        problem_error_categories_by_dataset: dict[str, dict[str, int]] = {}
+        problem_states_total = 0
+        for dataset, category, count in category_rows:
+            dataset_name = dataset.value
+            problem_states_total += count
+            problem_error_categories[category] = (
+                problem_error_categories.get(category, 0) + count
+            )
+            dataset_categories = problem_error_categories_by_dataset.setdefault(
+                dataset_name, {}
+            )
+            dataset_categories[category] = count
 
         report = {
             "generated_at": now.isoformat(),
@@ -209,6 +274,8 @@ def main() -> int:
                 "ingestion_states": state_counts[0],
                 "states_without_success": state_counts[1],
                 "states_with_consecutive_failures": state_counts[2],
+                "states_unavailable": state_counts[3],
+                "problem_states_total": problem_states_total,
                 "problem_states_returned": len(problem_states),
             },
             "state_health": {
@@ -219,6 +286,7 @@ def main() -> int:
                         "total": total,
                         "without_success": without_success,
                         "with_consecutive_failures": with_consecutive_failures,
+                        "unavailable": unavailable,
                     }
                     for (
                         dataset,
@@ -226,9 +294,16 @@ def main() -> int:
                         total,
                         without_success,
                         with_consecutive_failures,
+                        unavailable,
                     ) in state_groups
                 ],
                 "problem_error_categories": dict(sorted(problem_error_categories.items())),
+                "problem_error_categories_by_dataset": {
+                    dataset: dict(sorted(categories.items()))
+                    for dataset, categories in sorted(
+                        problem_error_categories_by_dataset.items()
+                    )
+                },
                 "problem_states": [
                     {
                         "id": state.id,
@@ -239,6 +314,12 @@ def main() -> int:
                         "last_attempt_at": _iso(state.last_attempt_at),
                         "last_success_at": _iso(state.last_success_at),
                         "consecutive_failures": state.consecutive_failures,
+                        "last_outcome": (
+                            state.last_outcome.value
+                            if state.last_outcome is not None
+                            else None
+                        ),
+                        "next_check_at": _iso(state.next_check_at),
                         "last_success_records": state.last_success_records,
                         "has_error": bool(state.last_error),
                         "error_category": _error_category(state.last_error),
@@ -297,7 +378,20 @@ def main() -> int:
             ],
         }
         print(json.dumps(report, indent=2, sort_keys=True))
-        return 1 if stale_jobs or delayed_jobs or overdue_schedules else 0
+        # A successful database read and healthy processes do not imply that
+        # ingestion is healthy. Persistent per-entity failures must make the
+        # audit fail so automation/CI cannot treat an incomplete data platform
+        # as operationally clean.
+        return (
+            1
+            if (
+                stale_jobs
+                or delayed_jobs
+                or overdue_schedules
+                or state_counts[2] > 0
+            )
+            else 0
+        )
     finally:
         db.close()
 

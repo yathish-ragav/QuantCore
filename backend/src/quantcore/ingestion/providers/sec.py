@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from quantcore.core.config import settings
 from quantcore.core.enums import FinancialPeriodType
 from quantcore.core.exceptions import (
+    DataUnavailableError,
     DataValidationError,
     ExternalDataError,
     InvalidInputError,
@@ -28,6 +29,7 @@ class SECCompanyFactsCache:
 
     def __init__(self) -> None:
         self._payload: tuple[str, dict[str, Any]] | None = None
+        self._unavailable_ciks: set[str] = set()
 
     def get(self, cik: str) -> dict[str, Any] | None:
         if self._payload is None or self._payload[0] != cik:
@@ -35,10 +37,19 @@ class SECCompanyFactsCache:
         return self._payload[1]
 
     def set(self, cik: str, payload: dict[str, Any]) -> None:
+        self._unavailable_ciks.discard(cik)
         self._payload = (cik, payload)
+
+    def mark_unavailable(self, cik: str) -> None:
+        self._payload = None
+        self._unavailable_ciks.add(cik)
+
+    def is_unavailable(self, cik: str) -> bool:
+        return cik in self._unavailable_ciks
 
     def clear(self) -> None:
         self._payload = None
+        self._unavailable_ciks.clear()
 
 
 class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
@@ -139,6 +150,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         cached = self._company_facts_cache.get(cik)
         if cached is not None:
             return cached
+        if self._company_facts_cache.is_unavailable(cik):
+            raise DataUnavailableError(
+                "SEC CompanyFacts is not available for this CIK."
+            )
 
         try:
             response = self._get(
@@ -162,7 +177,8 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             # validation failure so the ingestion retry policy does not
             # immediately retry an entity that has no CompanyFacts payload.
             if exc.response is not None and exc.response.status_code == 404:
-                raise DataValidationError(
+                self._company_facts_cache.mark_unavailable(cik)
+                raise DataUnavailableError(
                     "SEC CompanyFacts is not available for this CIK."
                 ) from exc
             status_code = (

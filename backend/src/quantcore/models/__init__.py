@@ -17,6 +17,7 @@ from quantcore.models.ingestion import (
     IngestionJobStatus,
     IngestionRun,
     IngestionState,
+    IngestionOutcome,
 )
 from quantcore.models.ingestion_lineage import IngestionLineage
 from quantcore.models.ingestion_schedule import IngestionSchedule
@@ -70,6 +71,7 @@ __all__ = [
     "IngestionJobStatus",
     "IngestionRun",
     "IngestionState",
+    "IngestionOutcome",
     "IngestionLineage",
     "IngestionSchedule",
     "SECFiling",

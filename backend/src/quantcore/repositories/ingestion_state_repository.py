@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import exists, or_, select, update
 from sqlalchemy.orm import Session
@@ -10,6 +10,7 @@ from quantcore.models.ingestion import (
     IngestionRun,
     IngestionRunStatus,
     IngestionState,
+    IngestionOutcome,
 )
 
 
@@ -80,6 +81,8 @@ class IngestionStateRepository:
         state.last_success_at = succeeded_at
         state.last_success_source = source
         state.last_success_records = records
+        state.last_outcome = IngestionOutcome.SUCCESS
+        state.next_check_at = None
         state.consecutive_failures = 0
         state.last_error = None
         state.updated_at = succeeded_at
@@ -91,9 +94,28 @@ class IngestionStateRepository:
         failed_at: datetime,
         error: str,
     ) -> None:
+        state.last_outcome = IngestionOutcome.FAILURE
+        state.next_check_at = None
         state.consecutive_failures += 1
         state.last_error = error[:2000]
         state.updated_at = failed_at
+
+    def mark_unavailable(
+        self,
+        state: IngestionState,
+        *,
+        checked_at: datetime,
+        error: str,
+        recheck_after: timedelta,
+    ) -> None:
+        if recheck_after.total_seconds() <= 0:
+            raise ValueError("recheck_after must be greater than zero.")
+
+        state.last_outcome = IngestionOutcome.UNAVAILABLE
+        state.next_check_at = checked_at + recheck_after
+        state.consecutive_failures = 0
+        state.last_error = error[:2000]
+        state.updated_at = checked_at
 
     def get_run_by_idempotency_key(
         self,

@@ -6,6 +6,7 @@ from enum import Enum
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.ingestion.datasets import IngestionDataset, IngestionScope
+from quantcore.models.ingestion import IngestionOutcome
 from quantcore.services.ingestion_orchestrator import (
     FreshnessView,
     IngestionOrchestrator,
@@ -19,6 +20,7 @@ class IngestionHealthStatus(str, Enum):
     STALE = "STALE"
     FAILED = "FAILED"
     NEVER_INGESTED = "NEVER_INGESTED"
+    UNAVAILABLE = "UNAVAILABLE"
 
 
 @dataclass(frozen=True)
@@ -47,7 +49,8 @@ class IngestionHealthService:
         IngestionHealthStatus.HEALTHY: 0,
         IngestionHealthStatus.STALE: 1,
         IngestionHealthStatus.FAILED: 2,
-        IngestionHealthStatus.NEVER_INGESTED: 3,
+        IngestionHealthStatus.UNAVAILABLE: 3,
+        IngestionHealthStatus.NEVER_INGESTED: 4,
     }
 
     def __init__(self, db):
@@ -55,6 +58,9 @@ class IngestionHealthService:
 
     @classmethod
     def _status(cls, view: FreshnessView) -> IngestionHealthStatus:
+        if view.last_outcome is IngestionOutcome.UNAVAILABLE:
+            return IngestionHealthStatus.UNAVAILABLE
+
         if view.last_success_at is None:
             if view.consecutive_failures > 0:
                 return IngestionHealthStatus.FAILED

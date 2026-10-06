@@ -182,7 +182,7 @@ class ResearchExperimentComparisonResultRecord(Base):
 
     __table_args__ = (
         Index(
-            "ix_research_experiment_comparison_results_comparison_recorded_id",
+            "ix_research_exp_cmp_results_cmp_recorded_id",
             "comparison_fingerprint",
             "recorded_at",
             "id",
@@ -195,7 +195,7 @@ class ResearchExperimentComparisonResultRecord(Base):
             "owner_issuer",
             "owner_subject",
             "result_fingerprint",
-            name="uq_research_experiment_comparison_results_owner_result_fingerprint",
+            name="uq_research_exp_comparison_owner_result_fp",
         ),
         Index(
             "ix_research_experiment_comparison_results_owner_recorded_id",
@@ -211,7 +211,6 @@ class ResearchExperimentComparisonResultRecord(Base):
     comparison_fingerprint: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
-        index=True,
     )
 
     selection_fingerprint: Mapped[str] = mapped_column(

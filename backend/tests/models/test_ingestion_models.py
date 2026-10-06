@@ -8,6 +8,7 @@ from quantcore.models.ingestion import (
     IngestionRun,
     IngestionRunStatus,
     IngestionState,
+    IngestionOutcome,
 )
 
 
@@ -32,6 +33,17 @@ def test_ingestion_state_has_explicit_entity_foreign_keys():
         c.name == "uq_ingestion_state_dataset_security"
         for c in constraints
     )
+
+
+def test_ingestion_state_tracks_last_outcome_and_recheck_time():
+    columns = IngestionState.__table__.c
+    assert "last_outcome" in columns
+    assert "next_check_at" in columns
+    assert {member.value for member in IngestionOutcome} == {
+        "SUCCESS",
+        "FAILURE",
+        "UNAVAILABLE",
+    }
 
 
 def test_ingestion_run_defaults_to_running():

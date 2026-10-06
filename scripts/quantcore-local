@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# Reliable local QuantCore Compose entrypoint. Safe to invoke from any directory.
+set -Eeuo pipefail
+
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd -P)"
+ENV_FILE="${ROOT_DIR}/.env.docker"
+COMPOSE_FILE="${ROOT_DIR}/docker-compose.yml"
+
+usage() {
+  cat <<'USAGE'
+Usage: scripts/quantcore-local <command> [arguments]
+
+Commands:
+  up       Build and start the local stack
+  down     Stop the stack while preserving the PostgreSQL volume
+  restart  Restart the database and long-running services (optional service names)
+  ps       Show service status
+  logs     Follow logs (optional service names)
+  health   Check API readiness
+  help     Show this help
+
+The helper creates .env.docker on first use and never overwrites it.
+USAGE
+}
+
+fail() { printf 'quantcore-local: %s\n' "$*" >&2; exit 1; }
+
+ensure_env_file() {
+  local template="${ROOT_DIR}/.env.docker.example"
+  [[ -f "$template" ]] || fail "missing environment template: ${template}"
+  if [[ ! -e "$ENV_FILE" ]]; then
+    command -v python3 >/dev/null 2>&1 || fail "python3 is required to initialize local configuration"
+    local tmp
+    tmp="$(mktemp "${ROOT_DIR}/.env.docker.XXXXXX")"
+    chmod 600 "$tmp"
+    python3 - "$template" "$tmp" <<'PYTHON'
+from pathlib import Path
+import secrets
+import sys
+
+source, destination = map(Path, sys.argv[1:])
+content = source.read_text(encoding="utf-8")
+secret = secrets.token_urlsafe(48)
+if "__QUANTCORE_GENERATE_SECRET__" in content:
+    content = content.replace("__QUANTCORE_GENERATE_SECRET__", secret)
+elif any(line.partition("=")[0].strip() == "SECRET_KEY" for line in content.splitlines()):
+    content = "\n".join(
+        f"SECRET_KEY={secret}" if line.partition("=")[0].strip() == "SECRET_KEY" else line
+        for line in content.splitlines()
+    ) + "\n"
+else:
+    content = content.rstrip() + f"\nSECRET_KEY={secret}\n"
+destination.write_text(content, encoding="utf-8")
+PYTHON
+    if [[ -e "$ENV_FILE" ]]; then
+      rm -f -- "$tmp"
+    else
+      mv -- "$tmp" "$ENV_FILE"
+      printf 'Created %s with a generated local secret.\n' "$ENV_FILE"
+    fi
+  fi
+  [[ -f "$ENV_FILE" ]] || fail "environment path is not a regular file: ${ENV_FILE}"
+  chmod 600 "$ENV_FILE"
+}
+
+cmd="${1:-help}"
+if (($#)); then shift; fi
+case "$cmd" in
+  help|-h|--help) usage; exit 0 ;;
+  up|down|restart|ps|status|logs|health) ;;
+  *) usage >&2; fail "unknown command: ${cmd}" ;;
+esac
+
+command -v docker >/dev/null 2>&1 || fail "Docker CLI not found; install Docker Engine with Compose v2."
+docker compose version >/dev/null 2>&1 || fail "Docker Compose v2 is required (try: docker compose version)."
+[[ -f "$COMPOSE_FILE" ]] || fail "missing Compose file: ${COMPOSE_FILE}"
+ensure_env_file
+
+compose() {
+  docker compose --project-directory "$ROOT_DIR" --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
+}
+
+wait_for_database() {
+  local attempt
+  for ((attempt = 1; attempt <= 60; attempt++)); do
+    if compose exec -T db pg_isready -U quantcore -d quantcore >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  fail "PostgreSQL did not become ready within 60 seconds; inspect with: ${SCRIPT_DIR}/quantcore-local logs db"
+}
+
+wait_for_api() {
+  local port attempt
+  command -v curl >/dev/null 2>&1 || fail "curl is required to wait for API readiness"
+  port="$(python3 - "$ENV_FILE" <<'PYTHON'
+from pathlib import Path
+import sys
+values = {}
+for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if line and not line.startswith("#") and "=" in line:
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip("\"'")
+print(values.get("QUANTCORE_API_PORT") or "8000")
+PYTHON
+)"
+  for ((attempt = 1; attempt <= 90; attempt++)); do
+    if curl --fail --silent --show-error "http://127.0.0.1:${port}/health/ready" >/dev/null 2>&1; then
+      printf 'QuantCore API is ready.\n'
+      return 0
+    fi
+    sleep 1
+  done
+  fail "API did not become ready within 90 seconds; inspect with: ${SCRIPT_DIR}/quantcore-local logs api"
+}
+
+case "$cmd" in
+  up) compose up -d --build "$@" ;;
+  down)
+    (($# == 0)) || fail "down accepts no options; use Docker Compose directly only when intentionally removing data"
+    compose down
+    ;;
+  restart)
+    if (($# == 0)); then
+      compose restart db
+      wait_for_database
+      compose restart api worker scheduler
+      wait_for_api
+    else
+      compose restart "$@"
+    fi
+    ;;
+  ps|status) compose ps "$@" ;;
+  logs) compose logs -f --tail=200 "$@" ;;
+  health)
+    command -v curl >/dev/null 2>&1 || fail "curl is required for the readiness check"
+    api_port="$(python3 - "$ENV_FILE" <<'PYTHON'
+from pathlib import Path
+import sys
+values = {}
+for line in Path(sys.argv[1]).read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if line and not line.startswith("#") and "=" in line:
+        key, value = line.split("=", 1)
+        values[key.strip()] = value.strip().strip("\"'")
+print(values.get("QUANTCORE_API_PORT") or "8000")
+PYTHON
+)"
+    curl --fail --show-error --silent "http://127.0.0.1:${api_port}/health/ready"
+    printf '\n'
+    ;;
+esac

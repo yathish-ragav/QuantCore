@@ -5,6 +5,7 @@ import pytest
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.ingestion.datasets import IngestionDataset, IngestionScope
+from quantcore.models.ingestion import IngestionOutcome
 from quantcore.services.ingestion_health_service import (
     IngestionHealthService,
     IngestionHealthStatus,
@@ -32,6 +33,8 @@ def freshness(
         last_success_records=10,
         consecutive_failures=consecutive_failures,
         last_error="provider unavailable" if consecutive_failures else None,
+        last_outcome=None,
+        next_check_at=None,
         is_fresh=fresh,
     )
 
@@ -41,6 +44,14 @@ def test_health_classification_is_deterministic():
 
     assert service._status(freshness()) is IngestionHealthStatus.HEALTHY
     assert service._status(freshness()) is IngestionHealthStatus.HEALTHY
+
+
+def test_unavailable_is_distinct_from_never_ingested():
+    service = IngestionHealthService.__new__(IngestionHealthService)
+
+    view = freshness(last_success_at=None, last_attempt_at=NOW)
+    view = view.__class__(**{**view.__dict__, "last_outcome": IngestionOutcome.UNAVAILABLE})
+    assert service._status(view) is IngestionHealthStatus.UNAVAILABLE
 
 
 def test_never_ingested_is_distinct_from_failed():

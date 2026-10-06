@@ -8,14 +8,18 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from quantcore.core.exceptions import InvalidInputError
+from quantcore.core.exceptions import DataUnavailableError, InvalidInputError
 from quantcore.ingestion.datasets import (
     DATASET_POLICIES,
     DATASET_SCOPES,
     IngestionDataset,
     IngestionScope,
 )
-from quantcore.models.ingestion import IngestionRunStatus, IngestionState
+from quantcore.models.ingestion import (
+    IngestionOutcome,
+    IngestionRunStatus,
+    IngestionState,
+)
 from quantcore.services.ingestion_lineage_service import IngestionLineageService
 from quantcore.ingestion.retry import IngestionRetryPolicy
 from quantcore.models.security import Security, SecurityStatus
@@ -62,6 +66,8 @@ class FreshnessView:
     last_success_records: int
     consecutive_failures: int
     last_error: str | None
+    last_outcome: IngestionOutcome | None
+    next_check_at: datetime | None
     is_fresh: bool
 
 
@@ -72,6 +78,8 @@ class IngestionOrchestrator:
     Provider selection, normalization, validation, persistence and transaction
     boundaries remain inside the existing dataset services.
     """
+
+    UNAVAILABLE_RECHECK_AFTER = timedelta(days=30)
 
     def __init__(
         self,
@@ -221,6 +229,18 @@ class IngestionOrchestrator:
             < DATASET_POLICIES[dataset].max_age
         )
 
+    @staticmethod
+    def _is_unavailable_blocked(
+        state: IngestionState | None,
+        now: datetime,
+    ) -> bool:
+        return bool(
+            state is not None
+            and state.last_outcome is IngestionOutcome.UNAVAILABLE
+            and state.next_check_at is not None
+            and state.next_check_at > now
+        )
+
     def get_freshness(
         self,
         symbol: str,
@@ -278,6 +298,8 @@ class IngestionOrchestrator:
                         state.consecutive_failures if state else 0
                     ),
                     last_error=state.last_error if state else None,
+                    last_outcome=(state.last_outcome if state else None),
+                    next_check_at=(state.next_check_at if state else None),
                     is_fresh=self._is_fresh(
                         state,
                         dataset,
@@ -569,6 +591,10 @@ class IngestionOrchestrator:
                         security_id=security.id if scope is IngestionScope.SECURITY else None,
                     )
                     current_source = self._source_for(service)
+                    now = datetime.now(timezone.utc)
+                    if only_stale and self._is_unavailable_blocked(state, now):
+                        context["skipped"] += 1
+                        continue
                     if (
                         only_stale
                         and self._is_fresh(
@@ -607,6 +633,25 @@ class IngestionOrchestrator:
                         )
                         self.db.commit()
                         context["succeeded"] += 1
+                    except DataUnavailableError as exc:
+                        self.db.rollback()
+                        state = self.state_repo.get_or_create(
+                            dataset,
+                            scope,
+                            company_id=security.company_id if scope is IngestionScope.COMPANY else None,
+                            security_id=security.id if scope is IngestionScope.SECURITY else None,
+                        )
+                        checked_at = datetime.now(timezone.utc)
+                        self.state_repo.mark_attempt(state, attempted_at)
+                        self.state_repo.mark_unavailable(
+                            state,
+                            checked_at=checked_at,
+                            error=str(exc),
+                            recheck_after=self.UNAVAILABLE_RECHECK_AFTER,
+                        )
+                        self.db.commit()
+                        context["skipped"] += 1
+                        continue
                     except Exception as exc:
                         self.db.rollback()
                         state = self.state_repo.get_or_create(
@@ -837,6 +882,10 @@ class IngestionOrchestrator:
                             else None
                         ),
                     )
+
+                    if only_stale and self._is_unavailable_blocked(state, now):
+                        skipped += 1
+                        continue
 
                     if (
                         only_stale

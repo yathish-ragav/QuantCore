@@ -3,6 +3,32 @@
 This directory documents the first production deployment boundary for QuantCore.
 The image is intentionally provider-agnostic and does not bundle PostgreSQL.
 
+## Local development
+
+Use the root `docker-compose.yml` with `.env.docker` for a self-contained local
+stack. It runs PostgreSQL in a named persistent volume and runs migrations,
+bootstrap, API, worker, and scheduler in dependency order. The app containers
+use the Compose network; host-side scripts can connect through loopback port
+5433 by using the `DATABASE_URL` in `.env.docker`.
+
+Run the repository helper from any directory (using its absolute path if needed):
+
+```bash
+/path/to/QuantCore/scripts/quantcore-local up
+/path/to/QuantCore/scripts/quantcore-local ps
+/path/to/QuantCore/scripts/quantcore-local restart
+/path/to/QuantCore/scripts/quantcore-local health
+```
+
+On first use, the helper creates `.env.docker` from the local template, generates
+a local `SECRET_KEY`, and sets owner-only permissions. It never overwrites an
+existing environment file. Its absolute Compose paths avoid dependence on the
+current working directory. Use `scripts/quantcore-local logs [service]` to inspect logs,
+`scripts/quantcore-local restart` to restart the database and long-running
+services without deleting data, and `scripts/quantcore-local down` to stop the
+stack while preserving the PostgreSQL volume. The helper intentionally does not offer a volume-deletion
+option. Local credentials are not suitable for production.
+
 ## Runtime topology
 
 ```text
@@ -85,22 +111,46 @@ AUTH_ALGORITHMS=RS256
 DB_POOL_SIZE=5
 DB_MAX_OVERFLOW=5
 DB_POOL_RECYCLE_SECONDS=1800
+LOG_LEVEL=INFO
+LOG_FORMAT=json
 ```
 
 Production source policy is fail-closed. In particular, production market and
 realtime market data must use the configured Massive provider and production
 fundamental/regulatory/macro data must use SEC/SEC/FRED respectively.
 
+### Operational logging
+
+Production processes emit one JSON object per application log event to stdout.
+The default `LOG_FORMAT=json` is intended for CloudWatch or another centralized
+log collector; local development may set `LOG_FORMAT=text` for readability.
+The API records request method, path, status, request ID, and duration. Ingestion
+worker logs include job, worker, dataset, attempt, result counts, and duration.
+Logs must never contain provider API keys, database credentials, or raw request
+bodies.
+
 ## Database migrations
 
-Run migrations as an explicit deployment step before promoting the API:
+Run migrations as an explicit deployment step before starting or promoting
+application services. Build the same immutable image used by the stack, then run
+the one-shot migration service:
 
 ```bash
-docker run --rm   --env-file "$QUANTCORE_ENV_FILE"   quantcore:local   alembic upgrade head
+docker compose -f docker-compose.production.yml build
+docker compose -f docker-compose.production.yml run --rm migrate
 ```
 
-The migration command is deliberately separate from the API startup process so
-multiple API replicas cannot race to perform application migrations.
+Only after the migration exits successfully, start the bootstrap and long-running
+services:
+
+```bash
+docker compose -f docker-compose.production.yml up -d bootstrap api worker scheduler
+```
+
+The `migrate` service is intentionally not an automatic dependency of bootstrap.
+This keeps schema changes an explicit release action and prevents an ordinary
+service restart from implicitly applying database migrations. The operator must
+not start or promote application services if the migration command fails.
 
 ## Run the three-process stack
 
@@ -131,7 +181,8 @@ financial datasets are complete.
 - Keep API, worker, and scheduler as independently restartable processes.
 - Inject secrets through the deployment platform; never bake `.env` files into
   images.
-- Run Alembic migrations as a controlled release step.
+- Run Alembic migrations as a controlled release step before starting or
+  promoting application services; do not rely on an ordinary `up` to migrate.
 - Put the API behind TLS and an authenticated edge/load balancer before public
   exposure.
 - Scale workers independently from API replicas.

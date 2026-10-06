@@ -73,6 +73,12 @@ class DataValidationError(QuantCoreError, ValueError):
     code = "DATA_VALIDATION_ERROR"
 
 
+class DataUnavailableError(DataValidationError):
+    """An upstream dataset is validly unavailable for this entity."""
+
+    code = "DATA_UNAVAILABLE"
+
+
 class ExternalDataError(QuantCoreError):
     """
     An upstream market-data or external provider failure occurred.

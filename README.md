@@ -182,6 +182,33 @@ uv run alembic upgrade head
 uv run uvicorn quantcore.api.main:app --reload
 ```
 
+### Local Docker Compose (recommended for a repeatable database setup)
+
+This starts a dedicated local PostgreSQL container and the API, ingestion worker,
+and scheduler. It does not depend on a host-installed PostgreSQL service.
+
+```bash
+# The helper works from the repository root or by absolute path from anywhere.
+scripts/quantcore-local up
+scripts/quantcore-local ps
+scripts/quantcore-local health
+```
+
+The local database is persisted in the `quantcore_local_pgdata` Docker volume.
+Host-side scripts may use the `DATABASE_URL` in `.env.docker`; Compose overrides
+that URL inside containers to use the private Compose network. The default host
+ports are 5433 for PostgreSQL and 8000 for the API. Change them in `.env.docker`
+if those ports are already in use. The credentials and secret in this template
+are for local development only.
+
+The helper creates `.env.docker` from `.env.docker.example` on first use, generates
+its local `SECRET_KEY`, and never overwrites an existing environment file. It uses
+absolute Compose paths, so startup does not depend on the current directory. Use
+`scripts/quantcore-local logs [service]` to inspect logs and
+`scripts/quantcore-local down` to stop services without deleting the database.
+The helper intentionally does not expose a volume-deletion option; only remove
+the local database volume when you explicitly intend to destroy its data.
+
 Run the test suite with:
 
 ```bash

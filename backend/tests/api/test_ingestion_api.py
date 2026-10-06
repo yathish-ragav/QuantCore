@@ -19,6 +19,8 @@ def test_get_ingestion_freshness():
     view.last_success_records = 10
     view.consecutive_failures = 0
     view.last_error = None
+    view.last_outcome = None
+    view.next_check_at = None
     view.is_fresh = True
 
     with patch(
@@ -40,6 +42,8 @@ def test_get_ingestion_freshness():
         "last_success_records": 10,
         "consecutive_failures": 0,
         "last_error": None,
+        "last_outcome": None,
+        "next_check_at": None,
         "is_fresh": True,
     }
     service.get_freshness.assert_called_once_with("AAPL")
@@ -69,6 +73,8 @@ def test_get_ingestion_freshness_redacts_raw_provider_error():
     view.last_success_records = 0
     view.consecutive_failures = 1
     view.last_error = "SQL password=secret and provider traceback"
+    view.last_outcome = None
+    view.next_check_at = None
     view.is_fresh = False
 
     with patch("quantcore.api.dependencies.IngestionOrchestrator") as service_class:

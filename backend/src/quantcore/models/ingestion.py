@@ -34,6 +34,14 @@ class IngestionJobStatus(str, Enum):
     CANCELLED = "CANCELLED"
 
 
+class IngestionOutcome(str, Enum):
+    """Outcome of the most recent attempt for an ingestion state."""
+
+    SUCCESS = "SUCCESS"
+    FAILURE = "FAILURE"
+    UNAVAILABLE = "UNAVAILABLE"
+
+
 DATASET_ENUM = SQLAlchemyEnum(
     IngestionDataset,
     name="ingestion_dataset",
@@ -64,6 +72,16 @@ RUN_STATUS_ENUM = SQLAlchemyEnum(
 JOB_STATUS_ENUM = SQLAlchemyEnum(
     IngestionJobStatus,
     name="ingestion_job_status",
+    native_enum=False,
+    create_constraint=True,
+    validate_strings=True,
+    values_callable=lambda enum: [member.value for member in enum],
+)
+
+
+OUTCOME_ENUM = SQLAlchemyEnum(
+    IngestionOutcome,
+    name="ingestion_outcome",
     native_enum=False,
     create_constraint=True,
     validate_strings=True,
@@ -143,6 +161,16 @@ class IngestionState(Base):
         nullable=False,
         default=0,
         server_default="0",
+    )
+
+    last_outcome: Mapped[IngestionOutcome | None] = mapped_column(
+        OUTCOME_ENUM,
+        nullable=True,
+    )
+
+    next_check_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
 
     consecutive_failures: Mapped[int] = mapped_column(

@@ -2,12 +2,11 @@ name: quantcore
 
 services:
   migrate:
+    profiles: ["release"]
     build:
       context: .
       dockerfile: docker/Dockerfile
     restart: "no"
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
@@ -20,11 +19,6 @@ services:
       context: .
       dockerfile: docker/Dockerfile
     restart: "no"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
@@ -38,12 +32,10 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     ports:
-      - "${QUANTCORE_API_PORT:-8000}:8000"
+      - "127.0.0.1:${QUANTCORE_API_PORT:-8000}:8000"
     command:
       - uvicorn
       - quantcore.api.main:app
@@ -74,8 +66,6 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
@@ -88,6 +78,23 @@ services:
       - "300"
       - --recovery-interval
       - "30"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          from quantcore.core.config import settings;
+          from sqlalchemy import create_engine, text;
+          engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True);
+          connection = engine.connect();
+          connection.execute(text('SELECT 1'));
+          connection.close();
+          engine.dispose()
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   scheduler:
     build:
@@ -97,8 +104,6 @@ services:
     depends_on:
       bootstrap:
         condition: service_completed_successfully
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     env_file:
       - ${QUANTCORE_ENV_FILE:?Set QUANTCORE_ENV_FILE to the production environment file}
     command:
@@ -109,3 +114,20 @@ services:
       - "100"
       - --job-shard-size
       - "100"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - >-
+          from quantcore.core.config import settings;
+          from sqlalchemy import create_engine, text;
+          engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True);
+          connection = engine.connect();
+          connection.execute(text('SELECT 1'));
+          connection.close();
+          engine.dispose()
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

@@ -156,6 +156,8 @@ class IngestionFreshnessResponse(BaseModel):
     last_success_records: int = 0
     consecutive_failures: int = 0
     last_error: str | None = None
+    last_outcome: str | None = None
+    next_check_at: datetime | None = None
     is_fresh: bool
 
 
