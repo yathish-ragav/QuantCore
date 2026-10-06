@@ -1,5 +1,7 @@
 from alembic.config import Config as AlembicConfig
 from alembic.script import ScriptDirectory
+import logging
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -7,6 +9,8 @@ from sqlalchemy import text
 from quantcore.core.config import BACKEND_ROOT, settings
 from quantcore.core.production_data_policy import ProductionDataPolicy
 from quantcore.db.database import SessionLocal
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -43,14 +47,19 @@ def health_ready():
     try:
         ProductionDataPolicy.validate_all()
         checks["configuration"] = "ok"
-    except Exception as exc:
+    except Exception:
         checks["configuration"] = "failed"
+        logger.exception(
+            "Readiness configuration check failed",
+            extra={"event": "health.readiness.configuration_failed"},
+        )
         return JSONResponse(
             status_code=503,
             content={
                 "status": "not_ready",
                 "application": "QuantCore",
                 "checks": checks,
+                "reason": "configuration_invalid",
             },
         )
 
@@ -60,12 +69,17 @@ def health_ready():
             db.execute(text("SELECT 1"))
         except Exception:
             checks["database"] = "failed"
+            logger.exception(
+                "Readiness database check failed",
+                extra={"event": "health.readiness.database_failed"},
+            )
             return JSONResponse(
                 status_code=503,
                 content={
                     "status": "not_ready",
                     "application": "QuantCore",
                     "checks": checks,
+                    "reason": "database_unavailable",
                 },
             )
 
@@ -79,23 +93,37 @@ def health_ready():
             actual = {str(value) for value in rows}
         except Exception:
             checks["schema"] = "failed"
+            logger.exception(
+                "Readiness schema check failed",
+                extra={"event": "health.readiness.schema_check_failed"},
+            )
             return JSONResponse(
                 status_code=503,
                 content={
                     "status": "not_ready",
                     "application": "QuantCore",
                     "checks": checks,
+                    "reason": "schema_check_failed",
                 },
             )
 
         if actual != expected:
             checks["schema"] = "failed"
+            logger.error(
+                "Readiness schema revision mismatch: expected=%s actual=%s",
+                sorted(expected),
+                sorted(actual),
+                extra={"event": "health.readiness.schema_mismatch"},
+            )
             return JSONResponse(
                 status_code=503,
                 content={
                     "status": "not_ready",
                     "application": "QuantCore",
                     "checks": checks,
+                    "reason": "schema_revision_mismatch",
+                    "expected_revisions": sorted(expected),
+                    "actual_revisions": sorted(actual),
                 },
             )
         checks["schema"] = "ok"

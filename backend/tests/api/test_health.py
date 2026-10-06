@@ -93,6 +93,7 @@ def test_health_ready_fails_when_database_is_unavailable(monkeypatch):
         "configuration": "ok",
         "database": "failed",
     }
+    assert response.json()["reason"] == "database_unavailable"
 
 
 def test_health_ready_fails_when_production_configuration_is_invalid(monkeypatch):
@@ -110,6 +111,7 @@ def test_health_ready_fails_when_production_configuration_is_invalid(monkeypatch
     assert response.status_code == 503
     assert response.json()["status"] == "not_ready"
     assert response.json()["checks"] == {"configuration": "failed"}
+    assert response.json()["reason"] == "configuration_invalid"
 
 
 
