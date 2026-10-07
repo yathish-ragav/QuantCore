@@ -21,7 +21,6 @@ class PriceObservationRevisionRepository:
         )
         return (current or 0) + 1
 
-
     def get_next_revision_numbers(self, price_ids: list[int]) -> dict[int, int]:
         """Return the next revision number for each supplied price in one query."""
         if not price_ids:

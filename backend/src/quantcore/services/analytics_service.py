@@ -2,54 +2,54 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
-
 from quantcore.analytics import (
-    MovingAverage,
-    ExponentialMovingAverage,
     MACD,
-    RelativeStrengthIndex,
-    BollingerBands,
-    AverageTrueRange,
-    AverageDirectionalIndex,
-    Supertrend,
-    StochasticOscillator,
-    ParabolicSAR,
-    VolumeWeightedAveragePrice,
-    OnBalanceVolume,
-    MoneyFlowIndex,
-    ChaikinMoneyFlow,
-    IchimokuCloud,
-    DonchianChannels,
-    KeltnerChannels,
-    CommodityChannelIndex,
-    WilliamsR,
-    RateOfChange,
-    UltimateOscillator,
     TRIX,
+    AccumulationDistribution,
     Aroon,
     AroonOscillator,
-    DetrendedPriceOscillator,
-    VortexIndicator,
-    EaseOfMovement,
-    AccumulationDistribution,
-    ForceIndex,
-    NegativeVolumeIndex,
-    PositiveVolumeIndex,
-    KlingerVolumeOscillator,
+    AverageDirectionalIndex,
+    AverageTrueRange,
+    BollingerBands,
+    ChaikinMoneyFlow,
     ChaikinOscillator,
-    ElderRayIndex,
-    RelativeVigorIndex,
+    CommodityChannelIndex,
     CoppockCurve,
-    KnowSureThing
+    DetrendedPriceOscillator,
+    DonchianChannels,
+    EaseOfMovement,
+    ElderRayIndex,
+    ExponentialMovingAverage,
+    ForceIndex,
+    IchimokuCloud,
+    KeltnerChannels,
+    KlingerVolumeOscillator,
+    KnowSureThing,
+    MoneyFlowIndex,
+    MovingAverage,
+    NegativeVolumeIndex,
+    OnBalanceVolume,
+    ParabolicSAR,
+    PositiveVolumeIndex,
+    RateOfChange,
+    RelativeStrengthIndex,
+    RelativeVigorIndex,
+    StochasticOscillator,
+    Supertrend,
+    UltimateOscillator,
+    VolumeWeightedAveragePrice,
+    VortexIndicator,
+    WilliamsR,
 )
-
+from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.repositories.price_observation_revision_repository import (
     PriceObservationRevisionRepository,
 )
 from quantcore.repositories.price_repository import PriceRepository
 from quantcore.repositories.security_repository import SecurityRepository
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
+)
 
 
 class AnalyticsService:
@@ -69,16 +69,12 @@ class AnalyticsService:
         symbol = symbol.strip().upper()
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         if as_of is None:
             security = self.security_repo.get_by_symbol(symbol)
             if security is None:
-                raise ResourceNotFoundError(
-                    f"Security '{symbol}' not found."
-                )
+                raise ResourceNotFoundError(f"Security '{symbol}' not found.")
             return self.price_repo.get_for_security(security.id)
 
         if as_of.tzinfo is None:
@@ -119,7 +115,7 @@ class AnalyticsService:
                 "close": price.close,
                 "sma": sma,
             }
-            for price, sma in zip(prices, sma_values)
+            for price, sma in zip(prices, sma_values, strict=True)
         ]
 
     def ema(
@@ -144,7 +140,7 @@ class AnalyticsService:
                 "close": price.close,
                 "ema": ema,
             }
-            for price, ema in zip(prices, ema_values)
+            for price, ema in zip(prices, ema_values, strict=True)
         ]
 
     def macd(
@@ -169,7 +165,7 @@ class AnalyticsService:
                 "signal": value["signal"],
                 "histogram": value["histogram"],
             }
-            for price, value in zip(prices, macd_values)
+            for price, value in zip(prices, macd_values, strict=True)
         ]
 
     def rsi(
@@ -194,7 +190,7 @@ class AnalyticsService:
                 "close": price.close,
                 "rsi": rsi,
             }
-            for price, rsi in zip(prices, rsi_values)
+            for price, rsi in zip(prices, rsi_values, strict=True)
         ]
 
     def bollinger(
@@ -221,7 +217,7 @@ class AnalyticsService:
                 "upper": band["upper"],
                 "lower": band["lower"],
             }
-            for price, band in zip(prices, band_values)
+            for price, band in zip(prices, band_values, strict=True)
         ]
 
     def atr(
@@ -250,7 +246,7 @@ class AnalyticsService:
                 "close": price.close,
                 "atr": atr,
             }
-            for price, atr in zip(prices, atr_values)
+            for price, atr in zip(prices, atr_values, strict=True)
         ]
 
     def adx(
@@ -279,7 +275,7 @@ class AnalyticsService:
                 "close": price.close,
                 "adx": adx,
             }
-            for price, adx in zip(prices, adx_values)
+            for price, adx in zip(prices, adx_values, strict=True)
         ]
 
     def supertrend(
@@ -310,7 +306,7 @@ class AnalyticsService:
                 "close": price.close,
                 "supertrend": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def stochastic(
@@ -342,7 +338,7 @@ class AnalyticsService:
                 "k": value["k"],
                 "d": value["d"],
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def parabolic_sar(
@@ -367,7 +363,7 @@ class AnalyticsService:
                 "close": price.close,
                 "psar": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def vwap(
@@ -397,7 +393,7 @@ class AnalyticsService:
                 "volume": price.volume,
                 "vwap": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def obv(
@@ -423,7 +419,7 @@ class AnalyticsService:
                 "volume": price.volume,
                 "obv": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def mfi(
@@ -455,7 +451,7 @@ class AnalyticsService:
                 "volume": price.volume,
                 "mfi": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def cmf(
@@ -487,7 +483,7 @@ class AnalyticsService:
                 "volume": price.volume,
                 "cmf": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def ichimoku(
@@ -515,10 +511,7 @@ class AnalyticsService:
                 "span_a": value["span_a"],
                 "span_b": value["span_b"],
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def donchian(
@@ -547,10 +540,7 @@ class AnalyticsService:
                 "middle": value["middle"],
                 "lower": value["lower"],
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def keltner(
@@ -583,7 +573,7 @@ class AnalyticsService:
                 "upper": channel["upper"],
                 "lower": channel["lower"],
             }
-            for price, channel in zip(prices, channel_values)
+            for price, channel in zip(prices, channel_values, strict=True)
         ]
 
     def cci(
@@ -612,7 +602,7 @@ class AnalyticsService:
                 "close": price.close,
                 "cci": cci,
             }
-            for price, cci in zip(prices, cci_values)
+            for price, cci in zip(prices, cci_values, strict=True)
         ]
 
     def williams_r(
@@ -641,7 +631,7 @@ class AnalyticsService:
                 "close": price.close,
                 "williams_r": wr,
             }
-            for price, wr in zip(prices, wr_values)
+            for price, wr in zip(prices, wr_values, strict=True)
         ]
 
     def roc(
@@ -666,7 +656,7 @@ class AnalyticsService:
                 "close": price.close,
                 "roc": roc,
             }
-            for price, roc in zip(prices, roc_values)
+            for price, roc in zip(prices, roc_values, strict=True)
         ]
 
     def ultimate_oscillator(
@@ -699,7 +689,7 @@ class AnalyticsService:
                 "close": price.close,
                 "ultimate_oscillator": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def trix(
@@ -724,13 +714,13 @@ class AnalyticsService:
                 "close": price.close,
                 "trix": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def aroon(
-            self,
-            symbol: str,
-            period: int = 25,
+        self,
+        symbol: str,
+        period: int = 25,
         as_of: datetime | None = None,
     ):
 
@@ -752,16 +742,13 @@ class AnalyticsService:
                 "aroon_up": value["aroon_up"],
                 "aroon_down": value["aroon_down"],
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def aroon_oscillator(
-            self,
-            symbol: str,
-            period: int = 25,
+        self,
+        symbol: str,
+        period: int = 25,
         as_of: datetime | None = None,
     ):
 
@@ -782,13 +769,13 @@ class AnalyticsService:
                 "close": price.close,
                 "aroon_oscillator": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def dpo(
-            self,
-            symbol: str,
-            period: int = 20,
+        self,
+        symbol: str,
+        period: int = 20,
         as_of: datetime | None = None,
     ):
 
@@ -807,16 +794,13 @@ class AnalyticsService:
                 "close": price.close,
                 "dpo": value,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def vortex(
-            self,
-            symbol: str,
-            period: int = 14,
+        self,
+        symbol: str,
+        period: int = 14,
         as_of: datetime | None = None,
     ):
 
@@ -840,16 +824,13 @@ class AnalyticsService:
                 "vortex_plus": value["vortex_plus"],
                 "vortex_minus": value["vortex_minus"],
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def emv(
-            self,
-            symbol: str,
-            period: int = 14,
+        self,
+        symbol: str,
+        period: int = 14,
         as_of: datetime | None = None,
     ):
         prices = self._get_prices(symbol, as_of=as_of)
@@ -867,13 +848,13 @@ class AnalyticsService:
 
         result = []
 
-        for price, emv in zip(prices, emv_values):
+        for price, emv in zip(prices, emv_values, strict=True):
             result.append(
                 {
-                     "date": price.date,
-                     "close": price.close,
-                     "volume": price.volume,
-                     "emv": emv,
+                    "date": price.date,
+                    "close": price.close,
+                    "volume": price.volume,
+                    "emv": emv,
                 }
             )
 
@@ -905,10 +886,7 @@ class AnalyticsService:
                 "volume": price.volume,
                 "accumulation_distribution": value,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def force_index(
@@ -933,10 +911,7 @@ class AnalyticsService:
                 "volume": price.volume,
                 "force_index": value,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def nvi(
@@ -961,10 +936,7 @@ class AnalyticsService:
                 "volume": price.volume,
                 "nvi": value,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def pvi(
@@ -984,18 +956,14 @@ class AnalyticsService:
 
         return [
             {
-            "date": price.date,
-            "close": price.close,
-            "volume": price.volume,
-            "pvi": value,
+                "date": price.date,
+                "close": price.close,
+                "volume": price.volume,
+                "pvi": value,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
-    
     def kvo(
         self,
         symbol: str,
@@ -1029,10 +997,7 @@ class AnalyticsService:
                 "kvo": value["kvo"],
                 "signal": value["signal"],
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def chaikin_oscillator(
@@ -1065,10 +1030,7 @@ class AnalyticsService:
                 "volume": price.volume,
                 "chaikin_oscillator": value,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def elder_ray(
@@ -1098,7 +1060,7 @@ class AnalyticsService:
                 "bull_power": value["bull_power"],
                 "bear_power": value["bear_power"],
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def rvi(
@@ -1128,7 +1090,7 @@ class AnalyticsService:
                 "close": price.close,
                 "rvi": value,
             }
-            for price, value in zip(prices, values)
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def coppock(
@@ -1156,49 +1118,43 @@ class AnalyticsService:
                 "close": price.close,
                 "coppock": value,
             }
-            for price, value in zip(
-                prices,
-                values,
-            )
+            for price, value in zip(prices, values, strict=True)
         ]
 
     def kst(
-          self,
-          symbol: str,
-          roc1_period: int = 10,
-          roc2_period: int = 15,
-          roc3_period: int = 20,
-          roc4_period: int = 30,
-          sma1_period: int = 10,
-          sma2_period: int = 10,
-          sma3_period: int = 10,
-          sma4_period: int = 15,
+        self,
+        symbol: str,
+        roc1_period: int = 10,
+        roc2_period: int = 15,
+        roc3_period: int = 20,
+        roc4_period: int = 30,
+        sma1_period: int = 10,
+        sma2_period: int = 10,
+        sma3_period: int = 10,
+        sma4_period: int = 15,
         as_of: datetime | None = None,
     ):
-          prices = self._get_prices(symbol, as_of=as_of)
+        prices = self._get_prices(symbol, as_of=as_of)
 
-          closes = [p.close for p in prices]
+        closes = [p.close for p in prices]
 
-          values = KnowSureThing.calculate(
-              closes,
-              roc1_period,
-              roc2_period,
-              roc3_period,
-              roc4_period,
-              sma1_period,
-              sma2_period,
-              sma3_period,
-              sma4_period,
-          )
+        values = KnowSureThing.calculate(
+            closes,
+            roc1_period,
+            roc2_period,
+            roc3_period,
+            roc4_period,
+            sma1_period,
+            sma2_period,
+            sma3_period,
+            sma4_period,
+        )
 
-          return [
-                {
-                   "date": price.date,
-                   "close": price.close,
-                   "kst": value,
-                }
-                for price, value in zip(
-                    prices,
-                    values,
-                )
-            ]
+        return [
+            {
+                "date": price.date,
+                "close": price.close,
+                "kst": value,
+            }
+            for price, value in zip(prices, values, strict=True)
+        ]

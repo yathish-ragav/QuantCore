@@ -19,13 +19,10 @@ class CashFlowStatementRepository:
         period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
     ) -> CashFlowStatement | None:
 
-        stmt = (
-            select(CashFlowStatement)
-            .where(
-                CashFlowStatement.company_id == company_id,
-                CashFlowStatement.fiscal_date == fiscal_date,
-                CashFlowStatement.period_type == period_type,
-            )
+        stmt = select(CashFlowStatement).where(
+            CashFlowStatement.company_id == company_id,
+            CashFlowStatement.fiscal_date == fiscal_date,
+            CashFlowStatement.period_type == period_type,
         )
 
         return self.db.scalar(stmt)
@@ -37,17 +34,11 @@ class CashFlowStatementRepository:
 
         stmt = (
             select(CashFlowStatement)
-            .where(
-                CashFlowStatement.company_id == company_id
-            )
-            .order_by(
-                CashFlowStatement.fiscal_date.desc()
-            )
+            .where(CashFlowStatement.company_id == company_id)
+            .order_by(CashFlowStatement.fiscal_date.desc())
         )
 
-        return list(
-            self.db.scalars(stmt)
-        )
+        return list(self.db.scalars(stmt))
 
     def create(
         self,

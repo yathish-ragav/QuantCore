@@ -4,7 +4,10 @@ from enum import Enum
 from math import isfinite
 
 from quantcore.core.exceptions import InvalidInputError
-from quantcore.services.research_signal_service import ResearchSignalPanel, ResearchSignalRow
+from quantcore.services.research_signal_service import (
+    ResearchSignalPanel,
+    ResearchSignalRow,
+)
 from quantcore.services.research_strategy_service import (
     ResearchStrategyDefinition,
     ResearchStrategyDirection,
@@ -259,15 +262,24 @@ class ResearchPortfolioConstructionService:
                 "Portfolio construction requires a ResearchStrategyDefinition."
             )
         if not isinstance(signal_panel, ResearchSignalPanel):
-            raise InvalidInputError("Portfolio construction requires a ResearchSignalPanel.")
+            raise InvalidInputError(
+                "Portfolio construction requires a ResearchSignalPanel."
+            )
         if not isinstance(as_of, datetime) or as_of.tzinfo is None:
-            raise InvalidInputError("Portfolio construction as_of must be timezone-aware.")
-        if signal_panel.signal_key.strip() != strategy.signal_identity[0] or signal_panel.definition_version.strip() != strategy.signal_identity[1]:
+            raise InvalidInputError(
+                "Portfolio construction as_of must be timezone-aware."
+            )
+        if (
+            signal_panel.signal_key.strip() != strategy.signal_identity[0]
+            or signal_panel.definition_version.strip() != strategy.signal_identity[1]
+        ):
             raise InvalidInputError(
                 "Portfolio construction signal identity does not match the strategy definition."
             )
         if not signal_panel.rows:
-            raise InvalidInputError("Portfolio construction signal panel must not be empty.")
+            raise InvalidInputError(
+                "Portfolio construction signal panel must not be empty."
+            )
 
         seen: set[tuple[int, datetime]] = set()
         for row in signal_panel.rows:
@@ -276,19 +288,35 @@ class ResearchPortfolioConstructionService:
                     "Portfolio construction signal rows must use the expected row contract."
                 )
             if not isinstance(row.as_of, datetime) or row.as_of.tzinfo is None:
-                raise InvalidInputError("Portfolio signal row as_of must be timezone-aware.")
-            if not isinstance(row.security_id, int) or isinstance(row.security_id, bool):
-                raise InvalidInputError("Portfolio signal security_id must be an integer.")
+                raise InvalidInputError(
+                    "Portfolio signal row as_of must be timezone-aware."
+                )
+            if not isinstance(row.security_id, int) or isinstance(
+                row.security_id, bool
+            ):
+                raise InvalidInputError(
+                    "Portfolio signal security_id must be an integer."
+                )
             if not isinstance(row.symbol, str) or not row.symbol.strip():
-                raise InvalidInputError("Portfolio signal symbol must be a non-empty string.")
+                raise InvalidInputError(
+                    "Portfolio signal symbol must be a non-empty string."
+                )
             try:
                 score = float(row.score)
             except (TypeError, ValueError) as exc:
-                raise InvalidInputError("Portfolio signal scores must be numeric.") from exc
+                raise InvalidInputError(
+                    "Portfolio signal scores must be numeric."
+                ) from exc
             if not isfinite(score) or not 0.0 <= score <= 1.0:
-                raise InvalidInputError("Portfolio signal scores must be finite and within [0, 1].")
-            if not isinstance(row.centered_score, (int, float)) or not isfinite(float(row.centered_score)):
-                raise InvalidInputError("Portfolio signal centered scores must be finite.")
+                raise InvalidInputError(
+                    "Portfolio signal scores must be finite and within [0, 1]."
+                )
+            if not isinstance(row.centered_score, (int, float)) or not isfinite(
+                float(row.centered_score)
+            ):
+                raise InvalidInputError(
+                    "Portfolio signal centered scores must be finite."
+                )
             point = (row.security_id, row.as_of)
             if point in seen:
                 raise InvalidInputError(

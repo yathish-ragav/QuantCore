@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 
 from quantcore.api.main import app
 
-
 client = TestClient(app)
 
 
@@ -53,17 +52,13 @@ def make_service():
     return service
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_sma_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/sma/AAPL"
-    )
+    response = client.get("/analytics/sma/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -75,17 +70,13 @@ def test_sma_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_sma_endpoint_supports_as_of_query(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/sma/AAPL?as_of=2026-01-05T12:00:00Z"
-    )
+    response = client.get("/analytics/sma/AAPL?as_of=2026-01-05T12:00:00Z")
 
     assert response.status_code == 200
     service.sma.assert_called_once_with(
@@ -95,17 +86,13 @@ def test_sma_endpoint_supports_as_of_query(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_ema_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/ema/AAPL"
-    )
+    response = client.get("/analytics/ema/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -117,17 +104,13 @@ def test_ema_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_macd_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/macd/AAPL"
-    )
+    response = client.get("/analytics/macd/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -138,17 +121,13 @@ def test_macd_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_rsi_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/rsi/AAPL"
-    )
+    response = client.get("/analytics/rsi/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -160,17 +139,13 @@ def test_rsi_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_bollinger_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/bollinger/AAPL"
-    )
+    response = client.get("/analytics/bollinger/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -182,17 +157,13 @@ def test_bollinger_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_atr_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/atr/AAPL"
-    )
+    response = client.get("/analytics/atr/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -204,17 +175,13 @@ def test_atr_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_adx_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/adx/AAPL"
-    )
+    response = client.get("/analytics/adx/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -226,17 +193,13 @@ def test_adx_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_supertrend_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/supertrend/AAPL"
-    )
+    response = client.get("/analytics/supertrend/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -249,17 +212,13 @@ def test_supertrend_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_stochastic_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/stochastic/AAPL"
-    )
+    response = client.get("/analytics/stochastic/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -272,17 +231,13 @@ def test_stochastic_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_psar_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/psar/AAPL"
-    )
+    response = client.get("/analytics/psar/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -293,17 +248,13 @@ def test_psar_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_vwap_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/vwap/AAPL"
-    )
+    response = client.get("/analytics/vwap/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -314,17 +265,13 @@ def test_vwap_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_obv_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/obv/AAPL"
-    )
+    response = client.get("/analytics/obv/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -335,17 +282,13 @@ def test_obv_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_mfi_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/mfi/AAPL"
-    )
+    response = client.get("/analytics/mfi/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -357,17 +300,13 @@ def test_mfi_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_cmf_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/cmf/AAPL"
-    )
+    response = client.get("/analytics/cmf/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -379,17 +318,13 @@ def test_cmf_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_ichimoku_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/ichimoku/AAPL"
-    )
+    response = client.get("/analytics/ichimoku/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -400,17 +335,13 @@ def test_ichimoku_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_donchian_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/donchian/AAPL"
-    )
+    response = client.get("/analytics/donchian/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -422,17 +353,13 @@ def test_donchian_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_keltner_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/keltner/AAPL"
-    )
+    response = client.get("/analytics/keltner/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -445,17 +372,13 @@ def test_keltner_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_cci_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/cci/AAPL"
-    )
+    response = client.get("/analytics/cci/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -467,17 +390,13 @@ def test_cci_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_williams_r_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/williams-r/AAPL"
-    )
+    response = client.get("/analytics/williams-r/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -489,17 +408,13 @@ def test_williams_r_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_roc_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/roc/AAPL"
-    )
+    response = client.get("/analytics/roc/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -511,17 +426,13 @@ def test_roc_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_ultimate_oscillator_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/ultimate-oscillator/AAPL"
-    )
+    response = client.get("/analytics/ultimate-oscillator/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -535,17 +446,13 @@ def test_ultimate_oscillator_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_trix_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/trix/AAPL"
-    )
+    response = client.get("/analytics/trix/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -557,17 +464,13 @@ def test_trix_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_aroon_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/aroon/AAPL"
-    )
+    response = client.get("/analytics/aroon/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -579,17 +482,13 @@ def test_aroon_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_aroon_oscillator_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/aroon-oscillator/AAPL"
-    )
+    response = client.get("/analytics/aroon-oscillator/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -601,17 +500,13 @@ def test_aroon_oscillator_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_dpo_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/dpo/AAPL"
-    )
+    response = client.get("/analytics/dpo/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -623,17 +518,13 @@ def test_dpo_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_vortex_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/vortex/AAPL"
-    )
+    response = client.get("/analytics/vortex/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -645,17 +536,13 @@ def test_vortex_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_emv_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/emv/AAPL"
-    )
+    response = client.get("/analytics/emv/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -667,9 +554,7 @@ def test_emv_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_accumulation_distribution_endpoint(
     mock_service,
 ):
@@ -677,9 +562,7 @@ def test_accumulation_distribution_endpoint(
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/accumulation-distribution/AAPL"
-    )
+    response = client.get("/analytics/accumulation-distribution/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -690,17 +573,13 @@ def test_accumulation_distribution_endpoint(
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_force_index_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/force-index/AAPL"
-    )
+    response = client.get("/analytics/force-index/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -711,17 +590,13 @@ def test_force_index_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_nvi_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/nvi/AAPL"
-    )
+    response = client.get("/analytics/nvi/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -732,17 +607,13 @@ def test_nvi_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_pvi_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/pvi/AAPL"
-    )
+    response = client.get("/analytics/pvi/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -753,17 +624,13 @@ def test_pvi_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_kvo_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/kvo/AAPL"
-    )
+    response = client.get("/analytics/kvo/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -777,17 +644,13 @@ def test_kvo_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_chaikin_oscillator_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/chaikin-oscillator/AAPL"
-    )
+    response = client.get("/analytics/chaikin-oscillator/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -800,17 +663,13 @@ def test_chaikin_oscillator_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_elder_ray_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/elder-ray/AAPL"
-    )
+    response = client.get("/analytics/elder-ray/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -822,17 +681,13 @@ def test_elder_ray_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_rvi_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/rvi/AAPL"
-    )
+    response = client.get("/analytics/rvi/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -844,17 +699,13 @@ def test_rvi_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_coppock_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/coppock/AAPL"
-    )
+    response = client.get("/analytics/coppock/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
@@ -868,17 +719,13 @@ def test_coppock_endpoint(mock_service):
     )
 
 
-@patch(
-    "quantcore.api.dependencies.AnalyticsService"
-)
+@patch("quantcore.api.dependencies.AnalyticsService")
 def test_kst_endpoint(mock_service):
 
     service = make_service()
     mock_service.return_value = service
 
-    response = client.get(
-        "/analytics/kst/AAPL"
-    )
+    response = client.get("/analytics/kst/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []

@@ -19,13 +19,10 @@ class IncomeStatementRepository:
         period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
     ) -> IncomeStatement | None:
 
-        stmt = (
-            select(IncomeStatement)
-            .where(
-                IncomeStatement.company_id == company_id,
-                IncomeStatement.fiscal_date == fiscal_date,
-                IncomeStatement.period_type == period_type,
-            )
+        stmt = select(IncomeStatement).where(
+            IncomeStatement.company_id == company_id,
+            IncomeStatement.fiscal_date == fiscal_date,
+            IncomeStatement.period_type == period_type,
         )
 
         return self.db.scalar(stmt)
@@ -37,17 +34,11 @@ class IncomeStatementRepository:
 
         stmt = (
             select(IncomeStatement)
-            .where(
-                IncomeStatement.company_id == company_id
-            )
-            .order_by(
-                IncomeStatement.fiscal_date.desc()
-            )
+            .where(IncomeStatement.company_id == company_id)
+            .order_by(IncomeStatement.fiscal_date.desc())
         )
 
-        return list(
-            self.db.scalars(stmt)
-        )
+        return list(self.db.scalars(stmt))
 
     def create(
         self,

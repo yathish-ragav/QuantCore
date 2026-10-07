@@ -4,7 +4,10 @@ from unittest.mock import Mock, patch
 
 from quantcore.models.provenance import DataSource
 from quantcore.schemas.sec_xbrl_fact import SECXBRLFactObservationData
-from quantcore.services.sec_xbrl_fact_service import SECXBRLFactService, SECXBRLFactSyncResult
+from quantcore.services.sec_xbrl_fact_service import (
+    SECXBRLFactService,
+    SECXBRLFactSyncResult,
+)
 
 
 def make_service():
@@ -48,7 +51,7 @@ def make_fact(accession, value):
 
 def test_sync_facts_reconciles_missing_filing_metadata_before_create():
     service, db = make_service()
-    security, company = make_security_and_company()
+    security, _company = make_security_and_company()
     service.security_repo.get_by_symbol.return_value = security
     incoming = make_fact("0000320193-24-000123", "100")
     service.provider.get_sec_xbrl_fact_observations.return_value = [incoming]
@@ -62,7 +65,9 @@ def test_sync_facts_reconciles_missing_filing_metadata_before_create():
         {incoming.accession_number: filing},
     ]
 
-    with patch("quantcore.services.sec_xbrl_fact_service.SECFilingService") as filing_service_cls:
+    with patch(
+        "quantcore.services.sec_xbrl_fact_service.SECFilingService"
+    ) as filing_service_cls:
         filing_service_cls.return_value.sync_filings.return_value = Mock()
         result = service.sync_facts("AAPL")
 
@@ -104,12 +109,14 @@ def test_sync_facts_creates_and_keeps_accession_revision_identity():
 
 def test_sync_facts_can_defer_commit_to_orchestrator():
     service, db = make_service()
-    security, company = make_security_and_company()
+    security, _company = make_security_and_company()
     service.security_repo.get_by_symbol.return_value = security
     incoming = make_fact("0000320193-24-000123", "100")
     service.provider.get_sec_xbrl_fact_observations.return_value = [incoming]
 
-    with patch("quantcore.services.sec_xbrl_fact_service.SECFilingService") as filing_service_cls:
+    with patch(
+        "quantcore.services.sec_xbrl_fact_service.SECFilingService"
+    ) as filing_service_cls:
         filing_service_cls.return_value.sync_filings.return_value = Mock()
         result = service.sync_facts("AAPL", commit=False)
 
@@ -134,11 +141,19 @@ def test_sync_facts_is_idempotent():
         incoming.accession_number: filing,
     }
     from quantcore.models.sec_xbrl_fact import build_sec_xbrl_fact_identity_hash
+
     existing = Mock()
     identity_hash = build_sec_xbrl_fact_identity_hash(
-        company_id=1, accession_number=incoming.accession_number, taxonomy=incoming.taxonomy,
-        concept=incoming.concept, unit=incoming.unit, period_start=incoming.period_start,
-        period_end=incoming.period_end, frame=incoming.frame, qtrs=incoming.qtrs, value=incoming.value,
+        company_id=1,
+        accession_number=incoming.accession_number,
+        taxonomy=incoming.taxonomy,
+        concept=incoming.concept,
+        unit=incoming.unit,
+        period_start=incoming.period_start,
+        period_end=incoming.period_end,
+        frame=incoming.frame,
+        qtrs=incoming.qtrs,
+        value=incoming.value,
     )
     service.fact_repo.get_by_identity_hashes.return_value = {identity_hash: existing}
 
@@ -156,15 +171,25 @@ def test_sync_facts_repairs_filing_linkage_for_existing_observation():
     incoming = make_fact("0000320193-24-000123", "100")
     existing = Mock(filing_id=None, accepted_at=None)
     from quantcore.models.sec_xbrl_fact import build_sec_xbrl_fact_identity_hash
+
     identity_hash = build_sec_xbrl_fact_identity_hash(
-        company_id=1, accession_number=incoming.accession_number, taxonomy=incoming.taxonomy,
-        concept=incoming.concept, unit=incoming.unit, period_start=incoming.period_start,
-        period_end=incoming.period_end, frame=incoming.frame, qtrs=incoming.qtrs, value=incoming.value,
+        company_id=1,
+        accession_number=incoming.accession_number,
+        taxonomy=incoming.taxonomy,
+        concept=incoming.concept,
+        unit=incoming.unit,
+        period_start=incoming.period_start,
+        period_end=incoming.period_end,
+        frame=incoming.frame,
+        qtrs=incoming.qtrs,
+        value=incoming.value,
     )
     filing = Mock(id=55, acceptance_datetime=datetime(2024, 11, 1, tzinfo=timezone.utc))
     service.provider.get_sec_xbrl_fact_observations.return_value = [incoming]
     service.fact_repo.get_by_identity_hashes.return_value = {identity_hash: existing}
-    service.filing_repo.get_by_accessions.return_value = {incoming.accession_number: filing}
+    service.filing_repo.get_by_accessions.return_value = {
+        incoming.accession_number: filing
+    }
 
     result = service.sync_facts("AAPL")
 
@@ -178,7 +203,9 @@ def test_sync_facts_rolls_back_on_provider_error():
     service, db = make_service()
     security, _ = make_security_and_company()
     service.security_repo.get_by_symbol.return_value = security
-    service.provider.get_sec_xbrl_fact_observations.side_effect = RuntimeError("provider error")
+    service.provider.get_sec_xbrl_fact_observations.side_effect = RuntimeError(
+        "provider error"
+    )
 
     try:
         service.sync_facts("AAPL")
@@ -193,7 +220,7 @@ def test_sync_facts_rolls_back_on_provider_error():
 
 def test_get_facts_as_of_timestamp_uses_timestamp_pit_repository():
     service, _ = make_service()
-    security, company = make_security_and_company()
+    _security, company = make_security_and_company()
     service.listing_identity_service.resolve_company_as_of.return_value = company
     service.fact_repo.get_latest_for_company_as_of_timestamp.return_value = ["fact"]
 

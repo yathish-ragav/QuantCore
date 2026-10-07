@@ -1,46 +1,14 @@
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import Enum as SQLAlchemyEnum
-from sqlalchemy import String
-from sqlalchemy import engine_from_config
-from sqlalchemy import pool
+from sqlalchemy import String, engine_from_config, pool
 
+from alembic import context
 from quantcore.core.config import settings
 from quantcore.db.database import Base
 
 # Import every model so SQLAlchemy metadata contains
 # the complete application schema.
-from quantcore.models.company import Company
-from quantcore.models.security import Security
-from quantcore.models.security_identifier_history import SecurityIdentifierHistory
-from quantcore.models.security_identifier import SecurityIdentifier
-from quantcore.models.price import Price
-from quantcore.models.financial_statement_revision import FinancialStatementRevision
-from quantcore.models.news import News
-from quantcore.models.income_statement import IncomeStatement
-from quantcore.models.cash_flow_statement import CashFlowStatement
-from quantcore.models.balance_sheet import BalanceSheet
-from quantcore.models.provenance import CompanyFieldProvenance
-from quantcore.models.ingestion import IngestionJob, IngestionRun, IngestionState
-from quantcore.models.research_experiment import (
-    ResearchExperimentArtifact,
-    ResearchExperimentComparisonResultRecord,
-    ResearchExperimentRun,
-    ResearchExperimentRunResult,
-)
-from quantcore.models.ingestion_schedule import IngestionSchedule
-from quantcore.models.sec_filing import FilingEvent, SECFiling
-from quantcore.models.corporate_action import CorporateAction
-from quantcore.models.corporate_action_revision import CorporateActionRevision
-from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
-from quantcore.models.macro import MacroObservation, MacroSeries
-from quantcore.models.macro_ingestion import MacroIngestionState
-from quantcore.models.universe_sync import UniverseSyncRun
-from quantcore.models.market_index import MarketIndex, MarketIndexConstituent
-from quantcore.models.market_index_source import MarketIndexDataSource
-from quantcore.models.market_index_load import MarketIndexDataLoad
-
 
 config = context.config
 
@@ -59,18 +27,19 @@ def _quantcore_compare_type(
     # QuantCore stores SQLAlchemy enums as VARCHAR + CHECK (native_enum=False).
     # PostgreSQL reflects those columns as VARCHAR; do not report a false
     # VARCHAR -> Enum type change. Still report a real undersized VARCHAR.
-    if isinstance(metadata_type, SQLAlchemyEnum) and not metadata_type.native_enum:
-        if isinstance(inspected_type, String):
-            expected = metadata_type.length
-            if expected is None:
-                expected = max(
-                    (len(str(v)) for v in (metadata_type.enums or ())),
-                    default=0,
-                )
-            actual = inspected_type.length
-            if actual is None or actual >= expected:
-                return False
-            return True
+    if (
+        isinstance(metadata_type, SQLAlchemyEnum)
+        and not metadata_type.native_enum
+        and isinstance(inspected_type, String)
+    ):
+        expected = metadata_type.length
+        if expected is None:
+            expected = max(
+                (len(str(v)) for v in (metadata_type.enums or ())),
+                default=0,
+            )
+        actual = inspected_type.length
+        return not (actual is None or actual >= expected)
     return None
 
 

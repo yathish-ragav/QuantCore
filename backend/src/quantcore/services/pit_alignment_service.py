@@ -1,7 +1,7 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from types import MappingProxyType
-from typing import Mapping
 
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,9 @@ from quantcore.repositories.price_observation_revision_repository import (
 )
 from quantcore.repositories.sec_xbrl_fact_repository import SECXBRLFactRepository
 from quantcore.repositories.security_repository import SecurityRepository
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
+)
 
 
 @dataclass(frozen=True)
@@ -72,7 +74,9 @@ class PITAlignmentService:
         )
         security = resolved.security
         if security.company is None:
-            raise ResourceNotFoundError(f"Security '{normalized}' has no company identity.")
+            raise ResourceNotFoundError(
+                f"Security '{normalized}' has no company identity."
+            )
         return normalized, security
 
     def get_snapshot(

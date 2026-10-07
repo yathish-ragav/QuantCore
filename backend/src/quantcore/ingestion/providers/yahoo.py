@@ -1,7 +1,8 @@
-from datetime import datetime
+from datetime import datetime, timezone
 
 import yfinance as yf
 
+from quantcore.core.enums import CorporateActionType
 from quantcore.core.exceptions import (
     DataValidationError,
     ExternalDataError,
@@ -9,7 +10,6 @@ from quantcore.core.exceptions import (
 )
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.corporate_action import CorporateActionData
-from quantcore.core.enums import CorporateActionType
 from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
 
@@ -18,6 +18,7 @@ from .base import MarketDataProvider
 
 class YahooClient(MarketDataProvider):
     """Yahoo Finance market-data provider."""
+
     SOURCE = "YAHOO"
 
     def get_company_info(self, symbol: str) -> CompanyData:
@@ -33,9 +34,7 @@ class YahooClient(MarketDataProvider):
             ) from exc
 
         if not isinstance(info, dict):
-            raise DataValidationError(
-                "Yahoo company response must be an object."
-            )
+            raise DataValidationError("Yahoo company response must be an object.")
 
         try:
             return CompanyData(
@@ -48,9 +47,7 @@ class YahooClient(MarketDataProvider):
                 market_cap=info.get("marketCap"),
             )
         except (TypeError, ValueError) as exc:
-            raise DataValidationError(
-                "Invalid Yahoo company data."
-            ) from exc
+            raise DataValidationError("Invalid Yahoo company data.") from exc
 
     def get_price_history(
         self,
@@ -108,15 +105,11 @@ class YahooClient(MarketDataProvider):
                         adjusted_close=float(row["Adj Close"]),
                         volume=int(row["Volume"]),
                         dividends=float(row.get("Dividends", 0.0)),
-                        stock_splits=float(
-                            row.get("Stock Splits", 0.0)
-                        ),
+                        stock_splits=float(row.get("Stock Splits", 0.0)),
                     )
                 )
         except (TypeError, ValueError, OverflowError) as exc:
-            raise DataValidationError(
-                "Invalid Yahoo price data."
-            ) from exc
+            raise DataValidationError("Invalid Yahoo price data.") from exc
 
         return prices
 
@@ -182,9 +175,7 @@ class YahooClient(MarketDataProvider):
                         )
                     )
         except (TypeError, ValueError, OverflowError) as exc:
-            raise DataValidationError(
-                "Invalid Yahoo corporate action data."
-            ) from exc
+            raise DataValidationError("Invalid Yahoo corporate action data.") from exc
 
         return actions
 
@@ -201,23 +192,17 @@ class YahooClient(MarketDataProvider):
             ) from exc
 
         if not isinstance(raw_articles, list):
-            raise DataValidationError(
-                "Yahoo news response must be a list."
-            )
+            raise DataValidationError("Yahoo news response must be a list.")
 
         articles: list[NewsData] = []
 
         for item in raw_articles:
             if not isinstance(item, dict):
-                raise DataValidationError(
-                    "Yahoo news item must be an object."
-                )
+                raise DataValidationError("Yahoo news item must be an object.")
 
             content = item.get("content", {})
             if not isinstance(content, dict):
-                raise DataValidationError(
-                    "Yahoo news content must be an object."
-                )
+                raise DataValidationError("Yahoo news content must be an object.")
 
             provider = content.get("provider", {})
             if not isinstance(provider, dict):
@@ -233,7 +218,7 @@ class YahooClient(MarketDataProvider):
             if pub_date is not None:
                 try:
                     published_at = datetime.fromtimestamp(
-                        float(pub_date) / 1000
+                        float(pub_date) / 1000, tz=timezone.utc
                     )
                 except (TypeError, ValueError, OverflowError):
                     published_at = None
@@ -249,8 +234,6 @@ class YahooClient(MarketDataProvider):
                     )
                 )
             except (TypeError, ValueError) as exc:
-                raise DataValidationError(
-                    "Invalid Yahoo news item."
-                ) from exc
+                raise DataValidationError("Invalid Yahoo news item.") from exc
 
         return articles

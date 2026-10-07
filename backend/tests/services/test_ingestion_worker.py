@@ -5,8 +5,8 @@ from unittest.mock import Mock
 import pytest
 
 from quantcore.core.exceptions import InvalidInputError
-from quantcore.services.ingestion_orchestrator import IngestionResult
 from quantcore.ingestion.datasets import IngestionDataset
+from quantcore.services.ingestion_orchestrator import IngestionResult
 from quantcore.services.ingestion_worker import (
     IngestionWorker,
     IngestionWorkerConfig,
@@ -41,6 +41,7 @@ def test_worker_recovery_uses_configured_stale_threshold():
     # Patch the service constructor at the module boundary so the worker's
     # session lifecycle remains under test.
     import quantcore.services.ingestion_worker as module
+
     original = module.IngestionExecutionService
     module.IngestionExecutionService = Mock(return_value=service)
     try:
@@ -66,6 +67,7 @@ def test_worker_claims_then_executes_with_same_worker_id():
     service.claim.return_value = SimpleNamespace(job_id=41, attempt_count=1)
 
     import quantcore.services.ingestion_worker as module
+
     original = module.IngestionExecutionService
     module.IngestionExecutionService = Mock(return_value=service)
     try:
@@ -106,7 +108,6 @@ def test_worker_survives_transient_recovery_failure():
     worker.run_once.assert_called_once()
 
 
-
 def test_worker_stops_heartbeat_when_execution_session_creation_fails():
     class FakeThread:
         def __init__(self, **_kwargs):
@@ -138,6 +139,7 @@ def test_worker_stops_heartbeat_when_execution_session_creation_fails():
     finally:
         module.threading.Thread = original_thread
 
+
 def test_worker_logs_completed_job_metrics(caplog):
     db = Mock()
     factory = Mock(return_value=db)
@@ -164,6 +166,7 @@ def test_worker_logs_completed_job_metrics(caplog):
             pass
 
     import quantcore.services.ingestion_worker as module
+
     original_service = module.IngestionExecutionService
     original_thread = module.threading.Thread
     module.IngestionExecutionService = Mock(return_value=service)

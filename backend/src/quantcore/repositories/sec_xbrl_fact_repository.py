@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
@@ -47,7 +47,7 @@ class SECXBRLFactRepository:
         hashes = {value for value in identity_hashes if value}
         if not hashes:
             return {}
-        rows = []
+        rows: list[SECXBRLFactObservation] = []
         values = list(hashes)
         for start in range(0, len(values), 1000):
             rows.extend(
@@ -112,10 +112,14 @@ class SECXBRLFactRepository:
             .subquery()
         )
 
-        stmt = select(SECXBRLFactObservation).join(
-            ranked,
-            SECXBRLFactObservation.id == ranked.c.id,
-        ).where(ranked.c.revision_rank == 1)
+        stmt = (
+            select(SECXBRLFactObservation)
+            .join(
+                ranked,
+                SECXBRLFactObservation.id == ranked.c.id,
+            )
+            .where(ranked.c.revision_rank == 1)
+        )
 
         return list(self.db.scalars(stmt).all())
 

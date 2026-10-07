@@ -1,10 +1,7 @@
-from typing import List
-
-
 class KnowSureThing:
     @staticmethod
     def calculate(
-        closes: List[float],
+        closes: list[float],
         roc1_period: int = 10,
         roc2_period: int = 15,
         roc3_period: int = 20,
@@ -13,10 +10,9 @@ class KnowSureThing:
         sma2_period: int = 10,
         sma3_period: int = 10,
         sma4_period: int = 15,
-    ) -> List[float | None]:
-
-        def roc(period: int) -> List[float | None]:
-            values = []
+    ) -> list[float | None]:
+        def roc(period: int) -> list[float | None]:
+            values: list[float | None] = []
 
             for i in range(len(closes)):
                 if i < period:
@@ -29,18 +25,15 @@ class KnowSureThing:
                     values.append(None)
                     continue
 
-                values.append(
-                    ((closes[i] - previous) / previous) * 100
-                )
+                values.append(((closes[i] - previous) / previous) * 100)
 
             return values
 
         def sma(
-            values: List[float | None],
+            values: list[float | None],
             period: int,
-        ) -> List[float | None]:
-
-            result = []
+        ) -> list[float | None]:
+            result: list[float | None] = []
 
             for i in range(len(values)):
                 if i + 1 < period:
@@ -53,9 +46,8 @@ class KnowSureThing:
                     result.append(None)
                     continue
 
-                result.append(
-                    sum(window) / period
-                )
+                numeric_window = [value for value in window if value is not None]
+                result.append(sum(numeric_window) / period)
 
             return result
 
@@ -69,25 +61,24 @@ class KnowSureThing:
         sma3 = sma(roc3, sma3_period)
         sma4 = sma(roc4, sma4_period)
 
-        result: List[float | None] = []
+        result: list[float | None] = []
 
         for i in range(len(closes)):
+            sma1_value = sma1[i]
+            sma2_value = sma2[i]
+            sma3_value = sma3[i]
+            sma4_value = sma4[i]
 
             if (
-                sma1[i] is None
-                or sma2[i] is None
-                or sma3[i] is None
-                or sma4[i] is None
+                sma1_value is None
+                or sma2_value is None
+                or sma3_value is None
+                or sma4_value is None
             ):
                 result.append(None)
                 continue
 
-            kst_value = (
-                sma1[i]
-                + 2 * sma2[i]
-                + 3 * sma3[i]
-                + 4 * sma4[i]
-            )
+            kst_value = sma1_value + 2 * sma2_value + 3 * sma3_value + 4 * sma4_value
 
             result.append(kst_value)
 

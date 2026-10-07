@@ -6,19 +6,18 @@ from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
+from quantcore.core.enums import PriceBasis
 from quantcore.services.research_factor_computation_service import ResearchFactorValue
 from quantcore.services.research_factor_return_methodology_service import (
+    ResearchFactorReturnBucket,
     ResearchFactorReturnSeries,
     ResearchFactorReturnSlice,
-    ResearchFactorReturnBucket,
 )
-from quantcore.core.enums import PriceBasis
 from quantcore.services.research_factor_return_service import ResearchFactorReturnPanel
 from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalDataset,
     ResearchHistoricalDatasetRow,
 )
-
 
 client = TestClient(app)
 
@@ -71,7 +70,9 @@ def make_return_panel():
         unit="score",
         input_manifest={"source": "test"},
     )
-    from quantcore.services.research_factor_return_service import ResearchFactorReturnRow
+    from quantcore.services.research_factor_return_service import (
+        ResearchFactorReturnRow,
+    )
 
     row = ResearchFactorReturnRow(
         symbol="AAPL",
@@ -128,19 +129,22 @@ def make_series():
 
 
 def test_build_research_factor_return_series_returns_stable_contract():
-    with patch(
-        "quantcore.api.dependencies.ResearchHistoricalAnalysisService"
-    ) as historical_factory, patch(
-        "quantcore.api.dependencies.ResearchFactorPanelService"
-    ) as panel_factory, patch(
-        "quantcore.api.dependencies.ResearchFactorCrossSectionalService"
-    ) as cross_sectional_factory, patch(
-        "quantcore.api.dependencies.ResearchFactorReturnService"
-    ) as return_factory, patch(
-        "quantcore.api.dependencies.ResearchFactorReturnMethodologyService"
-    ) as methodology_factory, patch(
-        "quantcore.api.dependencies.PriceService"
-    ) as price_factory:
+    with (
+        patch(
+            "quantcore.api.dependencies.ResearchHistoricalAnalysisService"
+        ) as historical_factory,
+        patch("quantcore.api.dependencies.ResearchFactorPanelService") as panel_factory,
+        patch(
+            "quantcore.api.dependencies.ResearchFactorCrossSectionalService"
+        ) as cross_sectional_factory,
+        patch(
+            "quantcore.api.dependencies.ResearchFactorReturnService"
+        ) as return_factory,
+        patch(
+            "quantcore.api.dependencies.ResearchFactorReturnMethodologyService"
+        ) as methodology_factory,
+        patch("quantcore.api.dependencies.PriceService") as price_factory,
+    ):
         historical_service = Mock()
         historical_service.build_historical_dataset.return_value = make_dataset()
         historical_factory.return_value = historical_service
@@ -217,10 +221,7 @@ def test_research_factor_return_methodology_rejects_oversized_request():
             "/api/v1/research/factors/returns/series",
             json={
                 "symbols": [f"SYM{i}" for i in range(100)],
-                "as_ofs": [
-                    f"2026-08-{day:02d}T15:30:00Z"
-                    for day in range(1, 12)
-                ],
+                "as_ofs": [f"2026-08-{day:02d}T15:30:00Z" for day in range(1, 12)],
                 "factor_key": "quality_score",
                 "factor_definition_version": "1",
                 "horizon": 5,

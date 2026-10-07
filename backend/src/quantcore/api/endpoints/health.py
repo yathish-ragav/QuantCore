@@ -1,7 +1,7 @@
-from alembic.config import Config as AlembicConfig
-from alembic.script import ScriptDirectory
 import logging
 
+from alembic.config import Config as AlembicConfig
+from alembic.script import ScriptDirectory
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -86,9 +86,11 @@ def health_ready():
         checks["database"] = "ok"
 
         try:
-            rows = db.execute(
-                text("SELECT version_num FROM alembic_version")
-            ).scalars().all()
+            rows = (
+                db.execute(text("SELECT version_num FROM alembic_version"))
+                .scalars()
+                .all()
+            )
             expected = _expected_schema_revisions()
             actual = {str(value) for value in rows}
         except Exception:

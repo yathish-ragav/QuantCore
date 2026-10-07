@@ -1,17 +1,14 @@
-from typing import List
-
-
 class AverageTrueRange:
 
     @staticmethod
     def atr(
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
         period: int = 14,
-    ) -> List[float | None]:
+    ) -> list[float | None]:
 
-        true_ranges = []
+        true_ranges: list[float] = []
 
         for i in range(len(closes)):
 
@@ -26,7 +23,7 @@ class AverageTrueRange:
 
             true_ranges.append(tr)
 
-        atr_values = []
+        atr_values: list[float | None] = []
 
         for i in range(len(true_ranges)):
 
@@ -34,12 +31,8 @@ class AverageTrueRange:
                 atr_values.append(None)
                 continue
 
-            window = true_ranges[
-                i + 1 - period : i + 1
-            ]
+            window = true_ranges[i + 1 - period : i + 1]
 
-            atr_values.append(
-                sum(window) / period
-            )
+            atr_values.append(sum(window) / period)
 
         return atr_values

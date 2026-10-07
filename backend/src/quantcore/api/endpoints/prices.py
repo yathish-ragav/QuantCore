@@ -6,7 +6,6 @@ from quantcore.api.dependencies import get_price_service
 from quantcore.schemas.responses import PriceResponse
 from quantcore.services.price_service import PriceService
 
-
 router = APIRouter(
     prefix="/prices",
     tags=["Prices"],
@@ -28,9 +27,7 @@ def get_prices(
     normalized_symbol = symbol.strip().upper()
 
     if as_of is None:
-        prices = service.get_price_history(
-            normalized_symbol
-        )
+        prices = service.get_price_history(normalized_symbol)
     else:
         prices = service.get_price_history_as_of(
             normalized_symbol,
@@ -49,6 +46,7 @@ def get_prices(
             volume=price.volume,
             dividends=price.dividends,
             stock_splits=price.stock_splits,
+            source_reference=price.source_reference,
         )
         for price in prices
     ]

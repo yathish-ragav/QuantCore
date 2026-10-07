@@ -1,13 +1,10 @@
-from typing import List
-
-
 class RelativeStrengthIndex:
 
     @staticmethod
     def rsi(
-        prices: List[float],
+        prices: list[float],
         period: int = 14,
-    ) -> List[float | None]:
+    ) -> list[float | None]:
 
         if len(prices) < period + 1:
             return [None] * len(prices)
@@ -15,7 +12,7 @@ class RelativeStrengthIndex:
         gains = []
         losses = []
 
-        rsi_values = [None]
+        rsi_values: list[float | None] = [None]
 
         for i in range(1, len(prices)):
 
@@ -29,13 +26,9 @@ class RelativeStrengthIndex:
                 rsi_values.append(None)
                 continue
 
-            avg_gain = sum(
-                gains[-period:]
-            ) / period
+            avg_gain = sum(gains[-period:]) / period
 
-            avg_loss = sum(
-                losses[-period:]
-            ) / period
+            avg_loss = sum(losses[-period:]) / period
 
             if avg_loss == 0:
                 rsi_values.append(100.0)
@@ -43,9 +36,7 @@ class RelativeStrengthIndex:
 
             rs = avg_gain / avg_loss
 
-            rsi = 100 - (
-                100 / (1 + rs)
-            )
+            rsi = 100 - (100 / (1 + rs))
 
             rsi_values.append(rsi)
 

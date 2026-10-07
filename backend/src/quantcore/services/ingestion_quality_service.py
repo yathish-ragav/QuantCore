@@ -52,9 +52,10 @@ class IngestionQualityService:
         if any(count < 0 for count in counts):
             raise InvalidInputError("Ingestion execution counts must not be negative.")
 
-        if result.attempted != result.succeeded + result.failed:
-            status = IngestionQualityStatus.INCONSISTENT
-        elif result.eligible != result.succeeded + result.skipped + result.failed:
+        if (
+            result.attempted != result.succeeded + result.failed
+            or result.eligible != result.succeeded + result.skipped + result.failed
+        ):
             status = IngestionQualityStatus.INCONSISTENT
         elif result.eligible == 0:
             status = IngestionQualityStatus.NO_TARGETS

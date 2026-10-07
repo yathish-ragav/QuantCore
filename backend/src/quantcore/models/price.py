@@ -7,14 +7,15 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     func,
+)
+from sqlalchemy import (
     Enum as SQLAlchemyEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from quantcore.core.enums import PriceBasis
 from quantcore.db.database import Base
 from quantcore.models.provenance import ProvenanceMixin
-from quantcore.core.enums import PriceBasis
-
 
 PRICE_BASIS_ENUM = SQLAlchemyEnum(
     PriceBasis,

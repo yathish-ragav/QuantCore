@@ -1,12 +1,20 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, Enum as SQLAlchemyEnum, ForeignKey, Integer, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
 from quantcore.models.provenance import DataSource
-
 
 MACRO_DATA_SOURCE_ENUM = SQLAlchemyEnum(
     DataSource,
@@ -43,12 +51,18 @@ class MacroSeries(Base):
     units: Mapped[str] = mapped_column(String(255), nullable=False)
     units_short: Mapped[str | None] = mapped_column(String(100), nullable=True)
     seasonal_adjustment: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    seasonal_adjustment_short: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    seasonal_adjustment_short: Mapped[str | None] = mapped_column(
+        String(20), nullable=True
+    )
     observation_start: Mapped[date | None] = mapped_column(Date, nullable=True)
     observation_end: Mapped[date | None] = mapped_column(Date, nullable=True)
-    last_updated: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_updated: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    fetched_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     observations = relationship(
         "MacroObservation",
@@ -87,7 +101,9 @@ class MacroObservation(Base):
         nullable=False,
         index=True,
     )
-    fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    fetched_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     source_reference: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     series = relationship("MacroSeries", back_populates="observations")

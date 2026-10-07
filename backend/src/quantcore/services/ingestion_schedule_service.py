@@ -18,11 +18,12 @@ from quantcore.ingestion.datasets import (
 from quantcore.models.ingestion import IngestionJob
 from quantcore.models.ingestion_schedule import IngestionSchedule
 from quantcore.models.security import Security, SecurityStatus
-from quantcore.repositories.ingestion_schedule_repository import IngestionScheduleRepository
+from quantcore.repositories.ingestion_schedule_repository import (
+    IngestionScheduleRepository,
+)
 from quantcore.repositories.ingestion_state_repository import IngestionStateRepository
 from quantcore.services.ingestion_execution_service import IngestionJobView
 from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
-
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +68,9 @@ class IngestionScheduleService:
     scheduler without changing the QuantCore ingestion contract.
     """
 
-    def __init__(self, db: Session, *, orchestrator: IngestionOrchestrator | None = None):
+    def __init__(
+        self, db: Session, *, orchestrator: IngestionOrchestrator | None = None
+    ):
         self.db = db
         self.repository = IngestionScheduleRepository(db)
         self.job_repository = IngestionStateRepository(db)
@@ -86,11 +89,13 @@ class IngestionScheduleService:
     def _normalize_symbols(symbols: list[str] | None) -> list[str] | None:
         if symbols is None:
             return None
-        normalized = list(dict.fromkeys(
-            symbol.strip().upper()
-            for symbol in symbols
-            if symbol and symbol.strip()
-        ))
+        normalized = list(
+            dict.fromkeys(
+                symbol.strip().upper()
+                for symbol in symbols
+                if symbol and symbol.strip()
+            )
+        )
         if not normalized:
             raise InvalidInputError("At least one valid symbol is required.")
         return normalized
@@ -164,7 +169,7 @@ class IngestionScheduleService:
         if explicit_symbols is not None:
             symbols = explicit_symbols
             if schedule.target_limit is not None:
-                symbols = symbols[:schedule.target_limit]
+                symbols = symbols[: schedule.target_limit]
         else:
             stmt = (
                 select(Security)
@@ -178,16 +183,20 @@ class IngestionScheduleService:
 
         if DATASET_SCOPES[schedule.dataset] is IngestionScope.COMPANY:
             # Deduplicate by issuer while preserving the scheduled symbol order.
-            securities = list(
-                self.db.scalars(
-                    select(Security)
-                    .where(
-                        Security.status == SecurityStatus.ACTIVE,
-                        Security.symbol.in_(symbols),
-                    )
-                    .order_by(Security.id)
-                ).all()
-            ) if symbols else []
+            securities = (
+                list(
+                    self.db.scalars(
+                        select(Security)
+                        .where(
+                            Security.status == SecurityStatus.ACTIVE,
+                            Security.symbol.in_(symbols),
+                        )
+                        .order_by(Security.id)
+                    ).all()
+                )
+                if symbols
+                else []
+            )
             company_by_symbol: dict[str, int] = {}
             for security in securities:
                 company_by_symbol.setdefault(security.symbol, security.company_id)
@@ -255,7 +264,7 @@ class IngestionScheduleService:
         if self.repository.get_by_name(normalized_name) is not None:
             raise InvalidInputError(
                 f"Ingestion schedule '{normalized_name}' already exists."
-            )
+            ) from None
 
         try:
             schedule = self.repository.create(
@@ -274,7 +283,7 @@ class IngestionScheduleService:
             self.db.rollback()
             raise InvalidInputError(
                 f"Ingestion schedule '{normalized_name}' already exists."
-            )
+            ) from None
 
     def get(self, schedule_id: int) -> IngestionScheduleView | None:
         if schedule_id <= 0:

@@ -15,6 +15,7 @@ def test_sma_basic():
         40.0,
     ]
 
+
 def test_sma_period_larger_than_data():
     prices = [10, 20, 30]
     period = 5
@@ -26,6 +27,7 @@ def test_sma_period_larger_than_data():
         None,
         None,
     ]
+
 
 def test_sma_period_one():
     prices = [10, 20, 30, 40]

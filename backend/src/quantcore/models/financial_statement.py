@@ -1,10 +1,10 @@
 from datetime import date
 
-from sqlalchemy import Date, Enum as SQLAlchemyEnum, Integer, String
+from sqlalchemy import Date, Integer, String
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from quantcore.core.enums import FinancialPeriodType
-
 
 FINANCIAL_PERIOD_TYPE_ENUM = SQLAlchemyEnum(
     FinancialPeriodType,
@@ -19,17 +19,11 @@ FINANCIAL_PERIOD_TYPE_ENUM = SQLAlchemyEnum(
 class FinancialStatementMetadataMixin:
     """Persistent temporal and filing identity for financial statements."""
 
-    period_start: Mapped[date | None] = mapped_column(
-        Date, nullable=True
-    )
+    period_start: Mapped[date | None] = mapped_column(Date, nullable=True)
 
-    fiscal_year: Mapped[int | None] = mapped_column(
-        Integer, nullable=True, index=True
-    )
+    fiscal_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
 
-    fiscal_period: Mapped[str | None] = mapped_column(
-        String(10), nullable=True
-    )
+    fiscal_period: Mapped[str | None] = mapped_column(String(10), nullable=True)
 
     period_type: Mapped[FinancialPeriodType] = mapped_column(
         FINANCIAL_PERIOD_TYPE_ENUM,
@@ -39,13 +33,9 @@ class FinancialStatementMetadataMixin:
         index=True,
     )
 
-    filing_date: Mapped[date | None] = mapped_column(
-        Date, nullable=True, index=True
-    )
+    filing_date: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
 
-    filing_form: Mapped[str | None] = mapped_column(
-        String(20), nullable=True
-    )
+    filing_form: Mapped[str | None] = mapped_column(String(20), nullable=True)
 
     accession_number: Mapped[str | None] = mapped_column(
         String(40), nullable=True, index=True

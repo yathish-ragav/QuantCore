@@ -37,7 +37,6 @@ class SecurityRepository:
 
         return securities[0] if securities else None
 
-
     def search(
         self,
         query: str,
@@ -120,9 +119,7 @@ class SecurityRepository:
         if not symbols:
             return []
 
-        stmt = select(Security).where(
-            Security.symbol.in_(symbols)
-        )
+        stmt = select(Security).where(Security.symbol.in_(symbols))
 
         return list(self.db.scalars(stmt).all())
 
@@ -133,9 +130,7 @@ class SecurityRepository:
         if not company_ids:
             return []
 
-        stmt = select(Security).where(
-            Security.company_id.in_(company_ids)
-        )
+        stmt = select(Security).where(Security.company_id.in_(company_ids))
 
         return list(self.db.scalars(stmt).all())
 

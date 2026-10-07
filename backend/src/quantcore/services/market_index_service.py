@@ -1,17 +1,23 @@
+import json
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from hashlib import sha256
-import json
-from typing import Iterable
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from quantcore.core.exceptions import DataValidationError, InvalidInputError, ResourceNotFoundError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.models.market_index import MarketIndex
+from quantcore.models.market_index_source import MarketIndexDataSource
 from quantcore.models.security import Security
 from quantcore.repositories.market_index_repository import MarketIndexRepository
+from quantcore.services.market_index_source_service import MarketIndexDataSourceService
 
 
 @dataclass(frozen=True)
@@ -46,6 +52,7 @@ class MarketIndexService:
     def __init__(self, db: Session):
         self.db = db
         self.repository = MarketIndexRepository(db)
+        self.source_service = MarketIndexDataSourceService(db)
 
     @staticmethod
     def _normalize_key(key: str) -> str:
@@ -67,7 +74,9 @@ class MarketIndexService:
     @staticmethod
     def _normalize_input(item: IndexConstituentInput) -> IndexConstituentInput:
         if not isinstance(item, IndexConstituentInput):
-            raise InvalidInputError("Index constituents must use IndexConstituentInput.")
+            raise InvalidInputError(
+                "Index constituents must use IndexConstituentInput."
+            )
         if item.security_id <= 0:
             raise InvalidInputError("Security ID must be positive.")
         if item.effective_to is not None and item.effective_to <= item.effective_from:
@@ -99,6 +108,34 @@ class MarketIndexService:
 
     def list_active(self) -> list[MarketIndex]:
         return self.repository.list_active()
+
+    def _require_display_authorized(self, index: MarketIndex) -> None:
+        if index.data_source_id is None:
+            raise DataValidationError(
+                f"Market index '{index.key}' has no authorized data source for display."
+            )
+        source = self.db.get(MarketIndexDataSource, index.data_source_id)
+        if source is None:
+            raise ResourceNotFoundError(
+                f"Licensed data source for market index '{index.key}' was not found."
+            )
+        authorized = self.source_service.require_display_authorized(source.key)
+        if authorized.id != index.data_source_id:
+            raise DataValidationError(
+                f"Market index '{index.key}' data-source identity does not "
+                "match its licensed source."
+            )
+
+    def list_active_public(self) -> list[MarketIndex]:
+        indexes = self.repository.list_active()
+        for index in indexes:
+            self._require_display_authorized(index)
+        return indexes
+
+    def get_public(self, key: str) -> MarketIndex:
+        index = self.get(key)
+        self._require_display_authorized(index)
+        return index
 
     def create(
         self,
@@ -177,35 +214,41 @@ class MarketIndexService:
                 index.id,
                 item.security_id,
             )
-            for previous in existing:
+            for existing_member in existing:
                 if (
-                    previous.effective_from == item.effective_from
-                    and previous.known_at == item.known_at
+                    existing_member.effective_from == item.effective_from
+                    and existing_member.known_at == item.known_at
                 ):
                     raise DataValidationError(
-                        "An index membership revision already exists for this security, effective date, and knowledge timestamp."
+                        "An index membership revision already exists for this "
+                        "security, effective date, and knowledge timestamp."
                     )
                 if (
-                    previous.known_at == item.known_at
+                    existing_member.known_at == item.known_at
                     and self._intervals_overlap(
-                        previous.effective_from,
-                        previous.effective_to,
+                        existing_member.effective_from,
+                        existing_member.effective_to,
                         item.effective_from,
                         item.effective_to,
                     )
                 ):
                     raise DataValidationError(
-                        f"Index membership intervals overlap for security {item.security_id}."
+                        "Index membership intervals overlap for security "
+                        f"{item.security_id}."
                     )
-            for previous in accepted:
-                if previous.security_id == item.security_id and self._intervals_overlap(
-                    previous.effective_from,
-                    previous.effective_to,
-                    item.effective_from,
-                    item.effective_to,
+            for accepted_item in accepted:
+                if (
+                    accepted_item.security_id == item.security_id
+                    and self._intervals_overlap(
+                        accepted_item.effective_from,
+                        accepted_item.effective_to,
+                        item.effective_from,
+                        item.effective_to,
+                    )
                 ):
                     raise DataValidationError(
-                        f"Index membership intervals overlap for security {item.security_id}."
+                        "Index membership intervals overlap for security "
+                        f"{item.security_id}."
                     )
             accepted.append(item)
 
@@ -242,6 +285,7 @@ class MarketIndexService:
         as_of: datetime,
     ):
         index = self.get(key)
+        self._require_display_authorized(index)
         normalized_as_of = self._normalize_as_of(as_of)
         return self.repository.get_constituents_as_of(
             index.id,
@@ -256,6 +300,7 @@ class MarketIndexService:
         as_of: datetime,
     ) -> ResearchUniverseSnapshot:
         index = self.get(key)
+        self._require_display_authorized(index)
         normalized_as_of = self._normalize_as_of(as_of)
         members = self.repository.get_constituents_as_of(
             index.id,

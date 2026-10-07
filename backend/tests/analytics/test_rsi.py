@@ -92,9 +92,7 @@ def test_rsi_mixed_movements():
     # RS = 2
     # RSI = 100 - 100 / 3
     #     = 66.666...
-    assert result[2] == pytest.approx(
-        66.6666666667
-    )
+    assert result[2] == pytest.approx(66.6666666667)
 
     # Last two changes at index 3:
     # -5, +10
@@ -102,9 +100,7 @@ def test_rsi_mixed_movements():
     # Average gain = 10 / 2 = 5
     # Average loss = 5 / 2 = 2.5
     # RSI = 66.666...
-    assert result[3] == pytest.approx(
-        66.6666666667
-    )
+    assert result[3] == pytest.approx(66.6666666667)
 
 
 def test_rsi_all_losses():

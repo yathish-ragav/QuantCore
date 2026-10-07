@@ -15,7 +15,9 @@ from quantcore.services.research_backtest_attribution_service import (
     ResearchBacktestPeriodAttribution,
     ResearchBacktestPositionAttribution,
 )
-from quantcore.services.research_backtest_product_service import ResearchBacktestProductResult
+from quantcore.services.research_backtest_product_service import (
+    ResearchBacktestProductResult,
+)
 from quantcore.services.research_backtest_service import ResearchBacktest
 
 client = TestClient(app)
@@ -45,8 +47,21 @@ def payload():
         "dataset_identity": ["dataset", "1"],
         "signal_key": "quality_signal",
         "signal_definition_version": "1",
-        "factors": [{"factor_key": "quality", "definition_version": "1", "weight": 1.0, "higher_is_better": True}],
-        "strategy": {"strategy_key": "quality_long", "definition_version": "1", "signal_identity": ["quality_signal", "1"], "direction": "LONG_ONLY", "long_threshold": 0.8},
+        "factors": [
+            {
+                "factor_key": "quality",
+                "definition_version": "1",
+                "weight": 1.0,
+                "higher_is_better": True,
+            }
+        ],
+        "strategy": {
+            "strategy_key": "quality_long",
+            "definition_version": "1",
+            "signal_identity": ["quality_signal", "1"],
+            "direction": "LONG_ONLY",
+            "long_threshold": 0.8,
+        },
         "backtest_key": "quality_backtest",
         "backtest_definition_version": "1",
         "initial_capital": 1000000.0,

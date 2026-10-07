@@ -2,15 +2,17 @@ from datetime import datetime, timezone
 from enum import Enum
 
 from sqlalchemy import (
+    JSON,
     CheckConstraint,
     DateTime,
-    Enum as SQLAlchemyEnum,
     ForeignKey,
     Index,
     Integer,
-    JSON,
     String,
     UniqueConstraint,
+)
+from sqlalchemy import (
+    Enum as SQLAlchemyEnum,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -205,8 +207,13 @@ class IngestionJob(Base):
     __tablename__ = "ingestion_jobs"
 
     __table_args__ = (
-        CheckConstraint("target_limit IS NULL OR target_limit > 0", name="ck_ingestion_job_limit_positive"),
-        CheckConstraint("attempt_count >= 0", name="ck_ingestion_job_attempt_nonnegative"),
+        CheckConstraint(
+            "target_limit IS NULL OR target_limit > 0",
+            name="ck_ingestion_job_limit_positive",
+        ),
+        CheckConstraint(
+            "attempt_count >= 0", name="ck_ingestion_job_attempt_nonnegative"
+        ),
         Index(
             "ix_ingestion_jobs_status_submitted_at_id",
             "status",

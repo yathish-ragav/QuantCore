@@ -6,12 +6,12 @@ from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
+from quantcore.services.research_dataset_service import ResearchFeatureVector
+from quantcore.services.research_factor_computation_service import ResearchFactorValue
 from quantcore.services.research_factor_cross_sectional_service import (
     ResearchFactorRankedPanel,
     ResearchFactorRankRow,
 )
-from quantcore.services.research_factor_computation_service import ResearchFactorValue
-from quantcore.services.research_dataset_service import ResearchFeatureVector
 from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalDataset,
     ResearchHistoricalDatasetRow,
@@ -126,7 +126,16 @@ def make_signal():
 
 
 def test_build_research_signal_returns_stable_contract():
-    with patch("quantcore.api.dependencies.ResearchHistoricalAnalysisService") as historical_factory,         patch("quantcore.api.dependencies.ResearchFactorPanelService") as panel_factory,         patch("quantcore.api.dependencies.ResearchFactorCrossSectionalService") as cross_factory,         patch("quantcore.api.dependencies.ResearchSignalService") as signal_factory:
+    with (
+        patch(
+            "quantcore.api.dependencies.ResearchHistoricalAnalysisService"
+        ) as historical_factory,
+        patch("quantcore.api.dependencies.ResearchFactorPanelService") as panel_factory,
+        patch(
+            "quantcore.api.dependencies.ResearchFactorCrossSectionalService"
+        ) as cross_factory,
+        patch("quantcore.api.dependencies.ResearchSignalService") as signal_factory,
+    ):
         historical_service = Mock()
         historical_service.build_historical_dataset.return_value = make_dataset()
         historical_factory.return_value = historical_service
@@ -160,8 +169,18 @@ def test_build_research_signal_returns_stable_contract():
                 "signal_definition_version": "1",
                 "description": "Quality plus momentum",
                 "factors": [
-                    {"factor_key": "quality", "definition_version": "1", "weight": 0.5, "higher_is_better": True},
-                    {"factor_key": "momentum", "definition_version": "1", "weight": 0.5, "higher_is_better": False},
+                    {
+                        "factor_key": "quality",
+                        "definition_version": "1",
+                        "weight": 0.5,
+                        "higher_is_better": True,
+                    },
+                    {
+                        "factor_key": "momentum",
+                        "definition_version": "1",
+                        "weight": 0.5,
+                        "higher_is_better": False,
+                    },
                 ],
             },
         )
@@ -178,7 +197,9 @@ def test_build_research_signal_returns_stable_contract():
     assert body["rows"][0]["score"] == pytest.approx(0.75)
     assert body["factors"][1]["higher_is_better"] is False
     assert len(body["rows"][0]["contributions"]) == 2
-    assert body["rows"][0]["contributions"][0]["weighted_contribution"] == pytest.approx(0.5)
+    assert body["rows"][0]["contributions"][0][
+        "weighted_contribution"
+    ] == pytest.approx(0.5)
 
     assert historical_service.build_historical_dataset.called
     assert panel_service.build_factor_panel.call_count == 2
@@ -194,7 +215,9 @@ def test_build_research_signal_returns_stable_contract():
 
 
 def test_research_signal_rejects_oversized_request():
-    with patch("quantcore.api.dependencies.ResearchHistoricalAnalysisService") as historical_factory:
+    with patch(
+        "quantcore.api.dependencies.ResearchHistoricalAnalysisService"
+    ) as historical_factory:
         historical_factory.return_value = Mock()
         response = client.post(
             "/api/v1/research/signals",
@@ -203,7 +226,9 @@ def test_research_signal_rejects_oversized_request():
                 "as_ofs": [f"2026-08-{day:02d}T15:30:00Z" for day in range(1, 12)],
                 "signal_key": "x",
                 "signal_definition_version": "1",
-                "factors": [{"factor_key": "quality", "definition_version": "1", "weight": 1.0}],
+                "factors": [
+                    {"factor_key": "quality", "definition_version": "1", "weight": 1.0}
+                ],
             },
         )
     assert response.status_code == 400
@@ -220,7 +245,9 @@ def test_research_signal_requires_authentication():
                 "as_ofs": ["2026-08-20T15:30:00Z"],
                 "signal_key": "x",
                 "signal_definition_version": "1",
-                "factors": [{"factor_key": "quality", "definition_version": "1", "weight": 1.0}],
+                "factors": [
+                    {"factor_key": "quality", "definition_version": "1", "weight": 1.0}
+                ],
             },
         )
     finally:

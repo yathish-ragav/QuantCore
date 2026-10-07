@@ -15,37 +15,37 @@ NOW = datetime(2026, 9, 6, 12, tzinfo=timezone.utc)
 
 
 def make_schedule(**overrides):
-    values = dict(
-        id=5,
-        name="daily-prices",
-        dataset=IngestionDataset.PRICE_HISTORY,
-        symbols=["AAPL", "MSFT"],
-        target_limit=100,
-        only_stale=True,
-        interval_seconds=86400,
-        next_run_at=NOW,
-        enabled=True,
-        last_triggered_at=None,
-    )
+    values = {
+        "id": 5,
+        "name": "daily-prices",
+        "dataset": IngestionDataset.PRICE_HISTORY,
+        "symbols": ["AAPL", "MSFT"],
+        "target_limit": 100,
+        "only_stale": True,
+        "interval_seconds": 86400,
+        "next_run_at": NOW,
+        "enabled": True,
+        "last_triggered_at": None,
+    }
     values.update(overrides)
     return SimpleNamespace(**values)
 
 
 def make_job(**overrides):
-    values = dict(
-        id=42,
-        dataset=IngestionDataset.PRICE_HISTORY,
-        status=IngestionJobStatus.QUEUED,
-        idempotency_key="schedule:5:key",
-        request_fingerprint="fingerprint",
-        attempt_count=0,
-        submitted_at=NOW,
-        started_at=None,
-        finished_at=None,
-        worker_id=None,
-        heartbeat_at=None,
-        error_summary=None,
-    )
+    values = {
+        "id": 42,
+        "dataset": IngestionDataset.PRICE_HISTORY,
+        "status": IngestionJobStatus.QUEUED,
+        "idempotency_key": "schedule:5:key",
+        "request_fingerprint": "fingerprint",
+        "attempt_count": 0,
+        "submitted_at": NOW,
+        "started_at": None,
+        "finished_at": None,
+        "worker_id": None,
+        "heartbeat_at": None,
+        "error_summary": None,
+    }
     values.update(overrides)
     return SimpleNamespace(**values)
 
@@ -98,7 +98,9 @@ def test_create_rejects_duplicate_name():
     service = make_service()
     service.repository.get_by_name.return_value = make_schedule()
     with pytest.raises(InvalidInputError, match="already exists"):
-        service.create("daily-prices", IngestionDataset.PRICE_HISTORY, interval_seconds=86400)
+        service.create(
+            "daily-prices", IngestionDataset.PRICE_HISTORY, interval_seconds=86400
+        )
 
 
 def test_trigger_due_creates_job_and_advances_schedule():
@@ -186,8 +188,10 @@ def test_set_enabled_changes_persistent_schedule():
     service = make_service()
     schedule = make_schedule()
     service.repository.get.return_value = schedule
+
     def set_enabled(schedule, *, enabled, now):
         schedule.enabled = enabled
+
     service.repository.set_enabled.side_effect = set_enabled
 
     view = service.set_enabled(5, enabled=False)
@@ -209,7 +213,9 @@ def test_trigger_due_shards_large_explicit_symbol_schedule():
     schedule = make_schedule(symbols=symbols, target_limit=None)
     service.repository.get_due.return_value = [schedule]
     service.job_repository.get_job_by_idempotency_key.return_value = None
-    service.orchestrator._request_fingerprint.side_effect = lambda dataset, symbols, limit, only_stale: f"{len(symbols)}:{symbols[0]}"
+    service.orchestrator._request_fingerprint.side_effect = (
+        lambda dataset, symbols, limit, only_stale: f"{len(symbols)}:{symbols[0]}"
+    )
     service.job_repository.create_job.side_effect = lambda **kwargs: make_job(
         id=len(service.job_repository.create_job.call_args_list),
         symbols=kwargs["symbols"],
@@ -231,7 +237,10 @@ def test_trigger_due_shards_large_explicit_symbol_schedule():
         service._scheduled_idempotency_key(5, NOW, shard_index)
         for shard_index in range(3)
     ]
-    assert all(call.kwargs["limit"] is None for call in service.job_repository.create_job.call_args_list)
+    assert all(
+        call.kwargs["limit"] is None
+        for call in service.job_repository.create_job.call_args_list
+    )
     service.repository.advance.assert_called_once()
 
 
@@ -256,7 +265,10 @@ def test_trigger_due_snapshots_unbounded_universe_into_bounded_jobs():
     triggers = service.trigger_due(now=NOW, job_shard_size=100)
 
     assert len(triggers) == 3
-    assert [len(call.kwargs["symbols"]) for call in service.job_repository.create_job.call_args_list] == [100, 100, 5]
+    assert [
+        len(call.kwargs["symbols"])
+        for call in service.job_repository.create_job.call_args_list
+    ] == [100, 100, 5]
     assert service.job_repository.create_job.call_args_list[0].kwargs["symbols"] == [
         f"S{index:03d}" for index in range(100)
     ]
@@ -274,7 +286,9 @@ def test_trigger_due_logs_and_advances_empty_universe(caplog):
     service.repository.get_due.return_value = [schedule]
     service.db.scalars.return_value.all.return_value = []
 
-    with caplog.at_level("WARNING", logger="quantcore.services.ingestion_schedule_service"):
+    with caplog.at_level(
+        "WARNING", logger="quantcore.services.ingestion_schedule_service"
+    ):
         triggers = service.trigger_due(now=NOW)
 
     assert triggers == []

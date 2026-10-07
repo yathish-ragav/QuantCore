@@ -16,7 +16,6 @@ from quantcore.services.research_factor_return_service import (
     ResearchFactorReturnService,
 )
 
-
 BASE = datetime(2026, 8, 19, 15, 30, tzinfo=timezone.utc)
 
 
@@ -58,7 +57,9 @@ def prices(start, closes, adjusted=True):
 
 def test_compute_forward_returns_uses_next_price_after_factor_as_of():
     panel = ranked_panel(factor_row("AAPL", 10, BASE, 0.5))
-    history = {10: prices(datetime(2026, 8, 19, tzinfo=timezone.utc), [100, 110, 121, 133.1])}
+    history = {
+        10: prices(datetime(2026, 8, 19, tzinfo=timezone.utc), [100, 110, 121, 133.1])
+    }
 
     result = ResearchFactorReturnService().compute_forward_returns(
         panel, history, horizon=1, return_price_basis=PriceBasis.UNADJUSTED
@@ -125,7 +126,13 @@ def test_compute_forward_returns_aligns_each_security_independently():
 def test_compute_forward_returns_accepts_unsorted_price_history():
     panel = ranked_panel(factor_row("AAPL", 10, BASE, 0.5))
     start = datetime(2026, 8, 19, tzinfo=timezone.utc)
-    history = {10: (Price(start + timedelta(days=2), 121, 121), Price(start, 100, 100), Price(start + timedelta(days=1), 110, 110))}
+    history = {
+        10: (
+            Price(start + timedelta(days=2), 121, 121),
+            Price(start, 100, 100),
+            Price(start + timedelta(days=1), 110, 110),
+        )
+    }
 
     result = ResearchFactorReturnService().compute_forward_returns(
         panel, history, horizon=1, return_price_basis=PriceBasis.UNADJUSTED
@@ -137,23 +144,23 @@ def test_compute_forward_returns_accepts_unsorted_price_history():
 def test_compute_forward_returns_rejects_non_positive_horizon():
     panel = ranked_panel(factor_row("AAPL", 10, BASE, 0.5))
     with pytest.raises(InvalidInputError):
-        ResearchFactorReturnService().compute_forward_returns(
-            panel, {}, horizon=0
-        )
+        ResearchFactorReturnService().compute_forward_returns(panel, {}, horizon=0)
 
 
 def test_compute_forward_returns_rejects_boolean_horizon():
     panel = ranked_panel(factor_row("AAPL", 10, BASE, 0.5))
     with pytest.raises(InvalidInputError):
-        ResearchFactorReturnService().compute_forward_returns(
-            panel, {}, horizon=True
-        )
+        ResearchFactorReturnService().compute_forward_returns(panel, {}, horizon=True)
 
 
 def test_compute_forward_returns_rejects_missing_adjusted_close():
     panel = ranked_panel(factor_row("AAPL", 10, BASE, 0.5))
     start = datetime(2026, 8, 19, tzinfo=timezone.utc)
-    history = (Price(start, 100, 100), Price(start + timedelta(days=1), 110, None), Price(start + timedelta(days=2), 121, 121))
+    history = (
+        Price(start, 100, 100),
+        Price(start + timedelta(days=1), 110, None),
+        Price(start + timedelta(days=2), 121, 121),
+    )
     history = {10: history}
 
     with pytest.raises(InvalidInputError):
@@ -166,15 +173,18 @@ def test_compute_forward_returns_rejects_duplicate_price_dates():
     history = {10: (Price(start, 100, 100), Price(start, 101, 101))}
 
     with pytest.raises(InvalidInputError):
-        ResearchFactorReturnService().compute_forward_returns(
-            panel, history, horizon=1
-        )
+        ResearchFactorReturnService().compute_forward_returns(panel, history, horizon=1)
 
 
 def test_compute_forward_returns_rejects_non_finite_price():
     panel = ranked_panel(factor_row("AAPL", 10, BASE, 0.5))
     start = datetime(2026, 8, 19, tzinfo=timezone.utc)
-    history = {10: (Price(start, float("nan"), 100), Price(start + timedelta(days=1), 110, 110))}
+    history = {
+        10: (
+            Price(start, float("nan"), 100),
+            Price(start + timedelta(days=1), 110, 110),
+        )
+    }
 
     with pytest.raises(InvalidInputError):
         ResearchFactorReturnService().compute_forward_returns(
@@ -185,7 +195,13 @@ def test_compute_forward_returns_rejects_non_finite_price():
 def test_compute_forward_returns_rejects_non_positive_selected_price():
     panel = ranked_panel(factor_row("AAPL", 10, BASE, 0.5))
     start = datetime(2026, 8, 19, tzinfo=timezone.utc)
-    history = {10: (Price(start, 100, 100), Price(start + timedelta(days=1), 0, 0), Price(start + timedelta(days=2), 110, 110))}
+    history = {
+        10: (
+            Price(start, 100, 100),
+            Price(start + timedelta(days=1), 0, 0),
+            Price(start + timedelta(days=2), 110, 110),
+        )
+    }
 
     with pytest.raises(InvalidInputError):
         ResearchFactorReturnService().compute_forward_returns(
@@ -238,15 +254,11 @@ def test_compute_forward_returns_rejects_future_factor_as_of():
     future = datetime.now(timezone.utc) + timedelta(days=1)
     panel = ranked_panel(factor_row("AAPL", 10, future, 0.5))
     with pytest.raises(InvalidInputError):
-        ResearchFactorReturnService().compute_forward_returns(
-            panel, {}, horizon=1
-        )
+        ResearchFactorReturnService().compute_forward_returns(panel, {}, horizon=1)
 
 
 def test_compute_forward_returns_requires_timezone_aware_price_dates():
     panel = ranked_panel(factor_row("AAPL", 10, BASE, 0.5))
-    history = {10: (Price(datetime(2026, 8, 20), 100, 100),)}
+    history = {10: (Price(datetime(2026, 8, 20), 100, 100),)}  # noqa: DTZ001
     with pytest.raises(InvalidInputError):
-        ResearchFactorReturnService().compute_forward_returns(
-            panel, history, horizon=1
-        )
+        ResearchFactorReturnService().compute_forward_returns(panel, history, horizon=1)

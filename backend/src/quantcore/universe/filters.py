@@ -1,6 +1,5 @@
 from quantcore.universe.models import UniverseCompany
 
-
 DEFAULT_US_EXCHANGES = {
     "NASDAQ",
     "NYSE",
@@ -17,6 +16,5 @@ def filter_us_equities(
     return [
         company
         for company in companies
-        if company.exchange.upper()
-        in DEFAULT_US_EXCHANGES
+        if company.exchange.upper() in DEFAULT_US_EXCHANGES
     ]

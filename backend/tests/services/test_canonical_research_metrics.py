@@ -60,7 +60,9 @@ def definition(key):
 def test_canonical_registry_contains_versioned_metric_identities():
     definitions = get_canonical_research_metric_definitions()
 
-    assert [(item.observation_key, item.definition_version) for item in definitions] == [
+    assert [
+        (item.observation_key, item.definition_version) for item in definitions
+    ] == [
         ("net_margin", "1"),
         ("operating_margin", "1"),
         ("fcf_margin", "1"),
@@ -71,8 +73,13 @@ def test_canonical_registry_contains_versioned_metric_identities():
 def test_definition_service_uses_canonical_definitions_by_default():
     service = ResearchObservationDefinitionService(None)
 
-    assert service.definition_registry.get("net_margin", "1").observation_key == "net_margin"
-    assert service.definition_registry.get("debt_to_equity", "1").definition_version == "1"
+    assert (
+        service.definition_registry.get("net_margin", "1").observation_key
+        == "net_margin"
+    )
+    assert (
+        service.definition_registry.get("debt_to_equity", "1").definition_version == "1"
+    )
 
 
 def test_net_margin_uses_latest_pit_known_ttm_row():

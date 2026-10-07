@@ -1,11 +1,11 @@
 from .base import MarketDataProvider
-from .yahoo import YahooClient
 from .fmp import FMPClient
 from .massive import MassiveClient
+from .yahoo import YahooClient
 
 __all__ = [
-    "MarketDataProvider",
-    "YahooClient",
     "FMPClient",
+    "MarketDataProvider",
     "MassiveClient",
+    "YahooClient",
 ]

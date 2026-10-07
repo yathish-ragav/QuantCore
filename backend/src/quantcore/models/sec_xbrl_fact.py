@@ -1,8 +1,16 @@
+import hashlib
 from datetime import date, datetime
 from decimal import Decimal
-import hashlib
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
+from sqlalchemy import (
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
@@ -23,10 +31,17 @@ def build_sec_xbrl_fact_identity_hash(
     value: Decimal,
 ) -> str:
     payload = "\x1f".join(
-        str(part) for part in (
-            company_id, accession_number, taxonomy, concept, unit,
+        str(part)
+        for part in (
+            company_id,
+            accession_number,
+            taxonomy,
+            concept,
+            unit,
             period_start.isoformat() if period_start else "",
-            period_end.isoformat(), frame, qtrs,
+            period_end.isoformat(),
+            frame,
+            qtrs,
             format(value.normalize(), "f"),
         )
     )
@@ -56,9 +71,7 @@ class SECXBRLFactObservation(ProvenanceMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
-    identity_hash: Mapped[str] = mapped_column(
-        String(64), nullable=False, unique=True
-    )
+    identity_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
 
     company_id: Mapped[int] = mapped_column(
         ForeignKey("companies.id", ondelete="CASCADE"),
@@ -79,9 +92,7 @@ class SECXBRLFactObservation(ProvenanceMixin, Base):
     concept: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     unit: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
 
-    value: Mapped[Decimal] = mapped_column(
-        Numeric(60, 18), nullable=False
-    )
+    value: Mapped[Decimal] = mapped_column(Numeric(60, 18), nullable=False)
 
     period_start: Mapped[date | None] = mapped_column(Date, nullable=True, index=True)
     period_end: Mapped[date] = mapped_column(Date, nullable=False, index=True)
@@ -93,8 +104,12 @@ class SECXBRLFactObservation(ProvenanceMixin, Base):
     form: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     fiscal_year: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
     fiscal_period: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    frame: Mapped[str] = mapped_column(String(40), nullable=False, default="", server_default="", index=True)
-    qtrs: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    frame: Mapped[str] = mapped_column(
+        String(40), nullable=False, default="", server_default="", index=True
+    )
+    qtrs: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
     decimals: Mapped[str | None] = mapped_column(String(40), nullable=True)
 
     company = relationship("Company")

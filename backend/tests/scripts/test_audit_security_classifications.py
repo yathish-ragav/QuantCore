@@ -7,8 +7,8 @@ from quantcore.core.enums import SecurityType
 from quantcore.db.database import Base
 from quantcore.models.company import Company
 from quantcore.models.security import Security, SecurityStatus
-from quantcore.universe.models import UniverseSecurityClassification
 from quantcore.universe.audit import audit
+from quantcore.universe.models import UniverseSecurityClassification
 
 
 class FakeProvider:
@@ -34,22 +34,83 @@ def test_audit_distinguishes_unknown_and_unmatched_reconciliation_cases():
         ]
         db.add_all(companies)
         db.flush()
-        db.add_all([
-            Security(company_id=companies[0].id, symbol="KNOWN", exchange="NASDAQ", status=SecurityStatus.ACTIVE),
-            Security(company_id=companies[1].id, symbol="UNK", exchange="NYSE", status=SecurityStatus.ACTIVE),
-            Security(company_id=companies[2].id, symbol="OLD", exchange="NYSE", status=SecurityStatus.ACTIVE),
-            Security(company_id=companies[3].id, symbol="SAME", exchange="NYSE", status=SecurityStatus.ACTIVE),
-            Security(company_id=companies[4].id, symbol="ABSENT", exchange="NYSE", status=SecurityStatus.ACTIVE),
-        ])
+        db.add_all(
+            [
+                Security(
+                    company_id=companies[0].id,
+                    symbol="KNOWN",
+                    exchange="NASDAQ",
+                    status=SecurityStatus.ACTIVE,
+                ),
+                Security(
+                    company_id=companies[1].id,
+                    symbol="UNK",
+                    exchange="NYSE",
+                    status=SecurityStatus.ACTIVE,
+                ),
+                Security(
+                    company_id=companies[2].id,
+                    symbol="OLD",
+                    exchange="NYSE",
+                    status=SecurityStatus.ACTIVE,
+                ),
+                Security(
+                    company_id=companies[3].id,
+                    symbol="SAME",
+                    exchange="NYSE",
+                    status=SecurityStatus.ACTIVE,
+                ),
+                Security(
+                    company_id=companies[4].id,
+                    symbol="ABSENT",
+                    exchange="NYSE",
+                    status=SecurityStatus.ACTIVE,
+                ),
+            ]
+        )
         db.commit()
 
         observed = datetime.now(timezone.utc)
-        provider = FakeProvider([
-            UniverseSecurityClassification("0000000001", "KNOWN", SecurityType.COMMON_STOCK, "MASSIVE", observed, "ref", "CS"),
-            UniverseSecurityClassification("0000000002", "UNK", SecurityType.UNKNOWN, "MASSIVE", observed, "ref", "FUTURE_CODE"),
-            UniverseSecurityClassification("0000000003", "NEW", SecurityType.COMMON_STOCK, "MASSIVE", observed, "ref", "CS"),
-            UniverseSecurityClassification("0000000099", "SAME", SecurityType.COMMON_STOCK, "MASSIVE", observed, "ref", "CS"),
-        ])
+        provider = FakeProvider(
+            [
+                UniverseSecurityClassification(
+                    "0000000001",
+                    "KNOWN",
+                    SecurityType.COMMON_STOCK,
+                    "MASSIVE",
+                    observed,
+                    "ref",
+                    "CS",
+                ),
+                UniverseSecurityClassification(
+                    "0000000002",
+                    "UNK",
+                    SecurityType.UNKNOWN,
+                    "MASSIVE",
+                    observed,
+                    "ref",
+                    "FUTURE_CODE",
+                ),
+                UniverseSecurityClassification(
+                    "0000000003",
+                    "NEW",
+                    SecurityType.COMMON_STOCK,
+                    "MASSIVE",
+                    observed,
+                    "ref",
+                    "CS",
+                ),
+                UniverseSecurityClassification(
+                    "0000000099",
+                    "SAME",
+                    SecurityType.COMMON_STOCK,
+                    "MASSIVE",
+                    observed,
+                    "ref",
+                    "CS",
+                ),
+            ]
+        )
 
         report = audit(db, provider)
 
@@ -68,7 +129,6 @@ def test_audit_distinguishes_unknown_and_unmatched_reconciliation_cases():
     finally:
         db.close()
         engine.dispose()
-
 
 
 def test_audit_reports_safe_symbol_alias_reconciliation():
@@ -91,24 +151,28 @@ def test_audit_reports_safe_symbol_alias_reconciliation():
         db.commit()
 
         observed = datetime.now(timezone.utc)
-        provider = FakeProvider([
-            UniverseSecurityClassification(
-                "0000000001",
-                "AAC.U",
-                SecurityType.UNIT,
-                "MASSIVE",
-                observed,
-                "ref",
-                "UNIT",
-            )
-        ])
+        provider = FakeProvider(
+            [
+                UniverseSecurityClassification(
+                    "0000000001",
+                    "AAC.U",
+                    SecurityType.UNIT,
+                    "MASSIVE",
+                    observed,
+                    "ref",
+                    "UNIT",
+                )
+            ]
+        )
 
         report = audit(db, provider)
 
         assert report["summary"]["classified"] == 1
         assert report["summary"]["unmatched"] == 0
         assert report["reconciliation"]["alias_resolved_count"] == 1
-        assert report["reconciliation"]["alias_resolved"][0]["massive_symbol"] == "AAC.U"
+        assert (
+            report["reconciliation"]["alias_resolved"][0]["massive_symbol"] == "AAC.U"
+        )
     finally:
         db.close()
         engine.dispose()

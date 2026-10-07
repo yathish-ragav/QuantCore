@@ -1,5 +1,3 @@
-from datetime import datetime, timezone
-
 from quantcore.models.research_observation import ResearchObservation
 
 

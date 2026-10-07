@@ -1,7 +1,8 @@
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from math import isfinite
-from typing import Iterable, Mapping, Protocol
+from typing import Protocol
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.services.research_dataset_service import ResearchFeatureVector
@@ -47,9 +48,7 @@ class ResearchFactorCalculatorRegistry:
     """Resolve versioned factor calculators without persisting calculators."""
 
     def __init__(self, calculators: Iterable[ResearchFactorCalculator] = ()):
-        self._calculators: dict[
-            tuple[str, str], ResearchFactorCalculator
-        ] = {}
+        self._calculators: dict[tuple[str, str], ResearchFactorCalculator] = {}
         for calculator in calculators:
             self.register(calculator)
 
@@ -169,7 +168,9 @@ class ResearchFactorComputationService:
             raise InvalidInputError("Research feature-vector symbol must not be empty.")
 
         if not isinstance(feature_vector.security_id, int):
-            raise InvalidInputError("Research feature-vector security_id must be an integer.")
+            raise InvalidInputError(
+                "Research feature-vector security_id must be an integer."
+            )
 
         as_of = feature_vector.as_of
         if not isinstance(as_of, datetime):
@@ -216,7 +217,10 @@ class ResearchFactorComputationService:
                 "Research factor calculators must return ResearchFactorValue."
             )
 
-        if (result.factor_key.strip(), result.definition_version.strip()) != definition.identity:
+        if (
+            result.factor_key.strip(),
+            result.definition_version.strip(),
+        ) != definition.identity:
             raise InvalidInputError(
                 "Research factor result identity does not match its definition."
             )

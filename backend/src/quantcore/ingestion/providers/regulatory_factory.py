@@ -1,4 +1,5 @@
 from sqlalchemy.orm import Session
+
 from quantcore.core.config import settings
 from quantcore.core.exceptions import ConfigurationError
 from quantcore.core.production_data_policy import ProductionDataPolicy
@@ -17,10 +18,12 @@ class RegulatoryProviderFactory:
 
         if provider == "sec":
             return SECProvider(
-                company_facts_cache=SECProvider.cache_for_session(db) if db is not None else None,
-                http_session=SECProvider.http_session_for_session(db) if db is not None else None,
+                company_facts_cache=(
+                    SECProvider.cache_for_session(db) if db is not None else None
+                ),
+                http_session=(
+                    SECProvider.http_session_for_session(db) if db is not None else None
+                ),
             )
 
-        raise ConfigurationError(
-            f"Unknown regulatory data provider: {provider}"
-        )
+        raise ConfigurationError(f"Unknown regulatory data provider: {provider}")

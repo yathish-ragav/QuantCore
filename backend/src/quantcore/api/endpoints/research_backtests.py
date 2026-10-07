@@ -10,7 +10,9 @@ from quantcore.schemas.research_backtests import (
     ResearchBacktestTargetPortfolioResponse,
 )
 from quantcore.schemas.research_portfolios import ResearchPortfolioPositionResponse
-from quantcore.services.research_backtest_product_service import ResearchBacktestProductService
+from quantcore.services.research_backtest_product_service import (
+    ResearchBacktestProductService,
+)
 from quantcore.services.research_backtest_service import ResearchBacktestDefinition
 from quantcore.services.research_portfolio_constraint_service import (
     ResearchPortfolioConstraintDefinition,
@@ -21,7 +23,6 @@ from quantcore.services.research_strategy_service import ResearchStrategyDefinit
 from quantcore.services.research_transaction_cost_service import (
     ResearchTransactionCostDefinition,
 )
-
 
 router = APIRouter(
     prefix="/api/v1/research/backtests",
@@ -67,7 +68,10 @@ def run_research_backtest(
     backtest_definition = ResearchBacktestDefinition(
         backtest_key=request.backtest_key,
         definition_version=request.backtest_definition_version,
-        strategy_identity=(request.strategy.strategy_key, request.strategy.definition_version),
+        strategy_identity=(
+            request.strategy.strategy_key,
+            request.strategy.definition_version,
+        ),
         constraint_identity=(
             request.constraint_key,
             request.constraint_definition_version,
@@ -167,7 +171,7 @@ def run_research_backtest(
                 strategy_definition_version=portfolio.portfolio.strategy_definition_version,
                 signal_identity=portfolio.portfolio.signal_identity,
                 as_of=portfolio.portfolio.as_of,
-                status=portfolio.portfolio.status.value,
+                status=portfolio.portfolio.status,
                 construction=portfolio.portfolio.construction,
                 eligible_count=portfolio.portfolio.eligible_count,
                 long_count=portfolio.portfolio.long_count,
@@ -183,7 +187,7 @@ def run_research_backtest(
                         security_id=position.security_id,
                         as_of=position.as_of,
                         signal_score=position.signal_score,
-                        side=position.side.value,
+                        side=position.side,
                         target_weight=position.target_weight,
                     )
                     for position in portfolio.portfolio.positions

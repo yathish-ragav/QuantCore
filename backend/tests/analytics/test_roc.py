@@ -19,9 +19,7 @@ def test_roc_basic():
     assert result[2] == pytest.approx(20.0)
 
     # (90 - 110) / 110 * 100 = -18.1818...
-    assert result[3] == pytest.approx(
-        -18.1818181818
-    )
+    assert result[3] == pytest.approx(-18.1818181818)
 
 
 def test_roc_period_larger_than_data():

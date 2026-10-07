@@ -16,7 +16,6 @@ from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalDatasetRow,
 )
 
-
 AS_OF_1 = datetime(2026, 8, 19, 15, 30, tzinfo=timezone.utc)
 AS_OF_2 = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
 
@@ -38,15 +37,17 @@ def make_row(symbol, security_id, as_of, value):
 
 def make_service():
     computation = Mock()
-    computation.compute_factor.side_effect = lambda vector, *, factor_key, definition_version: ResearchFactorValue(
-        factor_key=factor_key,
-        definition_version=definition_version,
-        symbol=vector.symbol.strip().upper(),
-        security_id=vector.security_id,
-        as_of=vector.as_of,
-        value_numeric=vector.security_id / 10,
-        unit="score",
-        input_manifest={"source": "test"},
+    computation.compute_factor.side_effect = (
+        lambda vector, *, factor_key, definition_version: ResearchFactorValue(
+            factor_key=factor_key,
+            definition_version=definition_version,
+            symbol=vector.symbol.strip().upper(),
+            security_id=vector.security_id,
+            as_of=vector.as_of,
+            value_numeric=vector.security_id / 10,
+            unit="score",
+            input_manifest={"source": "test"},
+        )
     )
     service = ResearchFactorPanelService.__new__(ResearchFactorPanelService)
     service.computation_service = computation

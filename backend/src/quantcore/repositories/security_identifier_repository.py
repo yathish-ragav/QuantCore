@@ -4,8 +4,8 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import DataValidationError
-from quantcore.models.security_identifier import SecurityIdentifier
 from quantcore.core.security_identity import SecurityIdentifierType
+from quantcore.models.security_identifier import SecurityIdentifier
 
 
 class SecurityIdentifierRepository:
@@ -48,7 +48,8 @@ class SecurityIdentifierRepository:
         ranked = (
             select(
                 SecurityIdentifier.id.label("identifier_id"),
-                func.row_number().over(
+                func.row_number()
+                .over(
                     partition_by=(
                         SecurityIdentifier.identifier_type,
                         SecurityIdentifier.namespace,
@@ -58,7 +59,8 @@ class SecurityIdentifierRepository:
                         SecurityIdentifier.known_at.desc(),
                         SecurityIdentifier.id.desc(),
                     ),
-                ).label("revision_rank"),
+                )
+                .label("revision_rank"),
             )
             .where(
                 SecurityIdentifier.security_id == security_id,
@@ -93,7 +95,8 @@ class SecurityIdentifierRepository:
         ranked = (
             select(
                 SecurityIdentifier.id.label("identifier_id"),
-                func.row_number().over(
+                func.row_number()
+                .over(
                     partition_by=(
                         SecurityIdentifier.security_id,
                         SecurityIdentifier.valid_from,
@@ -102,7 +105,8 @@ class SecurityIdentifierRepository:
                         SecurityIdentifier.known_at.desc(),
                         SecurityIdentifier.id.desc(),
                     ),
-                ).label("revision_rank"),
+                )
+                .label("revision_rank"),
             )
             .where(
                 SecurityIdentifier.identifier_type == identifier_type.value,
@@ -134,9 +138,7 @@ class SecurityIdentifierRepository:
         )
         latest = candidates[0]
 
-        same_knowledge = [
-            row for row in candidates if row.known_at == latest.known_at
-        ]
+        same_knowledge = [row for row in candidates if row.known_at == latest.known_at]
         security_ids = {row.security_id for row in same_knowledge}
         if len(security_ids) > 1:
             raise DataValidationError(
@@ -158,11 +160,15 @@ class SecurityIdentifierRepository:
             )
         if namespace is not None:
             conditions.append(SecurityIdentifier.namespace == namespace)
-        stmt = select(SecurityIdentifier).where(*conditions).order_by(
-            SecurityIdentifier.identifier_type.asc(),
-            SecurityIdentifier.valid_from.asc(),
-            SecurityIdentifier.known_at.asc(),
-            SecurityIdentifier.id.asc(),
+        stmt = (
+            select(SecurityIdentifier)
+            .where(*conditions)
+            .order_by(
+                SecurityIdentifier.identifier_type.asc(),
+                SecurityIdentifier.valid_from.asc(),
+                SecurityIdentifier.known_at.asc(),
+                SecurityIdentifier.id.asc(),
+            )
         )
         return list(self.db.scalars(stmt).all())
 

@@ -14,6 +14,7 @@ from quantcore.models.security import Security, SecurityStatus
 from quantcore.repositories.security_classification_history_repository import (
     SecurityClassificationHistoryRepository,
 )
+from quantcore.universe.models import UniverseSecurityClassification
 from quantcore.universe.providers.massive import MassiveUniverseProvider
 from quantcore.universe.symbol_reconciliation import symbol_aliases
 
@@ -49,7 +50,7 @@ class SecurityClassificationService:
         )
 
         classifications = self.provider.fetch()
-        by_identity = {}
+        by_identity: dict[tuple[str, str], UniverseSecurityClassification] = {}
         for item in classifications:
             key = (item.cik, item.symbol)
             existing = by_identity.get(key)
@@ -66,7 +67,9 @@ class SecurityClassificationService:
         # Build deterministic CIK + symbol aliases for provider-specific
         # ticker formatting. A normalized alias is only usable when it maps
         # to exactly one Massive row; ambiguous aliases remain unmatched.
-        by_reconciled_identity: dict[tuple[str, str], list] = {}
+        by_reconciled_identity: dict[
+            tuple[str, str], list[UniverseSecurityClassification]
+        ] = {}
         for item in classifications:
             for alias in symbol_aliases(item.symbol):
                 by_reconciled_identity.setdefault((item.cik, alias), []).append(item)

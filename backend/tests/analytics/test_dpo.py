@@ -110,7 +110,7 @@ def test_dpo_invalid_period():
 
     with pytest.raises(
         ValueError,
-        match="Period must be greater than zero.",
+        match=r"Period\ must\ be\ greater\ than\ zero\.",
     ):
         DetrendedPriceOscillator.calculate(
             closes,

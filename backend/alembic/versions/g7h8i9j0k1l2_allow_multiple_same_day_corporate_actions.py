@@ -5,13 +5,12 @@ Revises: fb1c2d3e4f50
 Create Date: 2026-09-20
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
-
 revision: str = "g7h8i9j0k1l2"
-down_revision: Union[str, Sequence[str], None] = "fb1c2d3e4f50"
+down_revision: str | Sequence[str] | None = "fb1c2d3e4f50"
 branch_labels = None
 depends_on = None
 

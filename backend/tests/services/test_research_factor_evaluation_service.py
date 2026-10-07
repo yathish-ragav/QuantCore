@@ -13,7 +13,6 @@ from quantcore.services.research_factor_evaluation_service import (
     ResearchFactorEvaluationService,
 )
 
-
 AS_OF_1 = datetime(2026, 8, 19, 15, 30, tzinfo=timezone.utc)
 AS_OF_2 = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
 
@@ -67,8 +66,12 @@ def test_evaluate_ranked_panel_produces_per_cross_section_diagnostics():
     assert result.minimum_cross_section_size == 2
     assert result.maximum_cross_section_size == 3
     assert result.mean_cross_section_size == 2.5
-    assert result.mean_cross_section_value == pytest.approx((0.35 + (0.8 + 0.4 + 0.2) / 3) / 2)
-    assert result.mean_cross_section_stddev == pytest.approx((0.15 + 0.24944382578492943) / 2)
+    assert result.mean_cross_section_value == pytest.approx(
+        (0.35 + (0.8 + 0.4 + 0.2) / 3) / 2
+    )
+    assert result.mean_cross_section_stddev == pytest.approx(
+        (0.15 + 0.24944382578492943) / 2
+    )
     assert result.mean_cross_section_range == pytest.approx((0.3 + 0.6) / 2)
 
     first, second = result.cross_sections
@@ -127,8 +130,6 @@ def test_evaluate_ranked_panel_rejects_empty_panel():
         ResearchFactorEvaluationService().evaluate_ranked_panel(empty)
 
 
-
-
 def test_evaluate_ranked_panel_output_is_deterministic_for_input_order():
     rows = (
         row("AAPL", 10, AS_OF_2, 0.4, 2.0, 0.5),
@@ -156,7 +157,9 @@ def test_evaluate_ranked_panel_rejects_text_factor_values():
     ranked = ResearchFactorRankRow("AAPL", 10, AS_OF_1, factor, 1.0, 1.0)
     with pytest.raises(InvalidInputError):
         ResearchFactorEvaluationService().evaluate_ranked_panel(
-            ResearchFactorRankedPanel("quality_score", "1", (ranked,), "average_tie", True)
+            ResearchFactorRankedPanel(
+                "quality_score", "1", (ranked,), "average_tie", True
+            )
         )
 
 
@@ -173,10 +176,10 @@ def test_evaluate_ranked_panel_rejects_identity_mismatch():
     ranked = ResearchFactorRankRow("AAPL", 10, AS_OF_1, factor, 1.0, 1.0)
     with pytest.raises(InvalidInputError):
         ResearchFactorEvaluationService().evaluate_ranked_panel(
-            ResearchFactorRankedPanel("quality_score", "1", (ranked,), "average_tie", True)
+            ResearchFactorRankedPanel(
+                "quality_score", "1", (ranked,), "average_tie", True
+            )
         )
-
-
 
 
 def test_evaluate_ranked_panel_rejects_symbol_mismatch():
@@ -192,7 +195,9 @@ def test_evaluate_ranked_panel_rejects_symbol_mismatch():
     ranked = ResearchFactorRankRow("AAPL", 10, AS_OF_1, factor, 1.0, 1.0)
     with pytest.raises(InvalidInputError):
         ResearchFactorEvaluationService().evaluate_ranked_panel(
-            ResearchFactorRankedPanel("quality_score", "1", (ranked,), "average_tie", True)
+            ResearchFactorRankedPanel(
+                "quality_score", "1", (ranked,), "average_tie", True
+            )
         )
 
 

@@ -70,7 +70,14 @@ class ResearchFactorEvaluationService:
 
         slices: list[ResearchFactorEvaluationSlice] = []
         for as_of in sorted(by_as_of):
-            values = [float(row.factor_value.value_numeric) for row in by_as_of[as_of]]
+            values = []
+            for row in by_as_of[as_of]:
+                value = row.factor_value.value_numeric
+                if value is None:
+                    raise InvalidInputError(
+                        "Research factor evaluation requires numeric factor values."
+                    )
+                values.append(float(value))
             minimum = min(values)
             maximum = max(values)
             slices.append(
@@ -172,9 +179,13 @@ class ResearchFactorEvaluationService:
                     "Research factor evaluation requires finite factor values."
                 )
             if not isinstance(row.rank, (int, float)) or not isfinite(float(row.rank)):
-                raise InvalidInputError("Research factor evaluation ranks must be finite.")
+                raise InvalidInputError(
+                    "Research factor evaluation ranks must be finite."
+                )
             if float(row.rank) < 1.0:
-                raise InvalidInputError("Research factor evaluation ranks must be positive.")
+                raise InvalidInputError(
+                    "Research factor evaluation ranks must be positive."
+                )
             if not isinstance(row.normalized_rank, (int, float)) or not isfinite(
                 float(row.normalized_rank)
             ):

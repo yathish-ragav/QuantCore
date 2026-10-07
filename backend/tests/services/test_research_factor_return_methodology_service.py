@@ -20,7 +20,6 @@ from quantcore.services.research_factor_return_service import (
     ResearchFactorReturnService,
 )
 
-
 AS_OF = datetime(2026, 8, 19, 15, 30, tzinfo=timezone.utc)
 
 
@@ -49,7 +48,10 @@ def return_panel(values, returns):
         ResearchFactorPanel(
             "quality_score",
             "1",
-            tuple(factor_row(symbol, security_id, value) for symbol, security_id, value in values),
+            tuple(
+                factor_row(symbol, security_id, value)
+                for symbol, security_id, value in values
+            ),
             "score",
         )
     )
@@ -74,9 +76,11 @@ def return_panel(values, returns):
 def test_compute_factor_return_series_builds_equal_weighted_quintile_spread():
     panel = return_panel(
         [("A", 1, 5), ("B", 2, 4), ("C", 3, 3), ("D", 4, 2), ("E", 5, 1)],
-        {1: .10, 2: .06, 3: .02, 4: -.01, 5: -.05},
+        {1: 0.10, 2: 0.06, 3: 0.02, 4: -0.01, 5: -0.05},
     )
-    result = ResearchFactorReturnMethodologyService().compute_factor_return_series(panel)
+    result = ResearchFactorReturnMethodologyService().compute_factor_return_series(
+        panel
+    )
 
     assert isinstance(result, ResearchFactorReturnSeries)
     assert result.bucket_count == 5
@@ -88,22 +92,30 @@ def test_compute_factor_return_series_builds_equal_weighted_quintile_spread():
     assert section.status == "AVAILABLE"
     assert section.total_observation_count == 5
     assert section.eligible_observation_count == 5
-    assert section.long_return == pytest.approx(.10)
-    assert section.short_return == pytest.approx(-.05)
-    assert section.long_short_return == pytest.approx(.15)
+    assert section.long_return == pytest.approx(0.10)
+    assert section.short_return == pytest.approx(-0.05)
+    assert section.long_short_return == pytest.approx(0.15)
     assert [bucket.observation_count for bucket in section.buckets] == [1, 1, 1, 1, 1]
-    assert [bucket.eligible_return_count for bucket in section.buckets] == [1, 1, 1, 1, 1]
+    assert [bucket.eligible_return_count for bucket in section.buckets] == [
+        1,
+        1,
+        1,
+        1,
+        1,
+    ]
 
 
 def test_bucket_membership_is_based_on_factor_rank_before_return_availability():
     panel = return_panel(
         [("A", 1, 5), ("B", 2, 4), ("C", 3, 3), ("D", 4, 2), ("E", 5, 1)],
-        {1: .10, 2: .05, 3: .02, 4: -.02, 5: -.05},
+        {1: 0.10, 2: 0.05, 3: 0.02, 4: -0.02, 5: -0.05},
     )
     rows = tuple(
-        replace(row, status="HORIZON_UNAVAILABLE", forward_return=None)
-        if row.security_id == 2
-        else row
+        (
+            replace(row, status="HORIZON_UNAVAILABLE", forward_return=None)
+            if row.security_id == 2
+            else row
+        )
         for row in panel.rows
     )
     result = ResearchFactorReturnMethodologyService().compute_factor_return_series(
@@ -112,18 +124,20 @@ def test_bucket_membership_is_based_on_factor_rank_before_return_availability():
     buckets = result.slices[0].buckets
     assert [bucket.observation_count for bucket in buckets] == [1, 1, 1, 1, 1]
     assert buckets[1].eligible_return_count == 0
-    assert result.slices[0].long_short_return == pytest.approx(.15)
+    assert result.slices[0].long_short_return == pytest.approx(0.15)
 
 
 def test_minimum_long_leg_coverage_is_explicit():
     panel = return_panel(
         [("A", 1, 5), ("B", 2, 4), ("C", 3, 3), ("D", 4, 2), ("E", 5, 1)],
-        {1: .10, 2: .05, 3: .02, 4: -.02, 5: -.05},
+        {1: 0.10, 2: 0.05, 3: 0.02, 4: -0.02, 5: -0.05},
     )
     rows = tuple(
-        replace(row, status="HORIZON_UNAVAILABLE", forward_return=None)
-        if row.security_id == 1
-        else row
+        (
+            replace(row, status="HORIZON_UNAVAILABLE", forward_return=None)
+            if row.security_id == 1
+            else row
+        )
         for row in panel.rows
     )
     result = ResearchFactorReturnMethodologyService().compute_factor_return_series(
@@ -136,12 +150,14 @@ def test_minimum_long_leg_coverage_is_explicit():
 def test_minimum_short_leg_coverage_is_explicit():
     panel = return_panel(
         [("A", 1, 5), ("B", 2, 4), ("C", 3, 3), ("D", 4, 2), ("E", 5, 1)],
-        {1: .10, 2: .05, 3: .02, 4: -.02, 5: -.05},
+        {1: 0.10, 2: 0.05, 3: 0.02, 4: -0.02, 5: -0.05},
     )
     rows = tuple(
-        replace(row, status="HORIZON_UNAVAILABLE", forward_return=None)
-        if row.security_id == 5
-        else row
+        (
+            replace(row, status="HORIZON_UNAVAILABLE", forward_return=None)
+            if row.security_id == 5
+            else row
+        )
         for row in panel.rows
     )
     result = ResearchFactorReturnMethodologyService().compute_factor_return_series(
@@ -154,9 +170,12 @@ def test_minimum_short_leg_coverage_is_explicit():
 def test_no_eligible_returns_has_explicit_status():
     panel = return_panel(
         [("A", 1, 5), ("B", 2, 4), ("C", 3, 3), ("D", 4, 2), ("E", 5, 1)],
-        {1: .10, 2: .05, 3: .02, 4: -.02, 5: -.05},
+        {1: 0.10, 2: 0.05, 3: 0.02, 4: -0.02, 5: -0.05},
     )
-    rows = tuple(replace(row, status="HORIZON_UNAVAILABLE", forward_return=None) for row in panel.rows)
+    rows = tuple(
+        replace(row, status="HORIZON_UNAVAILABLE", forward_return=None)
+        for row in panel.rows
+    )
     result = ResearchFactorReturnMethodologyService().compute_factor_return_series(
         replace(panel, rows=rows)
     )
@@ -168,29 +187,45 @@ def test_no_eligible_returns_has_explicit_status():
 
 def test_compute_factor_return_series_distributes_remainder_deterministically():
     panel = return_panel(
-        [("A", 1, 7), ("B", 2, 6), ("C", 3, 5), ("D", 4, 4), ("E", 5, 3), ("F", 6, 2), ("G", 7, 1)],
-        {i: .01 * i for i in range(1, 8)},
+        [
+            ("A", 1, 7),
+            ("B", 2, 6),
+            ("C", 3, 5),
+            ("D", 4, 4),
+            ("E", 5, 3),
+            ("F", 6, 2),
+            ("G", 7, 1),
+        ],
+        {i: 0.01 * i for i in range(1, 8)},
     )
     result = ResearchFactorReturnMethodologyService().compute_factor_return_series(
         panel, bucket_count=5
     )
-    assert [bucket.observation_count for bucket in result.slices[0].buckets] == [2, 2, 1, 1, 1]
+    assert [bucket.observation_count for bucket in result.slices[0].buckets] == [
+        2,
+        2,
+        1,
+        1,
+        1,
+    ]
 
 
 def test_compute_factor_return_series_is_deterministic_for_input_order():
     panel = return_panel(
         [("A", 1, 5), ("B", 2, 4), ("C", 3, 3), ("D", 4, 2), ("E", 5, 1)],
-        {1: .10, 2: .06, 3: .02, 4: -.01, 5: -.05},
+        {1: 0.10, 2: 0.06, 3: 0.02, 4: -0.01, 5: -0.05},
     )
     service = ResearchFactorReturnMethodologyService()
     first = service.compute_factor_return_series(panel)
-    second = service.compute_factor_return_series(replace(panel, rows=tuple(reversed(panel.rows))))
+    second = service.compute_factor_return_series(
+        replace(panel, rows=tuple(reversed(panel.rows)))
+    )
     assert first == second
 
 
 @pytest.mark.parametrize("bucket_count", [0, 1, True])
 def test_rejects_invalid_bucket_count(bucket_count):
-    panel = return_panel([("A", 1, 2), ("B", 2, 1)], {1: .1, 2: -.1})
+    panel = return_panel([("A", 1, 2), ("B", 2, 1)], {1: 0.1, 2: -0.1})
     with pytest.raises(InvalidInputError):
         ResearchFactorReturnMethodologyService().compute_factor_return_series(
             panel, bucket_count=bucket_count
@@ -199,7 +234,7 @@ def test_rejects_invalid_bucket_count(bucket_count):
 
 @pytest.mark.parametrize("minimum", [0, -1, True])
 def test_rejects_invalid_minimum_leg_coverage(minimum):
-    panel = return_panel([("A", 1, 2), ("B", 2, 1)], {1: .1, 2: -.1})
+    panel = return_panel([("A", 1, 2), ("B", 2, 1)], {1: 0.1, 2: -0.1})
     with pytest.raises(InvalidInputError):
         ResearchFactorReturnMethodologyService().compute_factor_return_series(
             panel, minimum_observations_per_leg=minimum
@@ -217,7 +252,7 @@ def test_rejects_empty_panel():
 def test_rejects_factor_identity_mismatch():
     panel = return_panel(
         [("A", 1, 2), ("B", 2, 1)],
-        {1: .1, 2: -.1},
+        {1: 0.1, 2: -0.1},
     )
     bad_factor = replace(
         panel.rows[0].factor_value,
@@ -233,7 +268,7 @@ def test_rejects_factor_identity_mismatch():
 def test_rejects_symbol_mismatch():
     panel = return_panel(
         [("A", 1, 2), ("B", 2, 1)],
-        {1: .1, 2: -.1},
+        {1: 0.1, 2: -0.1},
     )
     with pytest.raises(InvalidInputError):
         ResearchFactorReturnMethodologyService().compute_factor_return_series(

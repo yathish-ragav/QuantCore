@@ -43,9 +43,7 @@ def test_trix_basic():
     # ((102.962962 - 100) / 100) * 100
     # = 2.962962...
 
-    assert result[1] == pytest.approx(
-        2.9629629629
-    )
+    assert result[1] == pytest.approx(2.9629629629)
 
 
 def test_trix_multiple_values():

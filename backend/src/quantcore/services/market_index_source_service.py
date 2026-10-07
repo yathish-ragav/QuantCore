@@ -1,12 +1,18 @@
 from datetime import datetime, timezone
 
-from quantcore.core.exceptions import DataValidationError, InvalidInputError, ResourceNotFoundError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.models.market_index_source import (
     IndexLicenseStatus,
     IndexSourceAuthority,
     MarketIndexDataSource,
 )
-from quantcore.repositories.market_index_source_repository import MarketIndexDataSourceRepository
+from quantcore.repositories.market_index_source_repository import (
+    MarketIndexDataSourceRepository,
+)
 
 
 class MarketIndexDataSourceService:
@@ -69,8 +75,13 @@ class MarketIndexDataSourceService:
         self.db.flush()
         return source
 
-    def require_storage_authorized(self, key: str) -> MarketIndexDataSource:
-        source = self.get(key)
+    @staticmethod
+    def _validate_license_metadata(
+        source: MarketIndexDataSource,
+        *,
+        purpose: str,
+        allowed: bool,
+    ) -> MarketIndexDataSource:
         now = datetime.now(timezone.utc)
         try:
             license_status = IndexLicenseStatus(source.license_status)
@@ -80,11 +91,26 @@ class MarketIndexDataSourceService:
             ) from exc
         if license_status is not IndexLicenseStatus.AUTHORIZED:
             raise DataValidationError(
-                f"Index data source '{source.key}' is not authorized for persistence."
+                f"Index data source '{source.key}' is not authorized for {purpose}."
             )
-        if not source.storage_allowed:
+        if not allowed:
             raise DataValidationError(
-                f"Index data source '{source.key}' does not permit persistent storage."
+                f"Index data source '{source.key}' does not permit {purpose}."
+            )
+        if source.reviewed_at is None:
+            raise DataValidationError(
+                f"Index data source '{source.key}' has no recorded licensing review."
+            )
+        if not (source.license_reference or source.terms_reference):
+            raise DataValidationError(
+                f"Index data source '{source.key}' has no licensing/terms reference."
+            )
+        reviewed_at = source.reviewed_at
+        if reviewed_at.tzinfo is None:
+            reviewed_at = reviewed_at.replace(tzinfo=timezone.utc)
+        if reviewed_at > now:
+            raise DataValidationError(
+                f"Index data source '{source.key}' has a future licensing review timestamp."
             )
         if source.expires_at is not None:
             expires_at = source.expires_at
@@ -95,3 +121,27 @@ class MarketIndexDataSourceService:
                     f"Index data source '{source.key}' authorization has expired."
                 )
         return source
+
+    def require_storage_authorized(self, key: str) -> MarketIndexDataSource:
+        source = self.get(key)
+        return self._validate_license_metadata(
+            source,
+            purpose="persistence",
+            allowed=source.storage_allowed,
+        )
+
+    def require_display_authorized(self, key: str) -> MarketIndexDataSource:
+        source = self.get(key)
+        return self._validate_license_metadata(
+            source,
+            purpose="display",
+            allowed=source.display_allowed,
+        )
+
+    def require_redistribution_authorized(self, key: str) -> MarketIndexDataSource:
+        source = self.get(key)
+        return self._validate_license_metadata(
+            source,
+            purpose="redistribution",
+            allowed=source.redistribution_allowed,
+        )

@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pandas as pd
 import pytest
 
-from quantcore.ingestion.providers.yahoo import YahooClient
 from quantcore.core.exceptions import DataValidationError
+from quantcore.ingestion.providers.yahoo import YahooClient
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.news import NewsData
 from quantcore.schemas.price import PriceData
@@ -116,10 +116,7 @@ def test_yahoo_get_price_history():
 
     assert len(result) == 2
 
-    assert all(
-        isinstance(price, PriceData)
-        for price in result
-    )
+    assert all(isinstance(price, PriceData) for price in result)
 
     assert result[0].date == dates[0].to_pydatetime()
     assert result[0].open == 100.0
@@ -153,15 +150,17 @@ def test_yahoo_get_price_history_requires_adjusted_close():
         index=pd.to_datetime(["2025-01-02"]),
     )
 
-    with patch(
-        "quantcore.ingestion.providers.yahoo.yf.Ticker",
-        return_value=fake_ticker,
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "quantcore.ingestion.providers.yahoo.yf.Ticker",
+            return_value=fake_ticker,
+        ),
+        pytest.raises(
             DataValidationError,
-            match="Adj Close",
-        ):
-            YahooClient().get_price_history("AAPL")
+            match=r"Adj\ Close",
+        ),
+    ):
+        YahooClient().get_price_history("AAPL")
 
 
 def test_yahoo_get_price_history_empty():
@@ -189,16 +188,10 @@ def test_yahoo_get_news():
         {
             "content": {
                 "title": "Apple reports strong results",
-                "summary": (
-                    "Apple reported strong quarterly results."
-                ),
+                "summary": ("Apple reported strong quarterly results."),
                 "pubDate": published_timestamp,
-                "provider": {
-                    "displayName": "Example News"
-                },
-                "canonicalUrl": {
-                    "url": "https://example.com/apple"
-                },
+                "provider": {"displayName": "Example News"},
+                "canonicalUrl": {"url": "https://example.com/apple"},
             }
         }
     ]
@@ -215,24 +208,14 @@ def test_yahoo_get_news():
     assert len(result) == 1
     assert isinstance(result[0], NewsData)
 
-    assert result[0].title == (
-        "Apple reports strong results"
-    )
+    assert result[0].title == ("Apple reports strong results")
 
-    assert result[0].publisher == (
-        "Example News"
-    )
+    assert result[0].publisher == ("Example News")
 
-    assert result[0].summary == (
-        "Apple reported strong quarterly results."
-    )
+    assert result[0].summary == ("Apple reported strong quarterly results.")
 
-    assert result[0].url == (
-        "https://example.com/apple"
-    )
+    assert result[0].url == ("https://example.com/apple")
 
     assert result[0].published_at == (
-        datetime.fromtimestamp(
-            published_timestamp / 1000
-        )
+        datetime.fromtimestamp(published_timestamp / 1000, tz=timezone.utc)
     )

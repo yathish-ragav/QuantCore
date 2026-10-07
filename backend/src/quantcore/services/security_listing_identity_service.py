@@ -3,7 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
-from quantcore.core.exceptions import DataValidationError, InvalidInputError, ResourceNotFoundError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.models.security import Security
 from quantcore.models.security_identifier_history import SecurityIdentifierHistory
 from quantcore.repositories.security_identifier_history_repository import (

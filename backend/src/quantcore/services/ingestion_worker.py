@@ -12,6 +12,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import IngestionJobClaimConflictError, InvalidInputError
+from quantcore.core.logging import configure_logging
 from quantcore.db.database import SessionLocal
 from quantcore.services.ingestion_execution_service import IngestionExecutionService
 
@@ -31,13 +32,17 @@ class IngestionWorkerConfig:
         if self.poll_interval_seconds <= 0:
             raise InvalidInputError("poll_interval_seconds must be greater than zero.")
         if self.heartbeat_interval_seconds <= 0:
-            raise InvalidInputError("heartbeat_interval_seconds must be greater than zero.")
+            raise InvalidInputError(
+                "heartbeat_interval_seconds must be greater than zero."
+            )
         if self.stale_after_seconds <= self.heartbeat_interval_seconds:
             raise InvalidInputError(
                 "stale_after_seconds must be greater than heartbeat_interval_seconds."
             )
         if self.recovery_interval_seconds <= 0:
-            raise InvalidInputError("recovery_interval_seconds must be greater than zero.")
+            raise InvalidInputError(
+                "recovery_interval_seconds must be greater than zero."
+            )
 
 
 class IngestionWorker:
@@ -106,14 +111,10 @@ class IngestionWorker:
                         attempt_number=attempt_number,
                     )
                 except InvalidInputError:
-                    logger.warning(
-                        "Ingestion worker lost ownership of job %s", job_id
-                    )
+                    logger.warning("Ingestion worker lost ownership of job %s", job_id)
                     return
                 except Exception:
-                    logger.exception(
-                        "Failed to heartbeat ingestion job %s", job_id
-                    )
+                    logger.exception("Failed to heartbeat ingestion job %s", job_id)
                 finally:
                     db.close()
 
@@ -168,9 +169,7 @@ class IngestionWorker:
             # keep refreshing a lease for a job that no thread is executing.
             heartbeat_stop.set()
             if heartbeat_started:
-                heartbeat_thread.join(
-                    timeout=self.config.heartbeat_interval_seconds
-                )
+                heartbeat_thread.join(timeout=self.config.heartbeat_interval_seconds)
             if db is not None:
                 db.close()
 

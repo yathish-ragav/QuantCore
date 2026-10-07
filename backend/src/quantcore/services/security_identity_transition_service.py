@@ -75,7 +75,9 @@ class SecurityIdentityTransitionService:
                 "Security identity transition requires a source reference."
             )
         if revision.known_at.tzinfo is None:
-            raise DataValidationError("Security identity transition known_at must be timezone-aware.")
+            raise DataValidationError(
+                "Security identity transition known_at must be timezone-aware."
+            )
 
         now = as_of or datetime.now(timezone.utc)
         if now.tzinfo is None:
@@ -133,7 +135,9 @@ class SecurityIdentityTransitionService:
             new_symbol = security.symbol
 
         if old_symbol == new_symbol and old_exchange == new_exchange:
-            raise DataValidationError("Security identity transition does not change identity.")
+            raise DataValidationError(
+                "Security identity transition does not change identity."
+            )
 
         target = self.identifier_history_repo.get_current(
             security.id,
@@ -196,11 +200,17 @@ class SecurityIdentityTransitionService:
             current,
             effective_to=revision.effective_date,
             known_at=revision.known_at,
-            source=revision.source.value if hasattr(revision.source, "value") else str(revision.source),
+            source=(
+                revision.source.value
+                if hasattr(revision.source, "value")
+                else str(revision.source)
+            ),
             source_reference=revision.source_reference,
         )
 
-        from quantcore.models.security_identifier_history import SecurityIdentifierHistory
+        from quantcore.models.security_identifier_history import (
+            SecurityIdentifierHistory,
+        )
 
         self.db.add(
             SecurityIdentifierHistory(
@@ -210,7 +220,11 @@ class SecurityIdentityTransitionService:
                 effective_from=revision.effective_date,
                 effective_to=None,
                 known_at=revision.known_at,
-                source=revision.source.value if hasattr(revision.source, "value") else str(revision.source),
+                source=(
+                    revision.source.value
+                    if hasattr(revision.source, "value")
+                    else str(revision.source)
+                ),
                 source_reference=revision.source_reference,
                 first_seen_at=revision.known_at,
                 last_seen_at=revision.known_at,
@@ -227,7 +241,10 @@ class SecurityIdentityTransitionService:
             security.symbol,
             security.exchange,
         )
-        if current_identity is None or current_identity.effective_from <= revision.effective_date:
+        if (
+            current_identity is None
+            or current_identity.effective_from <= revision.effective_date
+        ):
             security.symbol = new_symbol
             security.exchange = new_exchange
 

@@ -42,9 +42,7 @@ def test_cmf_basic():
     # CMF = 200 / (100 + 200)
     #     = 0.666666...
 
-    assert result[1] == pytest.approx(
-        200 / 300
-    )
+    assert result[1] == pytest.approx(200 / 300)
 
     # Index 2:
     #
@@ -153,7 +151,7 @@ def test_cmf_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         ChaikinMoneyFlow.calculate(
             highs,

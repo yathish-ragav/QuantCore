@@ -3,16 +3,17 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
-from quantcore.models.ingestion import IngestionJob, IngestionJobStatus
 from quantcore.db.database import Base
-from quantcore.repositories.ingestion_state_repository import IngestionStateRepository
 from quantcore.ingestion.datasets import IngestionDataset
-
+from quantcore.models.ingestion import IngestionJob, IngestionJobStatus
+from quantcore.repositories.ingestion_state_repository import IngestionStateRepository
 
 NOW = datetime(2026, 9, 6, 12, tzinfo=timezone.utc)
 
 
-def _job(db: Session, *, status=IngestionJobStatus.QUEUED, attempt_count=0, heartbeat_at=None):
+def _job(
+    db: Session, *, status=IngestionJobStatus.QUEUED, attempt_count=0, heartbeat_at=None
+):
     job = IngestionJob(
         dataset=IngestionDataset.PRICE_HISTORY,
         symbols=["AAPL"],
@@ -72,26 +73,44 @@ def test_heartbeat_and_completion_are_fenced_by_attempt():
         db.commit()
         repo = IngestionStateRepository(db)
 
-        assert repo.heartbeat_job(
-            job, worker_id="worker-a", attempt_number=1, at=NOW + timedelta(minutes=1)
-        ) is False
-        assert repo.heartbeat_job(
-            job, worker_id="worker-a", attempt_number=2, at=NOW + timedelta(minutes=1)
-        ) is True
-        assert repo.finish_owned_job(
-            job,
-            worker_id="worker-a",
-            status=IngestionJobStatus.COMPLETED,
-            finished_at=NOW + timedelta(minutes=2),
-            attempt_number=1,
-        ) is False
-        assert repo.finish_owned_job(
-            job,
-            worker_id="worker-a",
-            status=IngestionJobStatus.COMPLETED,
-            finished_at=NOW + timedelta(minutes=2),
-            attempt_number=2,
-        ) is True
+        assert (
+            repo.heartbeat_job(
+                job,
+                worker_id="worker-a",
+                attempt_number=1,
+                at=NOW + timedelta(minutes=1),
+            )
+            is False
+        )
+        assert (
+            repo.heartbeat_job(
+                job,
+                worker_id="worker-a",
+                attempt_number=2,
+                at=NOW + timedelta(minutes=1),
+            )
+            is True
+        )
+        assert (
+            repo.finish_owned_job(
+                job,
+                worker_id="worker-a",
+                status=IngestionJobStatus.COMPLETED,
+                finished_at=NOW + timedelta(minutes=2),
+                attempt_number=1,
+            )
+            is False
+        )
+        assert (
+            repo.finish_owned_job(
+                job,
+                worker_id="worker-a",
+                status=IngestionJobStatus.COMPLETED,
+                finished_at=NOW + timedelta(minutes=2),
+                attempt_number=2,
+            )
+            is True
+        )
         db.commit()
     engine.dispose()
 
@@ -108,18 +127,27 @@ def test_stale_recovery_cannot_overwrite_fresh_heartbeat():
         db_a.commit()
         job_b = db_b.get(IngestionJob, job_a.id)
         repo_b = IngestionStateRepository(db_b)
-        assert repo_b.heartbeat_job(
-            job_b, worker_id="worker-a", attempt_number=1, at=NOW + timedelta(minutes=3, seconds=59)
-        ) is True
+        assert (
+            repo_b.heartbeat_job(
+                job_b,
+                worker_id="worker-a",
+                attempt_number=1,
+                at=NOW + timedelta(minutes=3, seconds=59),
+            )
+            is True
+        )
         db_b.commit()
 
         stale_candidate = db_a.get(IngestionJob, job_a.id)
         repo_a = IngestionStateRepository(db_a)
-        assert repo_a.recover_stale_job(
-            stale_candidate,
-            cutoff=NOW + timedelta(minutes=3),
-            recovered_at=NOW + timedelta(minutes=4),
-        ) is False
+        assert (
+            repo_a.recover_stale_job(
+                stale_candidate,
+                cutoff=NOW + timedelta(minutes=3),
+                recovered_at=NOW + timedelta(minutes=4),
+            )
+            is False
+        )
         db_a.rollback()
 
         current = db_a.get(IngestionJob, job_a.id)
@@ -156,18 +184,21 @@ def test_run_completion_is_fenced_by_current_worker_lease():
         db.commit()
 
         repo = IngestionStateRepository(db)
-        assert repo.finish_owned_run(
-            run,
-            worker_id="worker-a",
-            attempt_number=1,
-            status=IngestionRunStatus.COMPLETED,
-            finished_at=NOW + timedelta(minutes=1),
-            attempted=1,
-            succeeded=1,
-            skipped=0,
-            failed=0,
-            eligible=1,
-        ) is True
+        assert (
+            repo.finish_owned_run(
+                run,
+                worker_id="worker-a",
+                attempt_number=1,
+                status=IngestionRunStatus.COMPLETED,
+                finished_at=NOW + timedelta(minutes=1),
+                attempted=1,
+                succeeded=1,
+                skipped=0,
+                failed=0,
+                eligible=1,
+            )
+            is True
+        )
         db.commit()
         assert db.get(IngestionRun, run.id).status is IngestionRunStatus.COMPLETED
 
@@ -179,17 +210,20 @@ def test_run_completion_is_fenced_by_current_worker_lease():
         run.status = IngestionRunStatus.RUNNING
         db.flush()
 
-        assert repo.finish_owned_run(
-            run,
-            worker_id="worker-a",
-            attempt_number=1,
-            status=IngestionRunStatus.COMPLETED,
-            finished_at=NOW + timedelta(minutes=2),
-            attempted=1,
-            succeeded=1,
-            skipped=0,
-            failed=0,
-            eligible=1,
-        ) is False
+        assert (
+            repo.finish_owned_run(
+                run,
+                worker_id="worker-a",
+                attempt_number=1,
+                status=IngestionRunStatus.COMPLETED,
+                finished_at=NOW + timedelta(minutes=2),
+                attempted=1,
+                succeeded=1,
+                skipped=0,
+                failed=0,
+                eligible=1,
+            )
+            is False
+        )
         db.rollback()
     engine.dispose()

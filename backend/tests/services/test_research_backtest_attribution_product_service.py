@@ -10,7 +10,6 @@ from quantcore.services.research_backtest_attribution_product_service import (
 )
 from quantcore.services.research_backtest_service import ResearchBacktestDefinition
 
-
 AS_OF_0 = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
 AS_OF_1 = datetime(2026, 8, 21, 15, 30, tzinfo=timezone.utc)
 

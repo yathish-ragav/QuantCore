@@ -1,12 +1,10 @@
 from datetime import date
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
 
-from quantcore.api.main import app
 from quantcore.api.dependencies import get_macro_service
-from quantcore.services.macro_service import MacroSyncResult
-
+from quantcore.api.main import app
 
 client = TestClient(app)
 

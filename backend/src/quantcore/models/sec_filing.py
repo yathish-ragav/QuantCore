@@ -16,7 +16,6 @@ from quantcore.core.enums import FilingEventType
 from quantcore.db.database import Base
 from quantcore.models.provenance import ProvenanceMixin
 
-
 FILING_EVENT_TYPE_ENUM = SQLAlchemyEnum(
     FilingEventType,
     name="filing_event_type",

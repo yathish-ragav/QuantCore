@@ -2,17 +2,17 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import Mock, patch
 
 import jwt
-from jwt.exceptions import PyJWKClientError
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
+from jwt.exceptions import PyJWKClientError
 
 from quantcore.api.auth import authenticate_access_token
+from quantcore.core.config import settings
 from quantcore.core.exceptions import (
     AuthenticationConfigurationError,
     AuthenticationError,
     AuthenticationProviderError,
 )
-from quantcore.core.config import settings
 
 
 @pytest.fixture
@@ -106,9 +106,7 @@ def test_authenticate_access_token_rejects_wrong_audience(rsa_key_pair, monkeypa
     with patch("quantcore.api.auth._jwks_client") as factory:
         factory.return_value.get_signing_key_from_jwt.return_value = signing_key
         with pytest.raises(AuthenticationError, match="invalid"):
-            authenticate_access_token(
-                make_token(private_key, aud="another-api")
-            )
+            authenticate_access_token(make_token(private_key, aud="another-api"))
 
 
 def test_authenticate_access_token_maps_jwks_failure_to_provider_error(
@@ -118,8 +116,8 @@ def test_authenticate_access_token_maps_jwks_failure_to_provider_error(
     configure_auth(monkeypatch)
 
     with patch("quantcore.api.auth._jwks_client") as factory:
-        factory.return_value.get_signing_key_from_jwt.side_effect = (
-            PyJWKClientError("jwks unavailable")
+        factory.return_value.get_signing_key_from_jwt.side_effect = PyJWKClientError(
+            "jwks unavailable"
         )
         with pytest.raises(AuthenticationProviderError, match="provider"):
             authenticate_access_token(make_token(private_key))

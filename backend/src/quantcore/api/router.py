@@ -1,53 +1,87 @@
 from fastapi import APIRouter
 
-from quantcore.api.endpoints.health import router as health_router
-from quantcore.api.endpoints.companies import router as companies_router
-from quantcore.api.endpoints.universe import router as universe_router
-from quantcore.api.endpoints.indexes import router as indexes_router
-from quantcore.api.endpoints.prices import router as prices_router
-from quantcore.api.endpoints.news import router as news_router
 from quantcore.api.endpoints.analytics import router as analytics_router
-from quantcore.api.endpoints.quotes import router as quotes_router
-from quantcore.api.endpoints.income_statement import (
-    router as income_statement_router,
-)
 from quantcore.api.endpoints.balance_sheet import (
     router as balance_sheet_router,
 )
 from quantcore.api.endpoints.cash_flow import (
     router as cash_flow_router,
 )
+from quantcore.api.endpoints.companies import router as companies_router
+from quantcore.api.endpoints.corporate_actions import (
+    router as corporate_actions_router,
+)
+from quantcore.api.endpoints.health import router as health_router
+from quantcore.api.endpoints.income_statement import (
+    router as income_statement_router,
+)
+from quantcore.api.endpoints.indexes import router as indexes_router
 from quantcore.api.endpoints.ingestion import (
     router as ingestion_router,
+)
+from quantcore.api.endpoints.macro import router as macro_router
+from quantcore.api.endpoints.news import router as news_router
+from quantcore.api.endpoints.prices import router as prices_router
+from quantcore.api.endpoints.quotes import router as quotes_router
+from quantcore.api.endpoints.research_backtest_attribution import (
+    router as research_backtest_attribution_router,
+)
+from quantcore.api.endpoints.research_backtest_performance import (
+    router as research_backtest_performance_router,
+)
+from quantcore.api.endpoints.research_backtests import (
+    router as research_backtests_router,
+)
+from quantcore.api.endpoints.research_datasets import router as research_datasets_router
+from quantcore.api.endpoints.research_experiments import (
+    router as research_experiments_router,
+)
+from quantcore.api.endpoints.research_factor_evaluations import (
+    router as research_factor_evaluations_router,
+)
+from quantcore.api.endpoints.research_factor_panels import (
+    router as research_factor_panels_router,
+)
+from quantcore.api.endpoints.research_factor_return_methodology import (
+    router as research_factor_return_methodology_router,
+)
+from quantcore.api.endpoints.research_factor_returns import (
+    router as research_factor_returns_router,
+)
+from quantcore.api.endpoints.research_factors import router as research_factors_router
+from quantcore.api.endpoints.research_features import router as research_features_router
+from quantcore.api.endpoints.research_observations import (
+    router as research_observations_router,
+)
+from quantcore.api.endpoints.research_portfolio_constraints import (
+    router as research_portfolio_constraints_router,
+)
+from quantcore.api.endpoints.research_portfolio_factor_risk import (
+    router as research_portfolio_factor_risk_router,
+)
+from quantcore.api.endpoints.research_portfolio_rebalance import (
+    router as research_portfolio_rebalance_router,
+)
+from quantcore.api.endpoints.research_portfolio_risk import (
+    router as research_portfolio_risk_router,
+)
+from quantcore.api.endpoints.research_portfolio_stress import (
+    router as research_portfolio_stress_router,
+)
+from quantcore.api.endpoints.research_portfolio_transaction_cost import (
+    router as research_portfolio_transaction_cost_router,
+)
+from quantcore.api.endpoints.research_portfolios import (
+    router as research_portfolios_router,
+)
+from quantcore.api.endpoints.research_signals import router as research_signals_router
+from quantcore.api.endpoints.research_strategies import (
+    router as research_strategies_router,
 )
 from quantcore.api.endpoints.sec_filings import (
     router as sec_filings_router,
 )
-from quantcore.api.endpoints.corporate_actions import (
-    router as corporate_actions_router,
-)
-from quantcore.api.endpoints.macro import router as macro_router
-from quantcore.api.endpoints.research_observations import router as research_observations_router
-from quantcore.api.endpoints.research_experiments import router as research_experiments_router
-from quantcore.api.endpoints.research_features import router as research_features_router
-from quantcore.api.endpoints.research_datasets import router as research_datasets_router
-from quantcore.api.endpoints.research_factors import router as research_factors_router
-from quantcore.api.endpoints.research_factor_panels import router as research_factor_panels_router
-from quantcore.api.endpoints.research_factor_returns import router as research_factor_returns_router
-from quantcore.api.endpoints.research_factor_return_methodology import router as research_factor_return_methodology_router
-from quantcore.api.endpoints.research_factor_evaluations import router as research_factor_evaluations_router
-from quantcore.api.endpoints.research_signals import router as research_signals_router
-from quantcore.api.endpoints.research_strategies import router as research_strategies_router
-from quantcore.api.endpoints.research_portfolios import router as research_portfolios_router
-from quantcore.api.endpoints.research_portfolio_risk import router as research_portfolio_risk_router
-from quantcore.api.endpoints.research_portfolio_factor_risk import router as research_portfolio_factor_risk_router
-from quantcore.api.endpoints.research_portfolio_constraints import router as research_portfolio_constraints_router
-from quantcore.api.endpoints.research_portfolio_stress import router as research_portfolio_stress_router
-from quantcore.api.endpoints.research_portfolio_rebalance import router as research_portfolio_rebalance_router
-from quantcore.api.endpoints.research_portfolio_transaction_cost import router as research_portfolio_transaction_cost_router
-from quantcore.api.endpoints.research_backtest_performance import router as research_backtest_performance_router
-from quantcore.api.endpoints.research_backtest_attribution import router as research_backtest_attribution_router
-from quantcore.api.endpoints.research_backtests import router as research_backtests_router
+from quantcore.api.endpoints.universe import router as universe_router
 
 router = APIRouter()
 

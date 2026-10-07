@@ -1,11 +1,12 @@
 from datetime import date
 
-from sqlalchemy import Date, Enum as SQLAlchemyEnum, Float, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Date, Float, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from quantcore.core.enums import CorporateActionType
 from quantcore.db.database import Base
 from quantcore.models.provenance import ProvenanceMixin
-from quantcore.core.enums import CorporateActionType
 
 CORPORATE_ACTION_TYPE_ENUM = SQLAlchemyEnum(
     CorporateActionType,

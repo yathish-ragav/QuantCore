@@ -1,29 +1,21 @@
-from typing import List
-
-
 class CommodityChannelIndex:
 
     @staticmethod
     def calculate(
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
         period: int = 20,
-    ) -> List[float]:
+    ) -> list[float | None]:
 
-        if not (
-            len(highs)
-            == len(lows)
-            == len(closes)
-        ):
+        if not (len(highs) == len(lows) == len(closes)):
             raise ValueError("Input lengths must match.")
 
         typical_prices = [
-            (h + l + c) / 3
-            for h, l, c in zip(highs, lows, closes)
+            (h + low + c) / 3 for h, low, c in zip(highs, lows, closes, strict=True)
         ]
 
-        result = []
+        result: list[float | None] = []
 
         for i in range(len(typical_prices)):
 
@@ -31,28 +23,17 @@ class CommodityChannelIndex:
                 result.append(None)
                 continue
 
-            window = typical_prices[
-                i - period + 1 : i + 1
-            ]
+            window = typical_prices[i - period + 1 : i + 1]
 
             sma = sum(window) / period
 
-            mean_deviation = (
-                sum(
-                    abs(tp - sma)
-                    for tp in window
-                )
-                / period
-            )
+            mean_deviation = sum(abs(tp - sma) for tp in window) / period
 
             if mean_deviation == 0:
                 result.append(0.0)
                 continue
 
-            cci = (
-                (typical_prices[i] - sma)
-                / (0.015 * mean_deviation)
-            )
+            cci = (typical_prices[i] - sma) / (0.015 * mean_deviation)
 
             result.append(cci)
 

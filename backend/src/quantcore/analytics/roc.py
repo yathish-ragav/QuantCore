@@ -1,15 +1,12 @@
-from typing import List
-
-
 class RateOfChange:
 
     @staticmethod
     def calculate(
-        closes: List[float],
+        closes: list[float],
         period: int = 12,
-    ) -> List[float]:
+    ) -> list[float | None]:
 
-        result = []
+        result: list[float | None] = []
 
         for i in range(len(closes)):
 
@@ -23,10 +20,7 @@ class RateOfChange:
                 result.append(0.0)
                 continue
 
-            roc = (
-                (closes[i] - previous)
-                / previous
-            ) * 100
+            roc = ((closes[i] - previous) / previous) * 100
 
             result.append(roc)
 

@@ -27,6 +27,4 @@ class ProviderFactory:
         if provider == "yahoo":
             return YahooClient()
 
-        raise ConfigurationError(
-            f"Unknown market data provider: {provider}"
-        )
+        raise ConfigurationError(f"Unknown market data provider: {provider}")

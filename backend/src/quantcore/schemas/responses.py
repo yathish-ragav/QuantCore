@@ -1,9 +1,8 @@
-from quantcore.core.enums import CorporateActionType, PriceBasis
 from datetime import date, datetime
 
 from pydantic import BaseModel, Field
 
-from quantcore.core.enums import FinancialPeriodType
+from quantcore.core.enums import CorporateActionType, FinancialPeriodType, PriceBasis
 
 
 class CompanySearchResult(BaseModel):
@@ -38,6 +37,7 @@ class PriceResponse(BaseModel):
     volume: int
     dividends: float
     stock_splits: float
+    source_reference: str | None = None
 
 
 class NewsResponse(BaseModel):
@@ -106,7 +106,6 @@ class CashFlowStatementSyncResponse(BaseModel):
     statements_updated: int = 0
     statements_unchanged: int = 0
     records_processed: int = 0
-
 
 
 class BalanceSheetResponse(BaseModel):
@@ -178,6 +177,7 @@ class APIError(BaseModel):
 
 class APIErrorResponse(BaseModel):
     error: APIError
+
 
 class SECFilingResponse(BaseModel):
     accession_number: str

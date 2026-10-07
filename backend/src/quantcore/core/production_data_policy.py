@@ -19,6 +19,19 @@ class ProductionDataPolicy:
         return settings.ENVIRONMENT.strip().lower() == "production"
 
     @classmethod
+    def _require_attestation(
+        cls, *, provider: str, confirmed: bool, reference: str
+    ) -> None:
+        if not confirmed:
+            raise ConfigurationError(
+                f"Production {provider} data-use attestation is not confirmed."
+            )
+        if not reference.strip():
+            raise ConfigurationError(
+                f"Production {provider} data-use policy reference is required."
+            )
+
+    @classmethod
     def validate_market_provider(cls, provider: str) -> None:
         if not cls._enabled():
             return
@@ -31,6 +44,11 @@ class ProductionDataPolicy:
             raise ConfigurationError(
                 "MASSIVE_API_KEY is required for production market data."
             )
+        cls._require_attestation(
+            provider="Massive",
+            confirmed=settings.MASSIVE_DATA_LICENSE_CONFIRMED,
+            reference=settings.MASSIVE_DATA_LICENSE_REFERENCE,
+        )
 
     @classmethod
     def validate_realtime_provider(cls, provider: str) -> None:
@@ -45,6 +63,11 @@ class ProductionDataPolicy:
             raise ConfigurationError(
                 "MASSIVE_API_KEY is required for production realtime market data."
             )
+        cls._require_attestation(
+            provider="Massive",
+            confirmed=settings.MASSIVE_DATA_LICENSE_CONFIRMED,
+            reference=settings.MASSIVE_DATA_LICENSE_REFERENCE,
+        )
 
     @classmethod
     def validate_financial_provider(cls, provider: str) -> None:
@@ -54,24 +77,47 @@ class ProductionDataPolicy:
             raise ConfigurationError(
                 "Production fundamental data must use SEC-derived observations."
             )
+        cls._require_attestation(
+            provider="SEC",
+            confirmed=settings.SEC_DATA_POLICY_CONFIRMED,
+            reference=settings.SEC_DATA_POLICY_REFERENCE,
+        )
 
     @classmethod
     def validate_regulatory_provider(cls, provider: str) -> None:
         if not cls._enabled():
             return
         if provider.strip().lower() != "sec":
-            raise ConfigurationError(
-                "Production regulatory data must use SEC EDGAR."
-            )
+            raise ConfigurationError("Production regulatory data must use SEC EDGAR.")
+        cls._require_attestation(
+            provider="SEC",
+            confirmed=settings.SEC_DATA_POLICY_CONFIRMED,
+            reference=settings.SEC_DATA_POLICY_REFERENCE,
+        )
+
+    @classmethod
+    def validate_macro_storage(cls, provider: str) -> None:
+        if not cls._enabled():
+            return
+        if provider.strip().lower() != "fred":
+            return
+        cls._require_attestation(
+            provider="FRED storage",
+            confirmed=settings.FRED_DATA_STORAGE_AUTHORIZED,
+            reference=settings.FRED_DATA_STORAGE_REFERENCE,
+        )
 
     @classmethod
     def validate_macro_provider(cls, provider: str) -> None:
         if not cls._enabled():
             return
         if provider.strip().lower() != "fred":
-            raise ConfigurationError(
-                "Production macroeconomic data must use FRED."
-            )
+            raise ConfigurationError("Production macroeconomic data must use FRED.")
+        cls._require_attestation(
+            provider="FRED",
+            confirmed=settings.FRED_DATA_TERMS_CONFIRMED,
+            reference=settings.FRED_DATA_TERMS_REFERENCE,
+        )
 
     @classmethod
     def validate_all(cls) -> None:

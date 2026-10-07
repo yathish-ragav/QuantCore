@@ -10,7 +10,9 @@ from quantcore.services.research_portfolio_product_service import (
     ResearchPortfolioProductResult,
     ResearchPortfolioStressProductResult,
 )
-from quantcore.services.research_portfolio_stress_service import ResearchPortfolioStressImpact
+from quantcore.services.research_portfolio_stress_service import (
+    ResearchPortfolioStressImpact,
+)
 
 client = TestClient(app)
 AS_OF = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
@@ -39,12 +41,14 @@ def payload():
         "dataset_identity": ["dataset", "1"],
         "signal_key": "quality_signal",
         "signal_definition_version": "1",
-        "factors": [{
-            "factor_key": "quality",
-            "definition_version": "1",
-            "weight": 1.0,
-            "higher_is_better": True,
-        }],
+        "factors": [
+            {
+                "factor_key": "quality",
+                "definition_version": "1",
+                "weight": 1.0,
+                "higher_is_better": True,
+            }
+        ],
         "strategy": {
             "strategy_key": "quality_long",
             "definition_version": "1",
@@ -61,7 +65,11 @@ def payload():
 
 def test_stress_research_portfolio_returns_stable_contract():
     impact = ResearchPortfolioStressImpact(
-        security_id=1, symbol="AAA", target_weight=1.0, shock=-0.10, contribution=-0.10,
+        security_id=1,
+        symbol="AAA",
+        target_weight=1.0,
+        shock=-0.10,
+        contribution=-0.10,
     )
     stress = Mock(
         scenario_identity=("selloff", "1"),
@@ -69,13 +77,20 @@ def test_stress_research_portfolio_returns_stable_contract():
         strategy_definition_version="1",
         signal_identity=("quality_signal", "1"),
         as_of=AS_OF,
-        position_count=1, shocked_position_count=1, portfolio_return=-0.10,
-        portfolio_value=100000.0, pnl_amount=-10000.0, stressed_value=90000.0,
-        best_position_contribution=-0.10, worst_position_contribution=-0.10, impacts=(impact,),
+        position_count=1,
+        shocked_position_count=1,
+        portfolio_return=-0.10,
+        portfolio_value=100000.0,
+        pnl_amount=-10000.0,
+        stressed_value=90000.0,
+        best_position_contribution=-0.10,
+        worst_position_contribution=-0.10,
+        impacts=(impact,),
     )
     result = ResearchPortfolioStressProductResult(
         portfolio=ResearchPortfolioProductResult(
-            portfolio=Mock(), dataset_fingerprint="dataset-fp",
+            portfolio=Mock(),
+            dataset_fingerprint="dataset-fp",
             dataset_identity=("dataset", "1"),
             signal_construction="WEIGHTED_NORMALIZED_RANK_AVERAGE",
         ),
@@ -84,22 +99,40 @@ def test_stress_research_portfolio_returns_stable_contract():
     product_service = Mock()
     product_service.construct_with_stress.return_value = result
 
-    with patch("quantcore.api.dependencies.ResearchPortfolioProductService", return_value=product_service):
+    with patch(
+        "quantcore.api.dependencies.ResearchPortfolioProductService",
+        return_value=product_service,
+    ):
         response = client.post("/api/v1/research/portfolios/stress", json=payload())
 
     assert response.status_code == 200
     assert response.json() == {
-        "scenario_key": "selloff", "scenario_definition_version": "1",
-        "strategy_key": "quality_long", "strategy_definition_version": "1",
+        "scenario_key": "selloff",
+        "scenario_definition_version": "1",
+        "strategy_key": "quality_long",
+        "strategy_definition_version": "1",
         "signal_identity": ["quality_signal", "1"],
-        "as_of": "2026-08-20T15:30:00Z", "position_count": 1,
-        "shocked_position_count": 1, "portfolio_return": -0.10,
-        "portfolio_value": 100000.0, "pnl_amount": -10000.0, "stressed_value": 90000.0,
-        "best_position_contribution": -0.10, "worst_position_contribution": -0.10,
-        "dataset_fingerprint": "dataset-fp", "dataset_identity": ["dataset", "1"],
+        "as_of": "2026-08-20T15:30:00Z",
+        "position_count": 1,
+        "shocked_position_count": 1,
+        "portfolio_return": -0.10,
+        "portfolio_value": 100000.0,
+        "pnl_amount": -10000.0,
+        "stressed_value": 90000.0,
+        "best_position_contribution": -0.10,
+        "worst_position_contribution": -0.10,
+        "dataset_fingerprint": "dataset-fp",
+        "dataset_identity": ["dataset", "1"],
         "signal_construction": "WEIGHTED_NORMALIZED_RANK_AVERAGE",
-        "impacts": [{"security_id": 1, "symbol": "AAA", "target_weight": 1.0,
-                     "shock": -0.10, "contribution": -0.10}],
+        "impacts": [
+            {
+                "security_id": 1,
+                "symbol": "AAA",
+                "target_weight": 1.0,
+                "shock": -0.10,
+                "contribution": -0.10,
+            }
+        ],
     }
     product_service.construct_with_stress.assert_called_once()
 

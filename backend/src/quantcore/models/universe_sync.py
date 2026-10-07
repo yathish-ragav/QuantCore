@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, Integer, String
+from sqlalchemy import DateTime, Integer, String
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from quantcore.db.database import Base

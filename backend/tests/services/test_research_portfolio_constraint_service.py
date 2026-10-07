@@ -11,9 +11,14 @@ from quantcore.services.research_portfolio_constraint_service import (
 from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolioConstructionService,
 )
-from quantcore.services.research_signal_service import ResearchSignalPanel, ResearchSignalRow
-from quantcore.services.research_strategy_service import ResearchStrategyDefinition, ResearchStrategyDirection
-
+from quantcore.services.research_signal_service import (
+    ResearchSignalPanel,
+    ResearchSignalRow,
+)
+from quantcore.services.research_strategy_service import (
+    ResearchStrategyDefinition,
+    ResearchStrategyDirection,
+)
 
 AS_OF = datetime(2026, 1, 2, 15, 30, tzinfo=timezone.utc)
 
@@ -24,8 +29,12 @@ def strategy(direction=ResearchStrategyDirection.LONG_SHORT):
         definition_version="1",
         signal_identity=("quality_signal", "1"),
         direction=direction,
-        long_threshold=0.8 if direction is not ResearchStrategyDirection.SHORT_ONLY else None,
-        short_threshold=0.2 if direction is not ResearchStrategyDirection.LONG_ONLY else None,
+        long_threshold=(
+            0.8 if direction is not ResearchStrategyDirection.SHORT_ONLY else None
+        ),
+        short_threshold=(
+            0.2 if direction is not ResearchStrategyDirection.LONG_ONLY else None
+        ),
     )
 
 
@@ -98,9 +107,14 @@ def test_passes_when_all_constraints_are_satisfied():
     result = ResearchPortfolioConstraintService().validate(
         portfolio(),
         ResearchPortfolioConstraintDefinition(
-            "risk", "1", max_position_weight=0.5, max_gross_exposure=2.0,
-            min_net_exposure=-0.1, max_net_exposure=0.1,
-            max_long_exposure=1.0, max_short_exposure=1.0,
+            "risk",
+            "1",
+            max_position_weight=0.5,
+            max_gross_exposure=2.0,
+            min_net_exposure=-0.1,
+            max_net_exposure=0.1,
+            max_long_exposure=1.0,
+            max_short_exposure=1.0,
         ),
     )
     assert result.status is ResearchPortfolioConstraintStatus.PASSED
@@ -141,12 +155,17 @@ def test_reports_net_and_leg_exposure_violations():
     result = ResearchPortfolioConstraintService().validate(
         long_portfolio,
         ResearchPortfolioConstraintDefinition(
-            "risk", "1", min_net_exposure=1.1, max_net_exposure=2.0, max_long_exposure=0.5
+            "risk",
+            "1",
+            min_net_exposure=1.1,
+            max_net_exposure=2.0,
+            max_long_exposure=0.5,
         ),
     )
     assert result.status is ResearchPortfolioConstraintStatus.VIOLATED
     assert {v.constraint for v in result.violations} == {
-        "min_net_exposure", "max_long_exposure"
+        "min_net_exposure",
+        "max_long_exposure",
     }
 
 
@@ -185,9 +204,14 @@ def test_constraints_are_inclusive_at_the_limit():
     result = ResearchPortfolioConstraintService().validate(
         portfolio(),
         ResearchPortfolioConstraintDefinition(
-            "risk", "1", max_position_weight=0.5, max_gross_exposure=2.0,
-            min_net_exposure=0.0, max_net_exposure=0.0,
-            max_long_exposure=1.0, max_short_exposure=1.0,
+            "risk",
+            "1",
+            max_position_weight=0.5,
+            max_gross_exposure=2.0,
+            min_net_exposure=0.0,
+            max_net_exposure=0.0,
+            max_long_exposure=1.0,
+            max_short_exposure=1.0,
         ),
     )
     assert result.status is ResearchPortfolioConstraintStatus.PASSED
@@ -196,11 +220,14 @@ def test_constraints_are_inclusive_at_the_limit():
 def test_empty_portfolio_passes_exposure_constraints():
     empty = ResearchPortfolioConstructionService().construct(
         ResearchStrategyDefinition(
-            strategy_key="quality", definition_version="1",
+            strategy_key="quality",
+            definition_version="1",
             signal_identity=("quality_signal", "1"),
-            direction=ResearchStrategyDirection.LONG_ONLY, long_threshold=0.8,
+            direction=ResearchStrategyDirection.LONG_ONLY,
+            long_threshold=0.8,
         ),
-        panel(row(1, 0.5)), AS_OF,
+        panel(row(1, 0.5)),
+        AS_OF,
     )
     result = ResearchPortfolioConstraintService().validate(
         empty,
@@ -212,7 +239,8 @@ def test_empty_portfolio_passes_exposure_constraints():
 
 def test_preserves_portfolio_provenance():
     result = ResearchPortfolioConstraintService().validate(
-        portfolio(), ResearchPortfolioConstraintDefinition("risk", "1", max_gross_exposure=2.0)
+        portfolio(),
+        ResearchPortfolioConstraintDefinition("risk", "1", max_gross_exposure=2.0),
     )
     assert result.strategy_key == "quality"
     assert result.strategy_definition_version == "1"
@@ -224,7 +252,10 @@ def test_preserves_portfolio_provenance():
 
 def test_rejects_wrong_portfolio_type():
     with pytest.raises(InvalidInputError):
-        ResearchPortfolioConstraintService().validate(object(), ResearchPortfolioConstraintDefinition("risk", "1", max_gross_exposure=1))
+        ResearchPortfolioConstraintService().validate(
+            object(),
+            ResearchPortfolioConstraintDefinition("risk", "1", max_gross_exposure=1),
+        )
 
 
 def test_rejects_wrong_definition_type():

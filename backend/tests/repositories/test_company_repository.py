@@ -21,9 +21,7 @@ def test_get_by_cik_returns_company():
 
     db.scalar.return_value = company
 
-    result = repository.get_by_cik(
-        "0000320193"
-    )
+    result = repository.get_by_cik("0000320193")
 
     db.scalar.assert_called_once()
 
@@ -39,9 +37,7 @@ def test_get_by_cik_returns_none_when_not_found():
 
     db.scalar.return_value = None
 
-    result = repository.get_by_cik(
-        "UNKNOWN"
-    )
+    result = repository.get_by_cik("UNKNOWN")
 
     db.scalar.assert_called_once()
 
@@ -75,13 +71,9 @@ def test_get_by_ciks_returns_companies():
         Mock(spec=Company),
     ]
 
-    db.scalars.return_value.all.return_value = (
-        companies
-    )
+    db.scalars.return_value.all.return_value = companies
 
-    result = repository.get_by_ciks(
-        ["0000320193"]
-    )
+    result = repository.get_by_ciks(["0000320193"])
 
     assert result == companies
 
@@ -109,9 +101,7 @@ def test_create_company():
         market_cap=3_000_000_000_000,
     )
 
-    db.add.assert_called_once_with(
-        company
-    )
+    db.add.assert_called_once_with(company)
 
     assert isinstance(
         company,
@@ -124,9 +114,7 @@ def test_create_company():
     assert company.industry == "Consumer Electronics"
     assert company.country == "United States"
     assert company.website == "https://www.apple.com"
-    assert company.market_cap == (
-        3_000_000_000_000
-    )
+    assert company.market_cap == (3_000_000_000_000)
 
     # Repository must not control the transaction.
     db.commit.assert_not_called()
@@ -167,9 +155,7 @@ def test_update_company():
     assert company.industry == "Consumer Electronics"
     assert company.country == "United States"
     assert company.website == "https://www.apple.com"
-    assert company.market_cap == (
-        3_000_000_000_000
-    )
+    assert company.market_cap == (3_000_000_000_000)
 
     # Repository must not control the transaction.
     db.commit.assert_not_called()

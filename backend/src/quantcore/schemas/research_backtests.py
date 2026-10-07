@@ -9,7 +9,6 @@ from quantcore.schemas.research_portfolios import (
 )
 from quantcore.schemas.research_signals import ResearchSignalFactorRequest
 from quantcore.services.research_rebalance_service import ResearchRebalanceFrequency
-from quantcore.services.research_strategy_service import ResearchStrategyDirection
 
 
 class ResearchBacktestRequest(BaseModel):

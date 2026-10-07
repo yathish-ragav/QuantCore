@@ -2,13 +2,11 @@ from datetime import date, datetime, timezone
 from unittest.mock import Mock, patch
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.services.sec_filing_service import SECFilingSyncResult
-
 
 client = TestClient(app)
 
@@ -48,14 +46,14 @@ def make_filing():
     filing.fiscal_year = 2024
     filing.fiscal_period = "FY"
     filing.is_amendment = False
-    filing.filing_url = "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl.htm"
+    filing.filing_url = (
+        "https://www.sec.gov/Archives/edgar/data/320193/000032019324000123/aapl.htm"
+    )
     return filing
 
 
 def test_get_sec_filings():
-    with patch(
-        "quantcore.api.dependencies.SECFilingService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.SECFilingService") as service_class:
         service = Mock()
         service_class.return_value = service
         service.get_filings.return_value = [make_filing()]
@@ -70,9 +68,7 @@ def test_get_sec_filings():
 
 
 def test_get_sec_filing_events():
-    with patch(
-        "quantcore.api.dependencies.SECFilingService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.SECFilingService") as service_class:
         service = Mock()
         service_class.return_value = service
         event = Mock()
@@ -84,17 +80,17 @@ def test_get_sec_filing_events():
         response = client.get("/sec-filings/AAPL/events")
 
     assert response.status_code == 200
-    assert response.json() == [{
-        "accession_number": "0000320193-24-000123",
-        "event_type": "FILED",
-        "occurred_at": "2024-11-01T16:30:00Z",
-    }]
+    assert response.json() == [
+        {
+            "accession_number": "0000320193-24-000123",
+            "event_type": "FILED",
+            "occurred_at": "2024-11-01T16:30:00Z",
+        }
+    ]
 
 
 def test_sync_sec_filings():
-    with patch(
-        "quantcore.api.dependencies.SECFilingService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.SECFilingService") as service_class:
         service = Mock()
         service_class.return_value = service
         service.sync_filings.return_value = SECFilingSyncResult(

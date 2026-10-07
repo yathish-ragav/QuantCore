@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from quantcore.models.universe_sync import UniverseSyncRunStatus
 from quantcore.repositories.universe_sync_repository import UniverseSyncRepository
 from quantcore.universe.service import UniverseService
 
@@ -26,7 +27,7 @@ class UniverseSyncService:
             active_companies, active_securities, inactive_securities = (
                 self.repository.get_counts()
             )
-            run.status = "COMPLETED"
+            run.status = UniverseSyncRunStatus.COMPLETED
             run.completed_at = datetime.now(timezone.utc)
             run.records_processed = processed
             run.active_companies = active_companies
@@ -38,7 +39,7 @@ class UniverseSyncService:
             self.db.rollback()
             failed_run = self.repository.get_latest()
             if failed_run is not None:
-                failed_run.status = "FAILED"
+                failed_run.status = UniverseSyncRunStatus.FAILED
                 failed_run.completed_at = datetime.now(timezone.utc)
                 failed_run.error = str(exc)[:2000]
                 self.db.commit()

@@ -1,21 +1,20 @@
 from fastapi import APIRouter, Depends
 
 from quantcore.api.authorization import RESEARCH_READ_SCOPE, require_scopes
-from quantcore.core.exceptions import InvalidInputError
 from quantcore.api.dependencies import (
     get_research_portfolio_product_service,
 )
+from quantcore.core.exceptions import InvalidInputError
 from quantcore.schemas.research_portfolios import (
+    ResearchPortfolioPositionResponse,
     ResearchPortfolioRequest,
     ResearchPortfolioResponse,
-    ResearchPortfolioPositionResponse,
 )
 from quantcore.services.research_portfolio_product_service import (
     ResearchPortfolioProductService,
 )
 from quantcore.services.research_signal_service import ResearchSignalDefinition
 from quantcore.services.research_strategy_service import ResearchStrategyDefinition
-
 
 router = APIRouter(
     prefix="/api/v1/research/portfolios",
@@ -83,7 +82,7 @@ def construct_research_portfolio(
         strategy_definition_version=portfolio.portfolio.strategy_definition_version,
         signal_identity=portfolio.portfolio.signal_identity,
         as_of=portfolio.portfolio.as_of,
-        status=portfolio.portfolio.status.value,
+        status=portfolio.portfolio.status,
         construction=portfolio.portfolio.construction,
         eligible_count=portfolio.portfolio.eligible_count,
         long_count=portfolio.portfolio.long_count,
@@ -99,7 +98,7 @@ def construct_research_portfolio(
                 security_id=position.security_id,
                 as_of=position.as_of,
                 signal_score=position.signal_score,
-                side=position.side.value,
+                side=position.side,
                 target_weight=position.target_weight,
             )
             for position in portfolio.portfolio.positions

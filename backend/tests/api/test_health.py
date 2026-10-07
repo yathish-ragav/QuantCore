@@ -46,15 +46,19 @@ def test_health_ready_checks_database_and_configuration(monkeypatch):
 
     monkeypatch.setattr(
         "quantcore.api.endpoints.health.SessionLocal",
-        lambda: FakeSession(),
+        FakeSession,
     )
     monkeypatch.setattr(
         "quantcore.api.endpoints.health.ProductionDataPolicy.validate_all",
         lambda: None,
     )
+
+    def expected_schema_revisions():
+        return {"current-revision"}
+
     monkeypatch.setattr(
         "quantcore.api.endpoints.health._expected_schema_revisions",
-        lambda: {"current-revision"},
+        expected_schema_revisions,
     )
 
     response = client.get("/health/ready")
@@ -78,7 +82,7 @@ def test_health_ready_fails_when_database_is_unavailable(monkeypatch):
 
     monkeypatch.setattr(
         "quantcore.api.endpoints.health.SessionLocal",
-        lambda: FakeSession(),
+        FakeSession,
     )
     monkeypatch.setattr(
         "quantcore.api.endpoints.health.ProductionDataPolicy.validate_all",
@@ -101,9 +105,7 @@ def test_health_ready_fails_when_production_configuration_is_invalid(monkeypatch
 
     monkeypatch.setattr(
         "quantcore.api.endpoints.health.ProductionDataPolicy.validate_all",
-        lambda: (_ for _ in ()).throw(
-            ConfigurationError("invalid production source")
-        ),
+        lambda: (_ for _ in ()).throw(ConfigurationError("invalid production source")),
     )
 
     response = client.get("/health/ready")
@@ -112,7 +114,6 @@ def test_health_ready_fails_when_production_configuration_is_invalid(monkeypatch
     assert response.json()["status"] == "not_ready"
     assert response.json()["checks"] == {"configuration": "failed"}
     assert response.json()["reason"] == "configuration_invalid"
-
 
 
 def test_health_ready_requires_current_alembic_schema(monkeypatch):
@@ -134,8 +135,12 @@ def test_health_ready_requires_current_alembic_schema(monkeypatch):
         def close(self):
             pass
 
-    monkeypatch.setattr(health, "SessionLocal", lambda: FakeDb())
-    monkeypatch.setattr(health, "_expected_schema_revisions", lambda: {"current-revision"})
+    monkeypatch.setattr(health, "SessionLocal", FakeDb)
+
+    def expected_schema_revisions():
+        return {"current-revision"}
+
+    monkeypatch.setattr(health, "_expected_schema_revisions", expected_schema_revisions)
     monkeypatch.setattr(
         health.ProductionDataPolicy,
         "validate_all",

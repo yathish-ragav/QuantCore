@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import Mock
 
 from quantcore.core.enums import CorporateActionType
@@ -32,7 +32,7 @@ def test_create_adds_revision_without_transaction_control():
         action_id=10,
         security_id=1,
         revision_number=1,
-        effective_date=datetime(2024, 8, 12).date(),
+        effective_date=date(2024, 8, 12),
         action_type=CorporateActionType.STOCK_SPLIT,
         split_ratio=4.0,
         known_at=datetime(2026, 8, 28, tzinfo=timezone.utc),

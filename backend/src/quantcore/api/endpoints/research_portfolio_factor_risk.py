@@ -14,7 +14,6 @@ from quantcore.services.research_portfolio_product_service import (
 from quantcore.services.research_signal_service import ResearchSignalDefinition
 from quantcore.services.research_strategy_service import ResearchStrategyDefinition
 
-
 router = APIRouter(
     prefix="/api/v1/research/portfolios/factor-risk",
     tags=["Research Portfolio Factor Risk"],

@@ -14,27 +14,29 @@ from quantcore.services.security_identity_transition_service import (
 
 
 def make_revision(**overrides):
-    values = dict(
-        action_id=1,
-        security_id=10,
-        revision_number=1,
-        effective_date=date(2025, 6, 2),
-        action_type=CorporateActionType.TICKER_CHANGE,
-        old_symbol="OLD",
-        new_symbol="NEW",
-        old_exchange="NASDAQ",
-        new_exchange="NASDAQ",
-        source=DataSource.SEC,
-        known_at=datetime(2025, 5, 1, tzinfo=timezone.utc),
-        source_reference="SEC:identity:1",
-    )
+    values = {
+        "action_id": 1,
+        "security_id": 10,
+        "revision_number": 1,
+        "effective_date": date(2025, 6, 2),
+        "action_type": CorporateActionType.TICKER_CHANGE,
+        "old_symbol": "OLD",
+        "new_symbol": "NEW",
+        "old_exchange": "NASDAQ",
+        "new_exchange": "NASDAQ",
+        "source": DataSource.SEC,
+        "known_at": datetime(2025, 5, 1, tzinfo=timezone.utc),
+        "source_reference": "SEC:identity:1",
+    }
     values.update(overrides)
     return CorporateActionRevision(**values)
 
 
 def make_service():
     db = Mock()
-    service = SecurityIdentityTransitionService.__new__(SecurityIdentityTransitionService)
+    service = SecurityIdentityTransitionService.__new__(
+        SecurityIdentityTransitionService
+    )
     service.db = db
     service.security_repo = Mock()
     service.identifier_history_repo = Mock()
@@ -245,7 +247,7 @@ def test_transition_rejects_unsupported_action_type():
 
 
 def test_transition_uses_bitemporal_closure_revision_not_mutating_old_row():
-    service, db = make_service()
+    service, _db = make_service()
     security = make_security()
     current = make_current_history()
     service.security_repo.get_by_id.return_value = security
@@ -260,4 +262,6 @@ def test_transition_uses_bitemporal_closure_revision_not_mutating_old_row():
 
     assert service.identifier_history_repo.revise_interval_with_effective_to.call_args.kwargs[
         "known_at"
-    ] == datetime(2025, 5, 1, tzinfo=timezone.utc)
+    ] == datetime(
+        2025, 5, 1, tzinfo=timezone.utc
+    )

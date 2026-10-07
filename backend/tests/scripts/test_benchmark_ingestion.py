@@ -4,12 +4,13 @@ from pathlib import Path
 
 import pytest
 
-
 SCRIPT_PATH = Path(__file__).resolve().parents[3] / "scripts" / "benchmark_ingestion.py"
 
 
 def load_benchmark_module():
-    spec = importlib.util.spec_from_file_location("quantcore_benchmark_ingestion", SCRIPT_PATH)
+    spec = importlib.util.spec_from_file_location(
+        "quantcore_benchmark_ingestion", SCRIPT_PATH
+    )
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)

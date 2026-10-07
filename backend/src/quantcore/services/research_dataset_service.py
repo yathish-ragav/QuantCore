@@ -1,8 +1,8 @@
-from dataclasses import dataclass
-from hashlib import sha256
 import json
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable
+from hashlib import sha256
 
 from sqlalchemy.orm import Session
 
@@ -127,7 +127,9 @@ class ResearchDatasetService:
             if not item[1]:
                 raise InvalidInputError("Definition version must not be empty.")
             if item in seen:
-                raise InvalidInputError("Definition identities must not contain duplicates.")
+                raise InvalidInputError(
+                    "Definition identities must not contain duplicates."
+                )
             seen.add(item)
             normalized.append(item)
         return tuple(normalized)
@@ -204,7 +206,9 @@ class ResearchDatasetService:
                 )
             )
         else:
-            missing = tuple(identity for identity in identities if identity not in by_identity)
+            missing = tuple(
+                identity for identity in identities if identity not in by_identity
+            )
             if missing:
                 missing_text = ", ".join(
                     f"{key} v{version}" for key, version in missing

@@ -4,20 +4,23 @@ from unittest.mock import Mock
 
 import pytest
 
-from quantcore.core.exceptions import DataUnavailableError, ExternalDataError, InvalidInputError
-from quantcore.ingestion.retry import IngestionRetryPolicy
+from quantcore.core.exceptions import (
+    DataUnavailableError,
+    ExternalDataError,
+    InvalidInputError,
+)
 from quantcore.ingestion.datasets import (
     DATASET_POLICIES,
-    DATASET_SCOPES,
     IngestionDataset,
     IngestionScope,
 )
+from quantcore.ingestion.retry import IngestionRetryPolicy
 from quantcore.models.ingestion import IngestionOutcome, IngestionRunStatus
 from quantcore.models.security import SecurityStatus
+from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
 from quantcore.services.ingestion_orchestrator import (
     IngestionOrchestrator,
 )
-from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
 from quantcore.services.sec_filing_service import SECFilingSyncResult
 from quantcore.services.sec_xbrl_fact_service import SECXBRLFactSyncResult
 
@@ -73,26 +76,34 @@ def test_freshness_requires_successful_ingestion():
     service = make_service()
     now = datetime.now(timezone.utc)
 
-    assert service._is_fresh(
-        None,
-        IngestionDataset.BALANCE_SHEET,
-        now,
-    ) is False
+    assert (
+        service._is_fresh(
+            None,
+            IngestionDataset.BALANCE_SHEET,
+            now,
+        )
+        is False
+    )
 
     state = make_state(
         IngestionDataset.BALANCE_SHEET,
-        last_success_at=now - timedelta(
+        last_success_at=now
+        - timedelta(
             seconds=DATASET_POLICIES[
                 IngestionDataset.BALANCE_SHEET
-            ].max_age.total_seconds() + 1
+            ].max_age.total_seconds()
+            + 1
         ),
     )
 
-    assert service._is_fresh(
-        state,
-        IngestionDataset.BALANCE_SHEET,
-        now,
-    ) is False
+    assert (
+        service._is_fresh(
+            state,
+            IngestionDataset.BALANCE_SHEET,
+            now,
+        )
+        is False
+    )
 
 
 def test_freshness_is_true_inside_policy_window():
@@ -104,12 +115,15 @@ def test_freshness_is_true_inside_policy_window():
         last_success_at=now - timedelta(minutes=30),
     )
 
-    assert service._is_fresh(
-        state,
-        IngestionDataset.NEWS,
-        now,
-        current_source="FMP",
-    ) is True
+    assert (
+        service._is_fresh(
+            state,
+            IngestionDataset.NEWS,
+            now,
+            current_source="FMP",
+        )
+        is True
+    )
 
 
 def test_freshness_is_false_when_provider_source_changes():
@@ -121,12 +135,15 @@ def test_freshness_is_false_when_provider_source_changes():
         last_success_at=now - timedelta(minutes=30),
     )
 
-    assert service._is_fresh(
-        state,
-        IngestionDataset.PRICE_HISTORY,
-        now,
-        current_source="MASSIVE",
-    ) is False
+    assert (
+        service._is_fresh(
+            state,
+            IngestionDataset.PRICE_HISTORY,
+            now,
+            current_source="MASSIVE",
+        )
+        is False
+    )
 
 
 def test_get_freshness_reports_all_registered_datasets():
@@ -139,10 +156,7 @@ def test_get_freshness_reports_all_registered_datasets():
     result = service.get_freshness("aapl")
 
     assert len(result) == len(IngestionDataset)
-    assert {
-        view.dataset
-        for view in result
-    } == set(IngestionDataset)
+    assert {view.dataset for view in result} == set(IngestionDataset)
     assert all(view.is_fresh is False for view in result)
 
 
@@ -195,9 +209,7 @@ def test_sync_market_deduplicates_company_scoped_work():
     dataset = IngestionDataset.BALANCE_SHEET
     fake_dataset_service = Mock()
     fake_dataset_service.provider.SOURCE = "FMP"
-    fake_dataset_service.sync_balance_sheets.return_value = [
-        Mock()
-    ]
+    fake_dataset_service.sync_balance_sheets.return_value = [Mock()]
 
     original = service._service_for
     service._service_for = Mock(return_value=fake_dataset_service)
@@ -209,7 +221,9 @@ def test_sync_market_deduplicates_company_scoped_work():
 
     assert result[0].attempted == 1
     assert result[0].succeeded == 1
-    fake_dataset_service.sync_balance_sheets.assert_called_once_with("AAPL", commit=False)
+    fake_dataset_service.sync_balance_sheets.assert_called_once_with(
+        "AAPL", commit=False
+    )
     service.state_repo.finish_run.assert_called_once()
     service.lineage_service.record_success.assert_called_once()
     lineage_kwargs = service.lineage_service.record_success.call_args.kwargs
@@ -429,9 +443,7 @@ def test_sync_market_supports_corporate_actions_dataset():
 
     fake_service = Mock()
     fake_service.client.SOURCE = "YAHOO"
-    fake_service.sync_corporate_actions.return_value = Mock(
-        records_processed=3
-    )
+    fake_service.sync_corporate_actions.return_value = Mock(records_processed=3)
     service._service_for = Mock(return_value=fake_service)
 
     result = service.sync_market(
@@ -664,7 +676,6 @@ def test_sync_market_does_not_retry_permanent_failure():
     service._sleeper.assert_not_called()
 
 
-
 def test_sync_market_processes_companyfacts_datasets_issuer_first_without_provider_mutation():
     service = make_service()
     service.db.info = {}
@@ -704,21 +715,22 @@ def test_sync_market_processes_companyfacts_datasets_issuer_first_without_provid
     ]
     assert result[0].succeeded == 2
     assert result[1].succeeded == 2
-    assert [call.args for call in income_service.sync_income_statements.call_args_list] == [
-        ("AAPL",), ("MSFT",)
-    ]
+    assert [
+        call.args for call in income_service.sync_income_statements.call_args_list
+    ] == [("AAPL",), ("MSFT",)]
     assert all(
         call.kwargs == {"commit": False}
         for call in income_service.sync_income_statements.call_args_list
     )
-    assert [call.args for call in balance_service.sync_balance_sheets.call_args_list] == [
-        ("AAPL",), ("MSFT",)
-    ]
+    assert [
+        call.args for call in balance_service.sync_balance_sheets.call_args_list
+    ] == [("AAPL",), ("MSFT",)]
     assert all(
         call.kwargs == {"commit": False}
         for call in balance_service.sync_balance_sheets.call_args_list
     )
     assert income_service.provider is not balance_service.provider
+
 
 def test_recover_stale_runs_marks_old_running_runs_failed():
     service = make_service()

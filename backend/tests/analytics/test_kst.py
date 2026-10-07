@@ -43,13 +43,9 @@ def test_kst_basic():
     #     = 9.090909...
     #
     # KST = 10 * ROC
-    assert result[2] == pytest.approx(
-        90.9090909091
-    )
+    assert result[2] == pytest.approx(90.9090909091)
 
-    assert result[3] == pytest.approx(
-        (10 / 120 * 100) * 10
-    )
+    assert result[3] == pytest.approx((10 / 120 * 100) * 10)
 
 
 def test_kst_default_period_warmup():

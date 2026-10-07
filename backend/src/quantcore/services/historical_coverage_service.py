@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from itertools import pairwise
 from math import isfinite
 
 from quantcore.core.exceptions import InvalidInputError
-from typing import Iterable
 
 
 class HistoricalCoverageStatus(str, Enum):
@@ -141,11 +142,17 @@ class HistoricalCoverageService:
     @staticmethod
     def _validate_boundary(start_at: datetime, end_at: datetime) -> None:
         if not isinstance(start_at, datetime) or start_at.tzinfo is None:
-            raise InvalidInputError("Historical coverage start_at must be timezone-aware.")
+            raise InvalidInputError(
+                "Historical coverage start_at must be timezone-aware."
+            )
         if not isinstance(end_at, datetime) or end_at.tzinfo is None:
-            raise InvalidInputError("Historical coverage end_at must be timezone-aware.")
+            raise InvalidInputError(
+                "Historical coverage end_at must be timezone-aware."
+            )
         if end_at < start_at:
-            raise InvalidInputError("Historical coverage end_at must not precede start_at.")
+            raise InvalidInputError(
+                "Historical coverage end_at must not precede start_at."
+            )
 
     @classmethod
     def _normalize_expected(
@@ -222,7 +229,7 @@ class HistoricalCoverageService:
             return 0
         expected_index = {date: index for index, date in enumerate(expected)}
         gaps = 1
-        for previous, current in zip(missing, missing[1:]):
+        for previous, current in pairwise(missing):
             if expected_index[current] != expected_index[previous] + 1:
                 gaps += 1
         return gaps
@@ -237,7 +244,7 @@ class HistoricalCoverageService:
         expected_index = {date: index for index, date in enumerate(expected)}
         maximum = 1
         current = 1
-        for previous, value in zip(missing, missing[1:]):
+        for previous, value in pairwise(missing):
             if expected_index[value] == expected_index[previous] + 1:
                 current += 1
                 maximum = max(maximum, current)

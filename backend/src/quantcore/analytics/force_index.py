@@ -1,15 +1,12 @@
-from typing import List
-
-
 class ForceIndex:
 
     @staticmethod
     def force_index(
-        closes: List[float],
-        volumes: List[float],
-    ) -> List[float | None]:
+        closes: list[float],
+        volumes: list[float],
+    ) -> list[float | None]:
 
-        result = [None]
+        result: list[float | None] = [None]
 
         for i in range(1, len(closes)):
             force = (closes[i] - closes[i - 1]) * volumes[i]

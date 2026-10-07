@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -31,10 +31,17 @@ class FinancialStatementRevisionRepository:
             )
             .group_by(FinancialStatementRevision.statement_id)
         ).all()
-        current = {int(statement_id): int(maximum or 0) for statement_id, maximum in rows}
-        return {statement_id: current.get(statement_id, 0) + 1 for statement_id in statement_ids}
+        current = {
+            int(statement_id): int(maximum or 0) for statement_id, maximum in rows
+        }
+        return {
+            statement_id: current.get(statement_id, 0) + 1
+            for statement_id in statement_ids
+        }
 
-    def get_next_revision_number(self, statement_type: FinancialStatementType, statement_id: int) -> int:
+    def get_next_revision_number(
+        self, statement_type: FinancialStatementType, statement_id: int
+    ) -> int:
         value = self.db.scalar(
             select(func.max(FinancialStatementRevision.revision_number)).where(
                 FinancialStatementRevision.statement_type == statement_type,
@@ -52,13 +59,15 @@ class FinancialStatementRevisionRepository:
         ranked = (
             select(
                 FinancialStatementRevision.id.label("revision_id"),
-                func.row_number().over(
+                func.row_number()
+                .over(
                     partition_by=FinancialStatementRevision.statement_id,
                     order_by=(
                         FinancialStatementRevision.known_at.desc(),
                         FinancialStatementRevision.revision_number.desc(),
                     ),
-                ).label("revision_rank"),
+                )
+                .label("revision_rank"),
             )
             .where(
                 FinancialStatementRevision.company_id == company_id,

@@ -14,23 +14,28 @@ from quantcore.ingestion.providers.massive import (
 
 @pytest.fixture
 def client():
-    with patch(
-        "quantcore.ingestion.providers.massive.settings.MASSIVE_API_KEY",
-        "test-key",
-    ), patch(
-        "quantcore.ingestion.providers.massive.settings.MASSIVE_REQUEST_INTERVAL_SECONDS",
-        0.0,
+    with (
+        patch(
+            "quantcore.ingestion.providers.massive.settings.MASSIVE_API_KEY",
+            "test-key",
+        ),
+        patch(
+            "quantcore.ingestion.providers.massive.settings.MASSIVE_REQUEST_INTERVAL_SECONDS",
+            0.0,
+        ),
     ):
         return MassiveClient()
 
 
 def test_massive_requires_api_key():
-    with patch(
-        "quantcore.ingestion.providers.massive.settings.MASSIVE_API_KEY",
-        "",
+    with (
+        patch(
+            "quantcore.ingestion.providers.massive.settings.MASSIVE_API_KEY",
+            "",
+        ),
+        pytest.raises(Exception, match="MASSIVE_API_KEY"),
     ):
-        with pytest.raises(Exception, match="MASSIVE_API_KEY"):
-            MassiveClient()
+        MassiveClient()
 
 
 def test_massive_price_history_joins_adjusted_close(client):
@@ -121,25 +126,32 @@ def test_massive_price_history_accepts_delayed_status(client):
 
 
 def test_massive_reference_endpoint_does_not_accept_delayed_status(client):
-    response = {"status": "DELAYED", "results": {"ticker": "AAPL", "name": "Apple Inc."}}
+    response = {
+        "status": "DELAYED",
+        "results": {"ticker": "AAPL", "name": "Apple Inc."},
+    }
 
-    with patch(
-        "quantcore.ingestion.providers.massive.requests.get",
-        return_value=Mock(status_code=200, json=lambda: response),
+    with (
+        patch(
+            "quantcore.ingestion.providers.massive.requests.get",
+            return_value=Mock(status_code=200, json=lambda: response),
+        ),
+        pytest.raises(ExternalDataError, match="Massive returned status 'DELAYED'"),
     ):
-        with pytest.raises(ExternalDataError, match="Massive returned status 'DELAYED'"):
-            client.get_company_info("AAPL")
+        client.get_company_info("AAPL")
 
 
 def test_massive_rejects_unaccepted_status(client):
     response = {"status": "ERROR", "error": "bad request"}
 
-    with patch(
-        "quantcore.ingestion.providers.massive.requests.get",
-        return_value=Mock(status_code=200, json=lambda: response),
+    with (
+        patch(
+            "quantcore.ingestion.providers.massive.requests.get",
+            return_value=Mock(status_code=200, json=lambda: response),
+        ),
+        pytest.raises(ExternalDataError, match="Massive returned status 'ERROR'"),
     ):
-        with pytest.raises(ExternalDataError, match="Massive returned status 'ERROR'"):
-            client.get_price_history("AAPL", period="1d")
+        client.get_price_history("AAPL", period="1d")
 
 
 def test_massive_corporate_actions(client):
@@ -221,12 +233,14 @@ def test_massive_quote_rejects_wrong_ticker(client):
         ],
     }
 
-    with patch(
-        "quantcore.ingestion.providers.massive.requests.get",
-        return_value=Mock(status_code=200, json=lambda: response),
+    with (
+        patch(
+            "quantcore.ingestion.providers.massive.requests.get",
+            return_value=Mock(status_code=200, json=lambda: response),
+        ),
+        pytest.raises(Exception, match="returned ticker"),
     ):
-        with pytest.raises(Exception, match="returned ticker"):
-            client.get_quote("AAPL")
+        client.get_quote("AAPL")
 
 
 def test_massive_quote(client):
@@ -262,12 +276,14 @@ def test_massive_quote(client):
 
 
 def test_massive_http_error_boundary(client):
-    with patch(
-        "quantcore.ingestion.providers.massive.requests.get",
-        side_effect=requests.RequestException("network"),
+    with (
+        patch(
+            "quantcore.ingestion.providers.massive.requests.get",
+            side_effect=requests.RequestException("network"),
+        ),
+        pytest.raises(Exception, match="Massive market-data request failed"),
     ):
-        with pytest.raises(Exception, match="Massive market-data request failed"):
-            client.get_company_info("AAPL")
+        client.get_company_info("AAPL")
 
 
 def test_massive_request_limiter_paces_requests_across_clients(monkeypatch):
@@ -327,18 +343,24 @@ def test_postgres_massive_request_limiter_paces_through_advisory_lock():
 def test_massive_client_uses_cluster_limiter_in_production():
     import quantcore.ingestion.providers.massive as module
 
-    with patch.object(
-        module,
-        "_MASSIVE_REQUEST_LIMITER",
-        MassiveRequestLimiter(0.0),
-    ), patch.object(module.settings, "MASSIVE_API_KEY", "test-key"), patch.object(
-        module.settings,
-        "MASSIVE_REQUEST_INTERVAL_SECONDS",
-        12.5,
-    ), patch.object(module.settings, "ENVIRONMENT", "production"), patch.object(
-        module.settings,
-        "PRODUCTION_DATA_POLICY_ENFORCED",
-        True,
+    with (
+        patch.object(
+            module,
+            "_MASSIVE_REQUEST_LIMITER",
+            MassiveRequestLimiter(0.0),
+        ),
+        patch.object(module.settings, "MASSIVE_API_KEY", "test-key"),
+        patch.object(
+            module.settings,
+            "MASSIVE_REQUEST_INTERVAL_SECONDS",
+            12.5,
+        ),
+        patch.object(module.settings, "ENVIRONMENT", "production"),
+        patch.object(
+            module.settings,
+            "PRODUCTION_DATA_POLICY_ENFORCED",
+            True,
+        ),
     ):
         client = MassiveClient()
 
@@ -359,12 +381,14 @@ def test_massive_http_429_raises_rate_limit_error_with_retry_after(client):
         headers={"Retry-After": "17"},
     )
 
-    with patch(
-        "quantcore.ingestion.providers.massive.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.massive.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(RateLimitError) as exc_info,
     ):
-        with pytest.raises(RateLimitError) as exc_info:
-            client.get_company_info("AAPL")
+        client.get_company_info("AAPL")
 
     assert exc_info.value.retry_after_seconds == 17.0
 
@@ -372,17 +396,21 @@ def test_massive_http_429_raises_rate_limit_error_with_retry_after(client):
 def test_massive_http_429_defaults_to_safe_retry_delay(client):
     response = Mock(status_code=429, headers={})
 
-    with patch(
-        "quantcore.ingestion.providers.massive.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.massive.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(RateLimitError) as exc_info,
     ):
-        with pytest.raises(RateLimitError) as exc_info:
-            client.get_company_info("AAPL")
+        client.get_company_info("AAPL")
 
     assert exc_info.value.retry_after_seconds == 60.0
 
 
-def test_massive_company_info_maps_documented_reference_fields_without_fabricating_sector(client):
+def test_massive_company_info_maps_documented_reference_fields_without_fabricating_sector(
+    client,
+):
     response = {
         "status": "OK",
         "results": {

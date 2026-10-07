@@ -43,36 +43,44 @@ def test_factory_strips_provider_name():
 
 def test_factory_rejects_financial_provider():
 
-    with patch(
-        "quantcore.ingestion.providers.factory.settings.market_data_provider",
-        "fmp",
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "quantcore.ingestion.providers.factory.settings.market_data_provider",
+            "fmp",
+        ),
+        pytest.raises(
             ConfigurationError,
             match="Unknown market data provider: fmp",
-        ):
-            ProviderFactory.get_provider()
+        ),
+    ):
+        ProviderFactory.get_provider()
 
 
 def test_factory_rejects_unknown_provider():
 
-    with patch(
-        "quantcore.ingestion.providers.factory.settings.market_data_provider",
-        "unknown",
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "quantcore.ingestion.providers.factory.settings.market_data_provider",
+            "unknown",
+        ),
+        pytest.raises(
             ConfigurationError,
             match="Unknown market data provider: unknown",
-        ):
-            ProviderFactory.get_provider()
+        ),
+    ):
+        ProviderFactory.get_provider()
+
 
 def test_factory_returns_massive_provider():
-    with patch(
-        "quantcore.ingestion.providers.factory.settings.market_data_provider",
-        "massive",
-    ), patch(
-        "quantcore.ingestion.providers.factory.settings.MASSIVE_API_KEY",
-        "test-key",
+    with (
+        patch(
+            "quantcore.ingestion.providers.factory.settings.market_data_provider",
+            "massive",
+        ),
+        patch(
+            "quantcore.ingestion.providers.factory.settings.MASSIVE_API_KEY",
+            "test-key",
+        ),
     ):
         provider = ProviderFactory.get_provider()
 

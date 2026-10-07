@@ -109,7 +109,9 @@ class SecurityIdentifierHistoryRepository:
         if known_at.tzinfo is None:
             raise ValueError("known_at must be timezone-aware")
         if known_at <= history.known_at:
-            raise ValueError("known_at must be later than the interval's prior knowledge boundary")
+            raise ValueError(
+                "known_at must be later than the interval's prior knowledge boundary"
+            )
 
         history.is_current = False
         revised = SecurityIdentifierHistory(

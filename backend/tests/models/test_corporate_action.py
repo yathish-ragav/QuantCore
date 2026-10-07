@@ -1,8 +1,8 @@
 from datetime import date
 
 from quantcore.core.enums import CorporateActionType
-from quantcore.models.provenance import DataSource
 from quantcore.models.corporate_action import CorporateAction
+from quantcore.models.provenance import DataSource
 
 
 def test_corporate_action_model():

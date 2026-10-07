@@ -4,16 +4,16 @@ Revision ID: d1e2f3a4b5c6
 Revises: c4d5e6f7a8b9
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
 revision: str = "d1e2f3a4b5c6"
-down_revision: Union[str, Sequence[str], None] = "c4d5e6f7a8b9"
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | Sequence[str] | None = "c4d5e6f7a8b9"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:

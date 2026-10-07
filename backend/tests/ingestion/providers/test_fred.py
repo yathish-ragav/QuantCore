@@ -4,7 +4,11 @@ from unittest.mock import patch
 
 import pytest
 
-from quantcore.core.exceptions import DataValidationError, ExternalDataError, InvalidInputError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    ExternalDataError,
+    InvalidInputError,
+)
 from quantcore.ingestion.providers.fred import FREDClient
 
 
@@ -16,20 +20,22 @@ def client():
 def test_get_series_normalizes_metadata():
     provider = client()
     provider._get = lambda path, params: {
-        "seriess": [{
-            "id": "GDP",
-            "title": "Gross Domestic Product",
-            "frequency": "Quarterly",
-            "frequency_short": "Q",
-            "units": "Billions of Dollars",
-            "units_short": "Bil. of $",
-            "seasonal_adjustment": "Seasonally Adjusted",
-            "seasonal_adjustment_short": "SA",
-            "observation_start": "1947-01-01",
-            "observation_end": "2026-04-01",
-            "last_updated": "2026-07-30 08:00:00-05:00",
-            "notes": "test",
-        }]
+        "seriess": [
+            {
+                "id": "GDP",
+                "title": "Gross Domestic Product",
+                "frequency": "Quarterly",
+                "frequency_short": "Q",
+                "units": "Billions of Dollars",
+                "units_short": "Bil. of $",
+                "seasonal_adjustment": "Seasonally Adjusted",
+                "seasonal_adjustment_short": "SA",
+                "observation_start": "1947-01-01",
+                "observation_end": "2026-04-01",
+                "last_updated": "2026-07-30 08:00:00-05:00",
+                "notes": "test",
+            }
+        ]
     }
 
     result = provider.get_series("gdp")
@@ -77,23 +83,27 @@ def test_get_series_rejects_invalid_payload():
 
 def test_get_observations_translates_request_failure():
     provider = client()
-    with patch(
-        "quantcore.ingestion.providers.fred.requests.get",
-        side_effect=__import__("requests").RequestException("network"),
+    with (
+        patch(
+            "quantcore.ingestion.providers.fred.requests.get",
+            side_effect=__import__("requests").RequestException("network"),
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            provider.get_observations("GDP")
+        provider.get_observations("GDP")
 
 
 def test_get_observations_preserves_row_level_realtime_period():
     provider = client()
     provider._get = lambda path, params: {
-        "observations": [{
-            "date": "2020-01-01",
-            "value": "100",
-            "realtime_start": "2020-02-01",
-            "realtime_end": "2020-02-29",
-        }],
+        "observations": [
+            {
+                "date": "2020-01-01",
+                "value": "100",
+                "realtime_start": "2020-02-01",
+                "realtime_end": "2020-02-29",
+            }
+        ],
     }
 
     result = provider.get_observations("GDP", vintage_date=date(2020, 2, 15))
@@ -105,12 +115,14 @@ def test_get_observations_preserves_row_level_realtime_period():
 def test_get_observations_rejects_row_not_covering_requested_vintage():
     provider = client()
     provider._get = lambda path, params: {
-        "observations": [{
-            "date": "2020-01-01",
-            "value": "100",
-            "realtime_start": "2020-03-01",
-            "realtime_end": "9999-12-31",
-        }],
+        "observations": [
+            {
+                "date": "2020-01-01",
+                "value": "100",
+                "realtime_start": "2020-03-01",
+                "realtime_end": "9999-12-31",
+            }
+        ],
     }
 
     with pytest.raises(DataValidationError):

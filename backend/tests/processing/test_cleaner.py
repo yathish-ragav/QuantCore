@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.schemas.company import CompanyData
@@ -9,18 +9,14 @@ from quantcore.schemas.price import PriceData
 
 def test_clean_symbol_normalizes_symbol():
 
-    result = DataCleaner.clean_symbol(
-        "  aapl  "
-    )
+    result = DataCleaner.clean_symbol("  aapl  ")
 
     assert result == "AAPL"
 
 
 def test_clean_text_normalizes_whitespace():
 
-    result = DataCleaner.clean_text(
-        "  Apple     Inc.   "
-    )
+    result = DataCleaner.clean_text("  Apple     Inc.   ")
 
     assert result == "Apple Inc."
 
@@ -44,9 +40,7 @@ def test_clean_company_normalizes_fields():
         market_cap=3_000_000_000_000,
     )
 
-    result = DataCleaner.clean_company(
-        company
-    )
+    result = DataCleaner.clean_company(company)
 
     assert result.symbol == "AAPL"
     assert result.name == "Apple Inc."
@@ -64,31 +58,25 @@ def test_clean_news_normalizes_text():
         publisher="  Reuters  ",
         summary=" Apple reported    strong results. ",
         url=" https://example.com/article ",
-        published_at=datetime(
+        published_at=datetime(  # noqa: DTZ001
             2026,
             1,
             2,
         ),
     )
 
-    result = DataCleaner.clean_news(
-        news
-    )
+    result = DataCleaner.clean_news(news)
 
     assert result.title == "Apple reports earnings"
     assert result.publisher == "Reuters"
-    assert result.summary == (
-        "Apple reported strong results."
-    )
-    assert result.url == (
-        "https://example.com/article"
-    )
+    assert result.summary == ("Apple reported strong results.")
+    assert result.url == ("https://example.com/article")
 
 
 def test_clean_price_normalizes_numeric_types():
 
     price = PriceData(
-        date=datetime(
+        date=datetime(  # noqa: DTZ001
             2026,
             1,
             2,
@@ -102,9 +90,7 @@ def test_clean_price_normalizes_numeric_types():
         stock_splits=0,
     )
 
-    result = DataCleaner.clean_price(
-        price
-    )
+    result = DataCleaner.clean_price(price)
 
     assert result.open == 250.0
     assert result.high == 255.0
@@ -113,6 +99,7 @@ def test_clean_price_normalizes_numeric_types():
     assert result.volume == 1_000_000
     assert result.dividends == 0.0
     assert result.stock_splits == 0.0
+
 
 def test_clean_price_normalizes_aware_timestamp_to_utc_naive():
     price = PriceData(
@@ -128,7 +115,7 @@ def test_clean_price_normalizes_aware_timestamp_to_utc_naive():
 
     result = DataCleaner.clean_price(price)
 
-    assert result.date == datetime(2026, 1, 2, 5, 30)
+    assert result.date == datetime(2026, 1, 2, 5, 30)  # noqa: DTZ001
     assert result.date.tzinfo is None
 
 
@@ -148,7 +135,7 @@ def test_clean_company_preserves_security_type():
 
 def test_clean_income_statement_preserves_distinct_share_fields():
     statement = IncomeStatementData(
-        fiscal_date=datetime(2024, 9, 28).date(),
+        fiscal_date=date(2024, 9, 28),
         shares_outstanding=15_000_000_000,
         weighted_average_shares_outstanding=15_408_095_000,
     )

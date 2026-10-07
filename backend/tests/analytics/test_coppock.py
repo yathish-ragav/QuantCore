@@ -43,9 +43,7 @@ def test_coppock_basic():
     # (20 * 1 + 18.181818 * 2) / 3
     # = 18.787878...
 
-    assert result[2] == pytest.approx(
-        18.7878787879
-    )
+    assert result[2] == pytest.approx(18.7878787879)
 
 
 def test_coppock_wma_weighting():
@@ -78,9 +76,7 @@ def test_coppock_wma_weighting():
     # (20 * 1 + 36.363636 * 2) / 3
     # = 30.909090...
 
-    assert result[2] == pytest.approx(
-        30.9090909091
-    )
+    assert result[2] == pytest.approx(30.9090909091)
 
 
 def test_coppock_insufficient_data():
@@ -157,9 +153,7 @@ def test_coppock_zero_previous_close():
     # (20 * 1 + 18.181818 * 2) / 3
     # = 18.787878...
 
-    assert result[3] == pytest.approx(
-        18.7878787879
-    )
+    assert result[3] == pytest.approx(18.7878787879)
 
 
 def test_coppock_empty_input():
@@ -179,7 +173,7 @@ def test_coppock_invalid_period():
 
     with pytest.raises(
         ValueError,
-        match="Periods must be greater than zero.",
+        match=r"Periods\ must\ be\ greater\ than\ zero\.",
     ):
         CoppockCurve.calculate(
             closes,

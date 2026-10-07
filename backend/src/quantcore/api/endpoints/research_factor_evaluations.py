@@ -24,7 +24,6 @@ from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalAnalysisService,
 )
 
-
 router = APIRouter(
     prefix="/api/v1/research/factors",
     tags=["Research Factor Evaluations"],

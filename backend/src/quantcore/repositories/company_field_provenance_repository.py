@@ -21,12 +21,9 @@ class CompanyFieldProvenanceRepository:
         company_id: int,
         field_name: CompanyField,
     ) -> CompanyFieldProvenance | None:
-        stmt = (
-            select(CompanyFieldProvenance)
-            .where(
-                CompanyFieldProvenance.company_id == company_id,
-                CompanyFieldProvenance.field_name == field_name,
-            )
+        stmt = select(CompanyFieldProvenance).where(
+            CompanyFieldProvenance.company_id == company_id,
+            CompanyFieldProvenance.field_name == field_name,
         )
 
         return self.db.scalar(stmt)

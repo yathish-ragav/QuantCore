@@ -13,9 +13,7 @@ def make_service():
 
     db = Mock()
 
-    service = PriceService.__new__(
-        PriceService
-    )
+    service = PriceService.__new__(PriceService)
 
     service.db = db
     service.client = Mock()
@@ -54,7 +52,7 @@ def make_price_data(
 ):
 
     if date is None:
-        date = datetime(
+        date = datetime(  # noqa: DTZ001
             2026,
             1,
             2,
@@ -80,13 +78,9 @@ def test_sync_price_history_inserts_new_prices():
     security = make_security()
     data = make_price_data()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.client.get_price_history.return_value = [
-        data
-    ]
+    service.client.get_price_history.return_value = [data]
 
     service.price_repo.get_for_security_and_dates.return_value = []
     created_price = Mock()
@@ -102,12 +96,11 @@ def test_sync_price_history_inserts_new_prices():
     created_price.dividends = data.dividends
     created_price.stock_splits = data.stock_splits
     created_price.source_reference = None
+    created_price.source_reference = None
     service.price_repo.create.return_value = created_price
     service.revision_repo.get_next_revision_numbers.return_value = {}
 
-    result = service.sync_price_history(
-        "AAPL"
-    )
+    result = service.sync_price_history("AAPL")
 
     assert result.created == 1
     assert result.updated == 0
@@ -116,9 +109,7 @@ def test_sync_price_history_inserts_new_prices():
     assert result.coverage_start == data.date
     assert result.coverage_end == data.date
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
     service.client.get_price_history.assert_called_once_with(
         "AAPL",
@@ -144,6 +135,7 @@ def test_sync_price_history_inserts_new_prices():
         stock_splits=data.stock_splits,
         source=DataSource.YAHOO,
         fetched_at=ANY,
+        source_reference="YAHOO:PRICE:DAY:AAPL:2026-01-02",
     )
 
     service.revision_repo.create.assert_called_once()
@@ -170,31 +162,23 @@ def test_sync_price_history_skips_existing_prices():
     existing_price.volume = data.volume
     existing_price.dividends = data.dividends
     existing_price.stock_splits = data.stock_splits
+    existing_price.source_reference = "YAHOO:PRICE:DAY:AAPL:2026-01-02"
+    existing_price.source_reference = "YAHOO:PRICE:DAY:AAPL:2026-01-02"
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.client.get_price_history.return_value = [
-        data
-    ]
+    service.client.get_price_history.return_value = [data]
 
-    service.price_repo.get_for_security_and_dates.return_value = [
-        existing_price
-    ]
+    service.price_repo.get_for_security_and_dates.return_value = [existing_price]
 
-    result = service.sync_price_history(
-        "AAPL"
-    )
+    result = service.sync_price_history("AAPL")
 
     assert result.created == 0
     assert result.updated == 0
     assert result.unchanged == 1
     assert result.records_processed == 1
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
     service.price_repo.get_for_security_and_dates.assert_called_once_with(
         10,
@@ -216,13 +200,11 @@ def test_sync_price_history_security_not_found():
 
     with pytest.raises(
         ValueError,
-        match="Security 'AAPL' not found",
+        match=r"Security 'AAPL' not found",
     ):
         service.sync_price_history("AAPL")
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
     service.client.get_price_history.assert_not_called()
 
@@ -240,9 +222,7 @@ def test_sync_price_history_passes_period_to_provider():
 
     security = make_security()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     service.client.get_price_history.return_value = []
 
@@ -256,9 +236,7 @@ def test_sync_price_history_passes_period_to_provider():
     assert result.coverage_start is None
     assert result.coverage_end is None
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
     service.client.get_price_history.assert_called_once_with(
         "AAPL",
@@ -275,22 +253,16 @@ def test_sync_price_history_normalizes_symbol():
 
     security = make_security()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     service.client.get_price_history.return_value = []
 
-    result = service.sync_price_history(
-        "  aapl  "
-    )
+    result = service.sync_price_history("  aapl  ")
 
     assert result.records_processed == 0
     assert result.created == 0
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
     service.client.get_price_history.assert_called_once_with(
         "AAPL",
@@ -307,13 +279,11 @@ def test_sync_price_history_transforms_raw_dictionary_data():
 
     security = make_security()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     service.client.get_price_history.return_value = [
         {
-            "date": datetime(
+            "date": datetime(  # noqa: DTZ001
                 2026,
                 1,
                 2,
@@ -331,9 +301,7 @@ def test_sync_price_history_transforms_raw_dictionary_data():
 
     service.price_repo.get_for_security_and_dates.return_value = []
 
-    result = service.sync_price_history(
-        "AAPL"
-    )
+    result = service.sync_price_history("AAPL")
 
     assert result.created == 1
     assert result.updated == 0
@@ -342,7 +310,7 @@ def test_sync_price_history_transforms_raw_dictionary_data():
 
     service.price_repo.create.assert_called_once_with(
         security_id=10,
-        date=datetime(
+        date=datetime(  # noqa: DTZ001
             2026,
             1,
             2,
@@ -358,6 +326,7 @@ def test_sync_price_history_transforms_raw_dictionary_data():
         stock_splits=0.0,
         source=DataSource.YAHOO,
         fetched_at=ANY,
+        source_reference="YAHOO:PRICE:DAY:AAPL:2026-01-02",
     )
 
     db.commit.assert_called_once()
@@ -370,13 +339,11 @@ def test_sync_price_history_cleans_price_values():
 
     security = make_security()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     service.client.get_price_history.return_value = [
         {
-            "date": datetime(
+            "date": datetime(  # noqa: DTZ001
                 2026,
                 1,
                 2,
@@ -396,10 +363,7 @@ def test_sync_price_history_cleans_price_values():
 
     service.sync_price_history("AAPL")
 
-    created = (
-        service.price_repo
-        .create.call_args.kwargs
-    )
+    created = service.price_repo.create.call_args.kwargs
 
     assert created["open"] == 250.0
     assert created["high"] == 255.0
@@ -419,9 +383,7 @@ def test_sync_price_history_rejects_invalid_ohlc():
 
     security = make_security()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     service.client.get_price_history.return_value = [
         make_price_data(
@@ -432,7 +394,7 @@ def test_sync_price_history_rejects_invalid_ohlc():
 
     with pytest.raises(
         ValueError,
-        match="Invalid price data",
+        match=r"Invalid\ price\ data",
     ):
         service.sync_price_history("AAPL")
 
@@ -448,19 +410,13 @@ def test_sync_price_history_rejects_negative_volume():
 
     security = make_security()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.client.get_price_history.return_value = [
-        make_price_data(
-            volume=-1
-        )
-    ]
+    service.client.get_price_history.return_value = [make_price_data(volume=-1)]
 
     with pytest.raises(
         ValueError,
-        match="Invalid price data",
+        match=r"Invalid\ price\ data",
     ):
         service.sync_price_history("AAPL")
 
@@ -476,17 +432,13 @@ def test_sync_price_history_rolls_back_on_provider_error():
 
     security = make_security()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.client.get_price_history.side_effect = (
-        RuntimeError("provider error")
-    )
+    service.client.get_price_history.side_effect = RuntimeError("provider error")
 
     with pytest.raises(
         RuntimeError,
-        match="provider error",
+        match=r"provider\ error",
     ):
         service.sync_price_history("AAPL")
 
@@ -503,13 +455,9 @@ def test_sync_price_history_rolls_back_on_repository_error():
     security = make_security()
     data = make_price_data()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.client.get_price_history.return_value = [
-        data
-    ]
+    service.client.get_price_history.return_value = [data]
 
     service.price_repo.get_for_security_and_dates.return_value = []
     created_price = Mock()
@@ -525,16 +473,15 @@ def test_sync_price_history_rolls_back_on_repository_error():
     created_price.dividends = data.dividends
     created_price.stock_splits = data.stock_splits
     created_price.source_reference = None
+    created_price.source_reference = None
     service.price_repo.create.return_value = created_price
     service.revision_repo.get_next_revision_numbers.return_value = {}
 
-    service.price_repo.create.side_effect = (
-        RuntimeError("database error")
-    )
+    service.price_repo.create.side_effect = RuntimeError("database error")
 
     with pytest.raises(
         RuntimeError,
-        match="database error",
+        match=r"database\ error",
     ):
         service.sync_price_history("AAPL")
 
@@ -548,7 +495,7 @@ def test_sync_price_history_rejects_empty_symbol():
 
     with pytest.raises(
         ValueError,
-        match="Symbol must not be empty",
+        match=r"Symbol\ must\ not\ be\ empty",
     ):
         service.sync_price_history("   ")
 
@@ -562,7 +509,6 @@ def test_sync_price_history_rejects_empty_symbol():
     # try/except block.
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
-
 
 
 def test_sync_price_history_updates_changed_observation_and_creates_revision():
@@ -582,6 +528,7 @@ def test_sync_price_history_updates_changed_observation_and_creates_revision():
     existing.volume = data.volume
     existing.dividends = data.dividends
     existing.stock_splits = data.stock_splits
+    existing.source_reference = "YAHOO:PRICE:DAY:AAPL:2026-01-02"
     existing.source_reference = None
 
     service.security_repo.get_by_symbol.return_value = security
@@ -601,17 +548,16 @@ def test_sync_price_history_updates_changed_observation_and_creates_revision():
     db.commit.assert_called_once()
 
 
-
 def test_sync_price_history_normalizes_daily_timestamp_to_midnight():
     service, db = make_service()
     security = make_security()
-    data = make_price_data(date=datetime(2024, 9, 20, 9, 30))
+    data = make_price_data(date=datetime(2024, 9, 20, 9, 30))  # noqa: DTZ001
     service.security_repo.get_by_symbol.return_value = security
     service.client.get_price_history.return_value = [data]
     service.price_repo.get_for_security_and_dates.return_value = []
     created_price = Mock()
     created_price.id = 101
-    created_price.date = datetime(2024, 9, 20)
+    created_price.date = datetime(2024, 9, 20)  # noqa: DTZ001
     created_price.open = data.open
     created_price.high = data.high
     created_price.low = data.low
@@ -622,6 +568,7 @@ def test_sync_price_history_normalizes_daily_timestamp_to_midnight():
     created_price.dividends = data.dividends
     created_price.stock_splits = data.stock_splits
     created_price.source_reference = None
+    created_price.source_reference = None
     service.price_repo.create.return_value = created_price
 
     result = service.sync_price_history("AAPL")
@@ -629,12 +576,16 @@ def test_sync_price_history_normalizes_daily_timestamp_to_midnight():
     assert result.created == 1
     assert service.price_repo.get_for_security_and_dates.call_args.args == (
         10,
-        [datetime(2024, 9, 20)],
+        [datetime(2024, 9, 20)],  # noqa: DTZ001
     )
-    assert service.price_repo.create.call_args.kwargs["date"] == datetime(
+    assert service.price_repo.create.call_args.kwargs[
+        "date"
+    ] == datetime(  # noqa: DTZ001
         2024, 9, 20
     )
-    assert service.revision_repo.create.call_args.kwargs["date"] == datetime(
+    assert service.revision_repo.create.call_args.kwargs[
+        "date"
+    ] == datetime(  # noqa: DTZ001
         2024, 9, 20
     )
     db.commit.assert_called_once()
@@ -643,12 +594,12 @@ def test_sync_price_history_normalizes_daily_timestamp_to_midnight():
 def test_sync_price_history_rejects_duplicate_calendar_days_from_provider():
     service, db = make_service()
     security = make_security()
-    first = make_price_data(date=datetime(2024, 9, 20, 4, 0))
-    second = make_price_data(date=datetime(2024, 9, 20, 9, 30))
+    first = make_price_data(date=datetime(2024, 9, 20, 4, 0))  # noqa: DTZ001
+    second = make_price_data(date=datetime(2024, 9, 20, 9, 30))  # noqa: DTZ001
     service.security_repo.get_by_symbol.return_value = security
     service.client.get_price_history.return_value = [first, second]
 
-    with pytest.raises(ValueError, match="Invalid price data for 'AAPL'"):
+    with pytest.raises(ValueError, match=r"Invalid\ price\ data\ for\ 'AAPL'"):
         service.sync_price_history("AAPL")
 
     service.price_repo.get_for_security_and_dates.assert_not_called()
@@ -660,14 +611,22 @@ def test_sync_price_history_rejects_duplicate_calendar_days_from_provider():
 def test_sync_price_history_matches_legacy_timestamp_by_calendar_day():
     service, db = make_service()
     security = make_security()
-    data = make_price_data(date=datetime(2024, 9, 20, 4, 0))
+    data = make_price_data(date=datetime(2024, 9, 20, 4, 0))  # noqa: DTZ001
     existing = Mock()
-    existing.date = datetime(2024, 9, 20, 9, 30)
+    existing.date = datetime(2024, 9, 20, 9, 30)  # noqa: DTZ001
     for field in (
-        "open", "high", "low", "close", "adjusted_close",
-        "price_basis", "volume", "dividends", "stock_splits",
+        "open",
+        "high",
+        "low",
+        "close",
+        "adjusted_close",
+        "price_basis",
+        "volume",
+        "dividends",
+        "stock_splits",
     ):
         setattr(existing, field, getattr(data, field))
+    existing.source_reference = "YAHOO:PRICE:DAY:AAPL:2024-09-20"
     service.security_repo.get_by_symbol.return_value = security
     service.client.get_price_history.return_value = [data]
     service.price_repo.get_for_security_and_dates.return_value = [existing]
@@ -684,18 +643,18 @@ def test_sync_price_history_matches_legacy_timestamp_by_calendar_day():
 def test_sync_price_history_fails_closed_on_legacy_duplicate_calendar_days():
     service, db = make_service()
     security = make_security()
-    data = make_price_data(date=datetime(2024, 9, 20))
+    data = make_price_data(date=datetime(2024, 9, 20))  # noqa: DTZ001
     first = Mock()
     second = Mock()
-    first.date = datetime(2024, 9, 20, 4, 0)
-    second.date = datetime(2024, 9, 20, 9, 30)
+    first.date = datetime(2024, 9, 20, 4, 0)  # noqa: DTZ001
+    second.date = datetime(2024, 9, 20, 9, 30)  # noqa: DTZ001
     service.security_repo.get_by_symbol.return_value = security
     service.client.get_price_history.return_value = [data]
     service.price_repo.get_for_security_and_dates.return_value = [first, second]
 
     with pytest.raises(
         ValueError,
-        match="Multiple stored daily price observations",
+        match=r"Multiple\ stored\ daily\ price\ observations",
     ):
         service.sync_price_history("AAPL")
 
@@ -703,6 +662,7 @@ def test_sync_price_history_fails_closed_on_legacy_duplicate_calendar_days():
     service.revision_repo.create.assert_not_called()
     db.commit.assert_not_called()
     db.rollback.assert_called_once()
+
 
 def test_get_price_history_as_of_uses_revision_repository():
     service, db = make_service()
@@ -720,9 +680,12 @@ def test_get_price_history_as_of_uses_revision_repository():
         "AAPL",
         as_of=as_of,
     )
-    service.revision_repo.get_latest_for_security_as_of.assert_called_once_with(10, as_of)
+    service.revision_repo.get_latest_for_security_as_of.assert_called_once_with(
+        10, as_of
+    )
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
+
 
 def test_get_price_history_returns_prices():
 
@@ -735,27 +698,17 @@ def test_get_price_history_returns_prices():
         Mock(),
     ]
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.price_repo.get_for_security.return_value = (
-        prices
-    )
+    service.price_repo.get_for_security.return_value = prices
 
-    result = service.get_price_history(
-        "AAPL"
-    )
+    result = service.get_price_history("AAPL")
 
     assert result == prices
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
-    service.price_repo.get_for_security.assert_called_once_with(
-        10
-    )
+    service.price_repo.get_for_security.assert_called_once_with(10)
 
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
@@ -767,25 +720,17 @@ def test_get_price_history_normalizes_symbol():
 
     security = make_security()
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     service.price_repo.get_for_security.return_value = []
 
-    result = service.get_price_history(
-        "  aapl  "
-    )
+    result = service.get_price_history("  aapl  ")
 
     assert result == []
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
-    service.price_repo.get_for_security.assert_called_once_with(
-        10
-    )
+    service.price_repo.get_for_security.assert_called_once_with(10)
 
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
@@ -799,18 +744,17 @@ def test_get_price_history_security_not_found():
 
     with pytest.raises(
         ValueError,
-        match="Security 'AAPL' not found",
+        match=r"Security 'AAPL' not found",
     ):
         service.get_price_history("AAPL")
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
     service.price_repo.get_for_security.assert_not_called()
 
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
+
 
 def test_get_price_revision_history_known_as_of_uses_all_revision_repository():
     service, db = make_service()
@@ -819,7 +763,9 @@ def test_get_price_revision_history_known_as_of_uses_all_revision_repository():
     as_of = datetime(2026, 1, 8, 12, 0, tzinfo=timezone.utc)
 
     service.listing_identity_service.resolve_security_as_of.return_value = security
-    service.revision_repo.get_revisions_for_security_known_as_of.return_value = revisions
+    service.revision_repo.get_revisions_for_security_known_as_of.return_value = (
+        revisions
+    )
 
     result = service.get_price_revision_history_known_as_of("AAPL", as_of)
 
@@ -843,7 +789,7 @@ def test_sync_price_history_rejects_duplicate_provider_dates_before_persistence(
     service.security_repo.get_by_symbol.return_value = security
     service.client.get_price_history.return_value = [first, duplicate]
 
-    with pytest.raises(ValueError, match="Invalid price data"):
+    with pytest.raises(ValueError, match=r"Invalid\ price\ data"):
         service.sync_price_history("AAPL")
 
     service.price_repo.get_for_security_and_dates.assert_not_called()
@@ -858,7 +804,7 @@ def test_sync_price_history_reconciles_a_batch_with_one_existing_lookup_and_flus
     service, db = make_service()
     security = make_security()
     first = make_price_data()
-    second = make_price_data(date=datetime(2026, 1, 5), close=255.0)
+    second = make_price_data(date=datetime(2026, 1, 5), close=255.0)  # noqa: DTZ001
     existing = Mock()
     existing.id = 200
     existing.date = first.date
@@ -871,7 +817,7 @@ def test_sync_price_history_reconciles_a_batch_with_one_existing_lookup_and_flus
     existing.volume = first.volume
     existing.dividends = first.dividends
     existing.stock_splits = first.stock_splits
-    existing.source_reference = None
+    existing.source_reference = "YAHOO:PRICE:DAY:AAPL:2026-01-02"
     created = Mock()
     created.id = 201
     created.date = second.date

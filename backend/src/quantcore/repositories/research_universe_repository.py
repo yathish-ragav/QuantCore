@@ -3,22 +3,28 @@ from datetime import date, datetime
 from sqlalchemy import and_, exists, func, select
 from sqlalchemy.orm import Session
 
-from quantcore.core.enums import FinancialPeriodType, FinancialStatementType, SecurityType
+from quantcore.core.enums import (
+    FinancialPeriodType,
+    FinancialStatementType,
+    SecurityType,
+)
 from quantcore.ingestion.datasets import DATASET_POLICIES, IngestionDataset
 from quantcore.models.balance_sheet import BalanceSheet
 from quantcore.models.cash_flow_statement import CashFlowStatement
 from quantcore.models.company import Company
 from quantcore.models.financial_statement_revision import FinancialStatementRevision
-from quantcore.models.ingestion import IngestionState
 from quantcore.models.income_statement import IncomeStatement
+from quantcore.models.ingestion import IngestionState
 from quantcore.models.news import News
 from quantcore.models.price import Price
 from quantcore.models.price_observation_revision import PriceObservationRevision
+from quantcore.models.provenance import DataSource
 from quantcore.models.sec_filing import SECFiling
 from quantcore.models.sec_xbrl_fact import SECXBRLFactObservation
-from quantcore.models.provenance import DataSource
 from quantcore.models.security import Security, SecurityStatus
-from quantcore.models.security_classification_history import SecurityClassificationHistory
+from quantcore.models.security_classification_history import (
+    SecurityClassificationHistory,
+)
 from quantcore.models.security_identifier_history import SecurityIdentifierHistory
 
 
@@ -50,15 +56,25 @@ class ResearchUniverseRepository:
         if dataset is IngestionDataset.PRICE_HISTORY:
             return exists(select(1).where(Price.security_id == Security.id))
         if dataset is IngestionDataset.INCOME_STATEMENT:
-            return exists(select(1).where(IncomeStatement.company_id == Security.company_id))
+            return exists(
+                select(1).where(IncomeStatement.company_id == Security.company_id)
+            )
         if dataset is IngestionDataset.CASH_FLOW_STATEMENT:
-            return exists(select(1).where(CashFlowStatement.company_id == Security.company_id))
+            return exists(
+                select(1).where(CashFlowStatement.company_id == Security.company_id)
+            )
         if dataset is IngestionDataset.BALANCE_SHEET:
-            return exists(select(1).where(BalanceSheet.company_id == Security.company_id))
+            return exists(
+                select(1).where(BalanceSheet.company_id == Security.company_id)
+            )
         if dataset is IngestionDataset.SEC_FILINGS:
             return exists(select(1).where(SECFiling.company_id == Security.company_id))
         if dataset is IngestionDataset.SEC_XBRL_FACTS:
-            return exists(select(1).where(SECXBRLFactObservation.company_id == Security.company_id))
+            return exists(
+                select(1).where(
+                    SECXBRLFactObservation.company_id == Security.company_id
+                )
+            )
         if dataset is IngestionDataset.NEWS:
             return exists(select(1).where(News.company_id == Security.company_id))
         raise ValueError(f"No persisted-row policy exists for dataset: {dataset.value}")
@@ -146,7 +162,10 @@ class ResearchUniverseRepository:
         )
         stmt = (
             select(Security)
-            .join(SecurityIdentifierHistory, SecurityIdentifierHistory.security_id == Security.id)
+            .join(
+                SecurityIdentifierHistory,
+                SecurityIdentifierHistory.security_id == Security.id,
+            )
             .join(ranked, ranked.c.id == SecurityIdentifierHistory.id)
             .where(
                 ranked.c.revision_rank == 1,
@@ -194,7 +213,8 @@ class ResearchUniverseRepository:
             .join(ranked, ranked.c.id == SecurityClassificationHistory.id)
             .where(
                 ranked.c.revision_rank == 1,
-                SecurityClassificationHistory.security_type == SecurityType.COMMON_STOCK,
+                SecurityClassificationHistory.security_type
+                == SecurityType.COMMON_STOCK,
                 SecurityClassificationHistory.effective_from <= effective_on,
                 (SecurityClassificationHistory.effective_to.is_(None))
                 | (SecurityClassificationHistory.effective_to > effective_on),
@@ -208,27 +228,37 @@ class ResearchUniverseRepository:
         securities: list[Security],
         effective_on: date,
         known_at: datetime,
-        financial_requirements: tuple[tuple[FinancialStatementType, FinancialPeriodType], ...],
+        financial_requirements: tuple[
+            tuple[FinancialStatementType, FinancialPeriodType], ...
+        ],
         require_price_history: bool,
     ) -> set[int]:
         if not securities:
             return set()
 
         eligible = {security.id for security in securities}
-        company_by_security = {security.id: security.company_id for security in securities}
+        company_by_security = {
+            security.id: security.company_id for security in securities
+        }
 
         for statement_type, period_type in financial_requirements:
-            matching = self.db.execute(
-                select(FinancialStatementRevision.company_id)
-                .where(
-                    FinancialStatementRevision.company_id.in_(company_by_security.values()),
-                    FinancialStatementRevision.statement_type == statement_type,
-                    FinancialStatementRevision.period_type == period_type,
-                    FinancialStatementRevision.fiscal_date <= effective_on,
-                    FinancialStatementRevision.known_at <= known_at,
+            matching = (
+                self.db.execute(
+                    select(FinancialStatementRevision.company_id)
+                    .where(
+                        FinancialStatementRevision.company_id.in_(
+                            company_by_security.values()
+                        ),
+                        FinancialStatementRevision.statement_type == statement_type,
+                        FinancialStatementRevision.period_type == period_type,
+                        FinancialStatementRevision.fiscal_date <= effective_on,
+                        FinancialStatementRevision.known_at <= known_at,
+                    )
+                    .distinct()
                 )
-                .distinct()
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             companies = {int(company_id) for company_id in matching}
             eligible = {
                 security_id
@@ -239,16 +269,23 @@ class ResearchUniverseRepository:
                 return set()
 
         if require_price_history:
-            matching_prices = self.db.execute(
-                select(Price.security_id)
-                .join(PriceObservationRevision, PriceObservationRevision.price_id == Price.id)
-                .where(
-                    Price.security_id.in_(eligible),
-                    PriceObservationRevision.known_at <= known_at,
-                    Price.date <= effective_on,
+            matching_prices = (
+                self.db.execute(
+                    select(Price.security_id)
+                    .join(
+                        PriceObservationRevision,
+                        PriceObservationRevision.price_id == Price.id,
+                    )
+                    .where(
+                        Price.security_id.in_(eligible),
+                        PriceObservationRevision.known_at <= known_at,
+                        Price.date <= effective_on,
+                    )
+                    .distinct()
                 )
-                .distinct()
-            ).scalars().all()
+                .scalars()
+                .all()
+            )
             eligible &= {int(security_id) for security_id in matching_prices}
 
         return eligible
@@ -258,7 +295,9 @@ class ResearchUniverseRepository:
         *,
         effective_on: date,
         known_at: datetime,
-        financial_requirements: tuple[tuple[FinancialStatementType, FinancialPeriodType], ...],
+        financial_requirements: tuple[
+            tuple[FinancialStatementType, FinancialPeriodType], ...
+        ],
         require_price_history: bool,
     ) -> list[Security]:
         listings = self.get_listing_universe_as_of(
@@ -274,7 +313,9 @@ class ResearchUniverseRepository:
             effective_on=effective_on,
             known_at=known_at,
         )
-        candidates = [security for security in listings if security.id in classified_ids]
+        candidates = [
+            security for security in listings if security.id in classified_ids
+        ]
         eligible_ids = self.get_historical_revision_eligible(
             securities=candidates,
             effective_on=effective_on,

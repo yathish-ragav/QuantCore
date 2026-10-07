@@ -24,11 +24,7 @@ Authentication fails closed when the OIDC configuration is incomplete.
 
 ## Authorization
 
-Current research analytical routes require:
-
-```text
-research:read
-```
+Current research analytical routes require `research:read`. The observation-materialization write route additionally requires `research:write`.
 
 The authenticated principal's issuer and subject are also used to construct a stable `ResourceOwner` for owner-scoped research resources.
 
@@ -36,7 +32,7 @@ The authenticated principal's issuer and subject are also used to construct a st
 
 | Group | Purpose |
 |---|---|
-| Observations | Read materialized research observations |
+| Observations | Read and, with `research:write`, materialize canonical PIT research observations |
 | Features | Read feature vectors |
 | Datasets | Build/read historical research datasets |
 | Experiments | Read runs, results, artifacts, provenance, comparisons |

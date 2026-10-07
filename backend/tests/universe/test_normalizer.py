@@ -23,12 +23,6 @@ def test_normalize_companies_preserves_multiple_securities_for_same_cik():
 
     assert len(result) == 2
 
-    assert {
-        company.symbol
-        for company in result
-    } == {"AAPL", "AAPL-A"}
+    assert {company.symbol for company in result} == {"AAPL", "AAPL-A"}
 
-    assert all(
-        company.cik == "0000320193"
-        for company in result
-    )
+    assert all(company.cik == "0000320193" for company in result)

@@ -37,7 +37,7 @@ def test_record_identifier_normalizes_value_and_source():
             value=" us0378331005 ",
             valid_from=date(2020, 1, 1),
             valid_to=None,
-            known_at=datetime(2020, 1, 2),
+            known_at=datetime(2020, 1, 2),  # noqa: DTZ001
             source=" sec ",
         )
     )

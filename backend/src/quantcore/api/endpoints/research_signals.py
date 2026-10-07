@@ -27,7 +27,6 @@ from quantcore.services.research_signal_service import (
     ResearchSignalService,
 )
 
-
 router = APIRouter(
     prefix="/api/v1/research/signals",
     tags=["Research Signals"],
@@ -71,8 +70,7 @@ def build_research_signal(
         signal_key=request.signal_key,
         definition_version=request.signal_definition_version,
         factor_identities=tuple(
-            (factor.factor_key, factor.definition_version)
-            for factor in request.factors
+            (factor.factor_key, factor.definition_version) for factor in request.factors
         ),
         weights=tuple(factor.weight for factor in request.factors),
         description=request.description,
@@ -92,11 +90,11 @@ def build_research_signal(
             factor_key=factor.factor_key,
             definition_version=factor.definition_version,
         )
-        panels_by_factor[(factor.factor_key.strip(), factor.definition_version.strip())] = (
-            cross_sectional_service.rank_factor_panel(
-                panel,
-                higher_is_better=factor.higher_is_better,
-            )
+        panels_by_factor[
+            (factor.factor_key.strip(), factor.definition_version.strip())
+        ] = cross_sectional_service.rank_factor_panel(
+            panel,
+            higher_is_better=factor.higher_is_better,
         )
 
     signal = signal_service.construct_signal(definition, panels_by_factor)

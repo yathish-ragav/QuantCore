@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, Query
 from quantcore.api.dependencies import get_analytics_service
 from quantcore.services.analytics_service import AnalyticsService
 
-
 router = APIRouter(
     prefix="/analytics",
     tags=["Analytics"],

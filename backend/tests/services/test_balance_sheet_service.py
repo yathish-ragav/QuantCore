@@ -3,7 +3,6 @@ from unittest.mock import ANY, Mock
 
 import pytest
 
-from quantcore.core.enums import FinancialStatementType
 from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.services.balance_sheet_service import BalanceSheetService
 
@@ -109,7 +108,9 @@ def test_sync_balance_sheets_skips_existing():
     service.provider.get_balance_sheets.return_value = [
         make_statement(date(2024, 9, 28))
     ]
-    service.statement_repo.get_for_company.return_value = [make_statement(date(2024, 9, 28))]
+    service.statement_repo.get_for_company.return_value = [
+        make_statement(date(2024, 9, 28))
+    ]
 
     result = service.sync_balance_sheets("AAPL")
     assert result.created == 0
@@ -172,7 +173,9 @@ def test_sync_balance_sheets_updates_changed_observation_and_creates_revision():
     company = make_company()
     service.security_repo.get_by_symbol.return_value = make_security(company)
     incoming = make_statement(date(2024, 9, 28))
-    existing = SimpleNamespace(**incoming.model_dump(), id=42, company_id=company.id, source_reference=None)
+    existing = SimpleNamespace(
+        **incoming.model_dump(), id=42, company_id=company.id, source_reference=None
+    )
     existing.total_assets = 900.0
     service.provider.get_balance_sheets.return_value = [incoming]
     service.statement_repo.get_for_company.return_value = [existing]
@@ -188,6 +191,7 @@ def test_sync_balance_sheets_updates_changed_observation_and_creates_revision():
     service.revision_repo.create.assert_called_once()
     db.commit.assert_called_once()
 
+
 def test_sync_balance_sheets_can_defer_commit():
     service, db = make_service()
     company = make_company()
@@ -200,5 +204,3 @@ def test_sync_balance_sheets_can_defer_commit():
     assert result.records_processed == 0
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
-
-

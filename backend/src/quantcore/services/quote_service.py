@@ -13,8 +13,6 @@ class QuoteService:
         symbol = symbol.strip().upper()
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         return self.provider.get_quote(symbol)

@@ -1,8 +1,8 @@
-from dataclasses import dataclass
-from hashlib import sha256
 import json
+from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable
+from hashlib import sha256
 
 from sqlalchemy.orm import Session
 
@@ -67,7 +67,7 @@ class ResearchHistoricalDataset:
         identities = None
         if self.definition_identities is not None:
             identities = tuple(sorted(self.definition_identities))
-        payload = {
+        payload: dict[str, object] = {
             "definition_identities": identities,
             "rows": tuple(
                 sorted(
@@ -112,9 +112,7 @@ class ResearchHistoricalAnalysisService:
     def _normalize_symbols(symbols: Iterable[str]) -> tuple[str, ...]:
         values = tuple(symbols)
         if not values:
-            raise InvalidInputError(
-                "At least one research symbol is required."
-            )
+            raise InvalidInputError("At least one research symbol is required.")
 
         normalized: list[str] = []
         seen: set[str] = set()
@@ -125,9 +123,7 @@ class ResearchHistoricalAnalysisService:
             if not item:
                 raise InvalidInputError("Research symbol must not be empty.")
             if item in seen:
-                raise InvalidInputError(
-                    "Research symbols must not contain duplicates."
-                )
+                raise InvalidInputError("Research symbols must not contain duplicates.")
             seen.add(item)
             normalized.append(item)
         return tuple(normalized)
@@ -143,19 +139,20 @@ class ResearchHistoricalAnalysisService:
         now = datetime.now(timezone.utc)
         normalized: list[datetime] = []
         seen: set[datetime] = set()
-        for as_of in values:
-            if not isinstance(as_of, datetime):
+        for raw_as_of_value in values:
+            if not isinstance(raw_as_of_value, datetime):
                 raise InvalidInputError("Historical as-of values must be datetimes.")
-            if as_of.tzinfo is None:
-                as_of = as_of.replace(tzinfo=timezone.utc)
-            if as_of > now:
+            as_of_value = raw_as_of_value
+            if as_of_value.tzinfo is None:
+                as_of_value = as_of_value.replace(tzinfo=timezone.utc)
+            if as_of_value > now:
                 raise InvalidInputError("As-of timestamp must not be in the future.")
-            if as_of in seen:
+            if as_of_value in seen:
                 raise InvalidInputError(
                     "Historical as-of timestamps must not contain duplicates."
                 )
-            seen.add(as_of)
-            normalized.append(as_of)
+            seen.add(as_of_value)
+            normalized.append(as_of_value)
         return tuple(normalized)
 
     @staticmethod
@@ -227,8 +224,9 @@ class ResearchHistoricalAnalysisService:
                 raise InvalidInputError(
                     "Dataset identity must be a (key, definition_version) tuple."
                 )
-            normalized_dataset_identity = tuple(
-                value.strip() for value in dataset_identity
+            normalized_dataset_identity = (
+                dataset_identity[0].strip(),
+                dataset_identity[1].strip(),
             )
 
         # Historical research is only allowed to consume a security that was

@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import DataValidationError
+from quantcore.models.company import Company
 from quantcore.models.provenance import CompanyField, DataSource
 from quantcore.models.security import SecurityStatus
 from quantcore.repositories.company_field_provenance_repository import (
@@ -38,33 +39,34 @@ class UniverseService:
 
         symbol_to_cik: dict[tuple[str, str], str] = {}
 
-        for company in companies:
-            identity = (company.symbol, company.exchange)
+        for universe_company in companies:
+            identity = (universe_company.symbol, universe_company.exchange)
             existing_cik = symbol_to_cik.get(identity)
 
-            if existing_cik is not None and existing_cik != company.cik:
+            if existing_cik is not None and existing_cik != universe_company.cik:
                 raise DataValidationError(
-                    f"Security symbol '{company.symbol}' "
+                    f"Security symbol '{universe_company.symbol}' "
                     f"is associated with multiple companies: "
-                    f"{existing_cik} and {company.cik}."
+                    f"{existing_cik} and {universe_company.cik}."
                 )
 
-            symbol_to_cik[identity] = company.cik
+            symbol_to_cik[identity] = universe_company.cik
 
         synced = 0
         fetched_at = datetime.now(timezone.utc)
 
         try:
             companies_by_cik: dict[str, list] = {}
-            for company in companies:
-                companies_by_cik.setdefault(company.cik, []).append(company)
+            for universe_company in companies:
+                companies_by_cik.setdefault(universe_company.cik, []).append(
+                    universe_company
+                )
 
             ciks = list(companies_by_cik.keys())
             existing_by_cik = {
-                company.cik: company
-                for company in self.company_repo.get_by_ciks(ciks)
+                company.cik: company for company in self.company_repo.get_by_ciks(ciks)
             }
-            synced_companies_by_cik = {}
+            synced_companies_by_cik: dict[str, Company] = {}
 
             for cik, universe_companies in companies_by_cik.items():
                 representative = universe_companies[0]
@@ -113,14 +115,14 @@ class UniverseService:
 
             for universe_company in companies:
                 company = synced_companies_by_cik[universe_company.cik]
-                identity = (
+                listing_identity = (
                     company.id,
                     universe_company.symbol,
                     universe_company.exchange,
                 )
-                current_identities.add(identity)
+                current_identities.add(listing_identity)
 
-                security = existing_by_identity.get(identity)
+                security = existing_by_identity.get(listing_identity)
 
                 if security is None:
                     security = self.security_repo.create(
@@ -145,7 +147,10 @@ class UniverseService:
                     exchange=universe_company.exchange,
                     observed_at=fetched_at,
                     source=DataSource.SEC.value,
-                    source_reference=f"SEC:{universe_company.cik}:{universe_company.symbol}:{universe_company.exchange}",
+                    source_reference=(
+                        f"SEC:{universe_company.cik}:{universe_company.symbol}:"
+                        f"{universe_company.exchange}"
+                    ),
                 )
                 self.identifier_history_repo.mark_not_current(
                     security_id=security.id,
@@ -161,8 +166,12 @@ class UniverseService:
                 list(DEFAULT_US_EXCHANGES)
             )
             for security in managed_securities:
-                identity = (security.company_id, security.symbol, security.exchange)
-                if identity not in current_identities:
+                listing_identity = (
+                    security.company_id,
+                    security.symbol,
+                    security.exchange,
+                )
+                if listing_identity not in current_identities:
                     security.status = SecurityStatus.INACTIVE
                     self.identifier_history_repo.mark_all_not_current(
                         security.id,

@@ -13,7 +13,6 @@ from quantcore.services.research_factor_computation_service import (
     ResearchFactorComputationService,
 )
 
-
 router = APIRouter(
     prefix="/api/v1/research/factors",
     tags=["Research Factors"],
@@ -36,9 +35,7 @@ def get_research_factor(
             "by this timestamp are used."
         ),
     ),
-    dataset_service: ResearchDatasetService = Depends(
-        get_research_dataset_service
-    ),
+    dataset_service: ResearchDatasetService = Depends(get_research_dataset_service),
     factor_service: ResearchFactorComputationService = Depends(
         get_research_factor_computation_service
     ),
@@ -62,8 +59,6 @@ def get_research_factor(
         value_text=factor.value_text,
         unit=factor.unit,
         input_manifest=(
-            dict(factor.input_manifest)
-            if factor.input_manifest is not None
-            else None
+            dict(factor.input_manifest) if factor.input_manifest is not None else None
         ),
     )

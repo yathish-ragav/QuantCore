@@ -3,8 +3,8 @@ from unittest.mock import ANY, Mock
 
 import pytest
 
-from quantcore.schemas.news import NewsData
 from quantcore.models.provenance import DataSource
+from quantcore.schemas.news import NewsData
 from quantcore.services.news_service import NewsService
 
 
@@ -12,9 +12,7 @@ def make_service():
 
     db = Mock()
 
-    service = NewsService.__new__(
-        NewsService
-    )
+    service = NewsService.__new__(NewsService)
 
     service.db = db
     service.client = Mock()
@@ -52,7 +50,7 @@ def make_article(
     title="Apple reports strong quarterly results",
     publisher="Example News",
     summary="Apple reported strong quarterly results.",
-    published_at=datetime(
+    published_at=datetime(  # noqa: DTZ001
         2026,
         1,
         2,
@@ -80,27 +78,17 @@ def test_get_news_returns_company_articles():
         Mock(),
     ]
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.news_repo.get_for_company.return_value = (
-        articles
-    )
+    service.news_repo.get_for_company.return_value = articles
 
-    result = service.get_news(
-        "AAPL"
-    )
+    result = service.get_news("AAPL")
 
     assert result == articles
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
-    service.news_repo.get_for_company.assert_called_once_with(
-        1
-    )
+    service.news_repo.get_for_company.assert_called_once_with(1)
 
     service.client.get_news.assert_not_called()
 
@@ -115,23 +103,15 @@ def test_get_news_normalizes_symbol():
     company = make_company()
     security = make_security(company)
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     service.news_repo.get_for_company.return_value = []
 
-    assert service.get_news(
-        "aapl"
-    ) == []
+    assert service.get_news("aapl") == []
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
-    service.news_repo.get_for_company.assert_called_once_with(
-        1
-    )
+    service.news_repo.get_for_company.assert_called_once_with(1)
 
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
@@ -145,13 +125,11 @@ def test_get_news_security_not_found():
 
     with pytest.raises(
         ValueError,
-        match="AAPL not found in database.",
+        match=r"AAPL\ not\ found\ in\ database\.",
     ):
         service.get_news("AAPL")
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
     service.news_repo.get_for_company.assert_not_called()
 
@@ -165,19 +143,13 @@ def test_get_news_empty_result():
 
     company = make_company()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
     service.news_repo.get_for_company.return_value = []
 
-    assert service.get_news(
-        "AAPL"
-    ) == []
+    assert service.get_news("AAPL") == []
 
-    service.news_repo.get_for_company.assert_called_once_with(
-        1
-    )
+    service.news_repo.get_for_company.assert_called_once_with(1)
 
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
@@ -190,27 +162,17 @@ def test_sync_news_inserts_new_articles():
     company = make_company()
     article = make_article()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.client.get_news.return_value = [
-        article
-    ]
+    service.client.get_news.return_value = [article]
 
     service.news_repo.get_by_url.return_value = None
 
-    assert service.sync_news(
-        "AAPL"
-    ) == 1
+    assert service.sync_news("AAPL") == 1
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
-    service.client.get_news.assert_called_once_with(
-        "AAPL"
-    )
+    service.client.get_news.assert_called_once_with("AAPL")
 
     service.news_repo.create.assert_called_once_with(
         company_id=1,
@@ -234,19 +196,13 @@ def test_sync_news_skips_existing_articles():
     company = make_company()
     article = make_article()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.client.get_news.return_value = [
-        article
-    ]
+    service.client.get_news.return_value = [article]
 
     service.news_repo.get_by_url.return_value = Mock()
 
-    assert service.sync_news(
-        "AAPL"
-    ) == 0
+    assert service.sync_news("AAPL") == 0
 
     service.news_repo.create.assert_not_called()
 
@@ -260,36 +216,20 @@ def test_sync_news_inserts_multiple_new_articles():
 
     company = make_company()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
     service.client.get_news.return_value = [
-        make_article(
-            url="https://example.com/article-1"
-        ),
-        make_article(
-            url="https://example.com/article-2"
-        ),
+        make_article(url="https://example.com/article-1"),
+        make_article(url="https://example.com/article-2"),
     ]
 
     service.news_repo.get_by_url.return_value = None
 
-    assert service.sync_news(
-        "AAPL"
-    ) == 2
+    assert service.sync_news("AAPL") == 2
 
-    assert (
-        service.news_repo
-        .get_by_url.call_count
-        == 2
-    )
+    assert service.news_repo.get_by_url.call_count == 2
 
-    assert (
-        service.news_repo
-        .create.call_count
-        == 2
-    )
+    assert service.news_repo.create.call_count == 2
 
     db.commit.assert_called_once()
     db.rollback.assert_not_called()
@@ -301,17 +241,11 @@ def test_sync_news_inserts_only_new_articles():
 
     company = make_company()
 
-    article_1 = make_article(
-        url="https://example.com/existing"
-    )
+    article_1 = make_article(url="https://example.com/existing")
 
-    article_2 = make_article(
-        url="https://example.com/new"
-    )
+    article_2 = make_article(url="https://example.com/new")
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
     service.client.get_news.return_value = [
         article_1,
@@ -323,9 +257,7 @@ def test_sync_news_inserts_only_new_articles():
         None,
     ]
 
-    assert service.sync_news(
-        "AAPL"
-    ) == 1
+    assert service.sync_news("AAPL") == 1
 
     service.news_repo.create.assert_called_once_with(
         company_id=1,
@@ -350,7 +282,7 @@ def test_sync_news_security_not_found():
 
     with pytest.raises(
         ValueError,
-        match="AAPL not found in database.",
+        match=r"AAPL\ not\ found\ in\ database\.",
     ):
         service.sync_news("AAPL")
 
@@ -368,19 +300,13 @@ def test_sync_news_no_articles():
 
     company = make_company()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
     service.client.get_news.return_value = []
 
-    assert service.sync_news(
-        "AAPL"
-    ) == 0
+    assert service.sync_news("AAPL") == 0
 
-    service.client.get_news.assert_called_once_with(
-        "AAPL"
-    )
+    service.client.get_news.assert_called_once_with("AAPL")
 
     service.news_repo.create.assert_not_called()
 
@@ -397,19 +323,13 @@ def test_sync_news_uses_company_id_for_insert():
 
     article = make_article()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.client.get_news.return_value = [
-        article
-    ]
+    service.client.get_news.return_value = [article]
 
     service.news_repo.get_by_url.return_value = None
 
-    assert service.sync_news(
-        "AAPL"
-    ) == 1
+    assert service.sync_news("AAPL") == 1
 
     service.news_repo.create.assert_called_once_with(
         company_id=42,
@@ -432,23 +352,15 @@ def test_sync_news_handles_news_with_no_published_at():
 
     company = make_company()
 
-    article = make_article(
-        published_at=None
-    )
+    article = make_article(published_at=None)
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.client.get_news.return_value = [
-        article
-    ]
+    service.client.get_news.return_value = [article]
 
     service.news_repo.get_by_url.return_value = None
 
-    assert service.sync_news(
-        "AAPL"
-    ) == 1
+    assert service.sync_news("AAPL") == 1
 
     service.news_repo.create.assert_called_once_with(
         company_id=1,
@@ -476,26 +388,20 @@ def test_sync_news_normalizes_dictionary_articles():
         "publisher": "Example News",
         "summary": "Apple reported strong quarterly results.",
         "url": "https://example.com/article-1",
-        "published_at": datetime(
+        "published_at": datetime(  # noqa: DTZ001
             2026,
             1,
             2,
         ),
     }
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.client.get_news.return_value = [
-        article
-    ]
+    service.client.get_news.return_value = [article]
 
     service.news_repo.get_by_url.return_value = None
 
-    assert service.sync_news(
-        "AAPL"
-    ) == 1
+    assert service.sync_news("AAPL") == 1
 
     service.news_repo.create.assert_called_once_with(
         company_id=1,
@@ -518,13 +424,9 @@ def test_sync_news_rolls_back_on_provider_error():
 
     company = make_company()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.client.get_news.side_effect = (
-        RuntimeError("provider error")
-    )
+    service.client.get_news.side_effect = RuntimeError("provider error")
 
     with pytest.raises(
         RuntimeError,
@@ -545,19 +447,13 @@ def test_sync_news_rolls_back_on_repository_error():
     company = make_company()
     article = make_article()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.client.get_news.return_value = [
-        article
-    ]
+    service.client.get_news.return_value = [article]
 
     service.news_repo.get_by_url.return_value = None
 
-    service.news_repo.create.side_effect = (
-        RuntimeError("database error")
-    )
+    service.news_repo.create.side_effect = RuntimeError("database error")
 
     with pytest.raises(
         RuntimeError,
@@ -575,7 +471,7 @@ def test_sync_news_rejects_empty_symbol():
 
     with pytest.raises(
         ValueError,
-        match="Symbol must not be empty.",
+        match=r"Symbol\ must\ not\ be\ empty\.",
     ):
         service.sync_news("   ")
 

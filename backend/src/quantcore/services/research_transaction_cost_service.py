@@ -4,7 +4,10 @@ from enum import Enum
 from math import isfinite
 
 from quantcore.core.exceptions import InvalidInputError
-from quantcore.services.research_rebalance_service import ResearchRebalance, ResearchRebalanceStatus
+from quantcore.services.research_rebalance_service import (
+    ResearchRebalance,
+    ResearchRebalanceStatus,
+)
 
 
 @dataclass(frozen=True)
@@ -19,10 +22,17 @@ class ResearchTransactionCostDefinition:
     def __post_init__(self) -> None:
         if not isinstance(self.cost_key, str) or not self.cost_key.strip():
             raise InvalidInputError("Transaction cost key must be a non-empty string.")
-        if not isinstance(self.definition_version, str) or not self.definition_version.strip():
-            raise InvalidInputError("Transaction cost definition version must be a non-empty string.")
+        if (
+            not isinstance(self.definition_version, str)
+            or not self.definition_version.strip()
+        ):
+            raise InvalidInputError(
+                "Transaction cost definition version must be a non-empty string."
+            )
         if isinstance(self.one_way_cost_bps, bool):
-            raise InvalidInputError("one_way_cost_bps must be a finite non-negative number.")
+            raise InvalidInputError(
+                "one_way_cost_bps must be a finite non-negative number."
+            )
         try:
             cost_bps = float(self.one_way_cost_bps)
         except (TypeError, ValueError) as exc:
@@ -32,7 +42,9 @@ class ResearchTransactionCostDefinition:
         if cost_bps < 0.0:
             raise InvalidInputError("one_way_cost_bps must be non-negative.")
         if self.description is not None and not isinstance(self.description, str):
-            raise InvalidInputError("Transaction cost description must be a string or None.")
+            raise InvalidInputError(
+                "Transaction cost description must be a string or None."
+            )
 
         object.__setattr__(self, "cost_key", self.cost_key.strip())
         object.__setattr__(self, "definition_version", self.definition_version.strip())
@@ -128,9 +140,13 @@ class ResearchTransactionCostService:
             ResearchRebalanceStatus.REBALANCED,
             ResearchRebalanceStatus.NO_CHANGES,
         }:
-            raise InvalidInputError("Transaction cost calculation requires a valid rebalance status.")
+            raise InvalidInputError(
+                "Transaction cost calculation requires a valid rebalance status."
+            )
         if isinstance(rebalance.turnover, bool):
-            raise InvalidInputError("Rebalance turnover must be a finite non-negative number.")
+            raise InvalidInputError(
+                "Rebalance turnover must be a finite non-negative number."
+            )
         try:
             turnover = float(rebalance.turnover)
         except (TypeError, ValueError) as exc:

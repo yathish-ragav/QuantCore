@@ -7,7 +7,6 @@ errors as terminal failures.
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Type
 
 from quantcore.core.exceptions import ExternalDataError, RateLimitError
 
@@ -17,7 +16,7 @@ class IngestionFailureClass(str, Enum):
     PERMANENT = "PERMANENT"
 
 
-_RETRYABLE_EXCEPTIONS: tuple[Type[BaseException], ...] = (
+_RETRYABLE_EXCEPTIONS: tuple[type[BaseException], ...] = (
     ExternalDataError,
     TimeoutError,
     ConnectionError,

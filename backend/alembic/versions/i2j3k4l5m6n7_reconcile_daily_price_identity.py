@@ -8,11 +8,11 @@ market values agree. Revision snapshots are retained and moved to the canonical
 price row. Conflicting current observations abort the migration.
 """
 from collections.abc import Sequence
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timezone
 
 import sqlalchemy as sa
-from alembic import op
 
+from alembic import op
 
 revision: str = "i2j3k4l5m6n7"
 down_revision: str | None = "h1i2j3k4l5m6"
@@ -95,7 +95,7 @@ def upgrade() -> None:
             rows,
             key=lambda row: (
                 row["fetched_at"] is not None,
-                row["fetched_at"] or datetime.min,
+                row["fetched_at"] or datetime.min.replace(tzinfo=timezone.utc),
                 row["id"],
             ),
         )

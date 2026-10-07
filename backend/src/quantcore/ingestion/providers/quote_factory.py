@@ -11,11 +11,7 @@ class QuoteProviderFactory:
 
     @staticmethod
     def get_provider() -> QuoteProvider:
-        provider = (
-            settings.realtime_market_data_provider
-            .strip()
-            .lower()
-        )
+        provider = settings.realtime_market_data_provider.strip().lower()
         ProductionDataPolicy.validate_realtime_provider(provider)
 
         if provider == "massive":
@@ -24,6 +20,4 @@ class QuoteProviderFactory:
         if provider == "fmp":
             return FMPClient()
 
-        raise ConfigurationError(
-            f"Unknown real-time market data provider: {provider}"
-        )
+        raise ConfigurationError(f"Unknown real-time market data provider: {provider}")

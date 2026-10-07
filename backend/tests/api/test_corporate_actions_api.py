@@ -2,7 +2,6 @@ from datetime import date, datetime, timezone
 from unittest.mock import Mock, patch
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
@@ -11,7 +10,6 @@ from quantcore.core.enums import CorporateActionType
 from quantcore.services.corporate_action_service import (
     CorporateActionSyncResult,
 )
-
 
 client = TestClient(app)
 
@@ -45,9 +43,7 @@ def test_get_corporate_actions():
     action.old_exchange = None
     action.new_exchange = None
 
-    with patch(
-        "quantcore.api.dependencies.CorporateActionService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.CorporateActionService") as service_class:
         service = Mock()
         service_class.return_value = service
         service.get_actions.return_value = [action]
@@ -55,17 +51,19 @@ def test_get_corporate_actions():
         response = client.get("/corporate-actions/AAPL")
 
     assert response.status_code == 200
-    assert response.json() == [{
-        "effective_date": "2024-11-01",
-        "action_type": "DIVIDEND",
-        "amount": 0.25,
-        "split_ratio": None,
-        "related_security_id": None,
-        "old_symbol": None,
-        "new_symbol": None,
-        "old_exchange": None,
-        "new_exchange": None,
-    }]
+    assert response.json() == [
+        {
+            "effective_date": "2024-11-01",
+            "action_type": "DIVIDEND",
+            "amount": 0.25,
+            "split_ratio": None,
+            "related_security_id": None,
+            "old_symbol": None,
+            "new_symbol": None,
+            "old_exchange": None,
+            "new_exchange": None,
+        }
+    ]
 
 
 def test_get_corporate_actions_supports_as_of_query():
@@ -80,9 +78,7 @@ def test_get_corporate_actions_supports_as_of_query():
     action.old_exchange = None
     action.new_exchange = None
 
-    with patch(
-        "quantcore.api.dependencies.CorporateActionService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.CorporateActionService") as service_class:
         service = Mock()
         service_class.return_value = service
         service.get_actions.return_value = [action]
@@ -94,13 +90,13 @@ def test_get_corporate_actions_supports_as_of_query():
 
     assert response.status_code == 200
     service.get_actions.assert_called_once()
-    assert service.get_actions.call_args.kwargs["as_of"] == datetime(2025, 1, 1, tzinfo=timezone.utc)
+    assert service.get_actions.call_args.kwargs["as_of"] == datetime(
+        2025, 1, 1, tzinfo=timezone.utc
+    )
 
 
 def test_sync_corporate_actions():
-    with patch(
-        "quantcore.api.dependencies.CorporateActionService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.CorporateActionService") as service_class:
         service = Mock()
         service_class.return_value = service
         service.sync_corporate_actions.return_value = CorporateActionSyncResult(

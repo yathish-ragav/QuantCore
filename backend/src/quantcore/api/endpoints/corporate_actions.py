@@ -7,7 +7,6 @@ from quantcore.api.dependencies import get_corporate_action_service
 from quantcore.schemas.responses import CorporateActionResponse
 from quantcore.services.corporate_action_service import (
     CorporateActionService,
-    CorporateActionSyncResult,
 )
 
 router = APIRouter(
@@ -26,9 +25,7 @@ def get_corporate_actions(
         default=None,
         description="Return corporate actions known at this timestamp.",
     ),
-    service: CorporateActionService = Depends(
-        get_corporate_action_service
-    ),
+    service: CorporateActionService = Depends(get_corporate_action_service),
 ):
     actions = service.get_actions(symbol.strip().upper(), as_of=as_of)
     return [
@@ -53,9 +50,7 @@ def get_corporate_actions(
 )
 def sync_corporate_actions(
     symbol: str,
-    service: CorporateActionService = Depends(
-        get_corporate_action_service
-    ),
+    service: CorporateActionService = Depends(get_corporate_action_service),
 ):
     result = service.sync_corporate_actions(symbol.strip().upper())
     return {

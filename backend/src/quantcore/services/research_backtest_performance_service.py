@@ -60,20 +60,30 @@ class ResearchBacktestPerformanceService:
             if period.period_end <= period.period_start:
                 raise InvalidInputError("Backtest periods must have positive duration.")
             if not isfinite(period.starting_equity) or period.starting_equity <= 0.0:
-                raise InvalidInputError("Backtest starting equity must be finite and positive.")
+                raise InvalidInputError(
+                    "Backtest starting equity must be finite and positive."
+                )
             if not isfinite(period.ending_equity) or period.ending_equity <= 0.0:
-                raise InvalidInputError("Backtest ending equity must be finite and positive.")
+                raise InvalidInputError(
+                    "Backtest ending equity must be finite and positive."
+                )
             if not isfinite(period.net_return) or period.net_return <= -1.0:
-                raise InvalidInputError("Backtest net returns must be finite and greater than -100%.")
+                raise InvalidInputError(
+                    "Backtest net returns must be finite and greater than -100%."
+                )
             if not isfinite(period.turnover) or period.turnover < 0.0:
-                raise InvalidInputError("Backtest turnover must be finite and non-negative.")
+                raise InvalidInputError(
+                    "Backtest turnover must be finite and non-negative."
+                )
 
         total_return = backtest.final_equity / backtest.initial_capital - 1.0
-        elapsed_years = (
-            backtest.end_as_of - backtest.start_as_of
-        ).total_seconds() / (365.25 * 24.0 * 60.0 * 60.0)
+        elapsed_years = (backtest.end_as_of - backtest.start_as_of).total_seconds() / (
+            365.25 * 24.0 * 60.0 * 60.0
+        )
         if elapsed_years <= 0.0:
-            raise InvalidInputError("Backtest interval must have positive elapsed time.")
+            raise InvalidInputError(
+                "Backtest interval must have positive elapsed time."
+            )
 
         annualized_return = (1.0 + total_return) ** (1.0 / elapsed_years) - 1.0
 
@@ -81,9 +91,9 @@ class ResearchBacktestPerformanceService:
         total_years = 0.0
         rates: list[tuple[float, float]] = []
         for period in backtest.periods:
-            years = (
-                period.period_end - period.period_start
-            ).total_seconds() / (365.25 * 24.0 * 60.0 * 60.0)
+            years = (period.period_end - period.period_start).total_seconds() / (
+                365.25 * 24.0 * 60.0 * 60.0
+            )
             log_return = log(1.0 + period.net_return)
             rate = log_return / years
             rates.append((rate, years))
@@ -91,10 +101,9 @@ class ResearchBacktestPerformanceService:
             total_years += years
 
         mean_rate = weighted_rate_sum / total_years
-        variance = sum(
-            years * (rate - mean_rate) ** 2
-            for rate, years in rates
-        ) / total_years
+        variance = (
+            sum(years * (rate - mean_rate) ** 2 for rate, years in rates) / total_years
+        )
         annualized_volatility = sqrt(max(variance, 0.0))
 
         peak = backtest.initial_capital
@@ -119,8 +128,8 @@ class ResearchBacktestPerformanceService:
         losing = sum(value < 0.0 for value in returns)
         flat = len(returns) - winning - losing
         average_return = sum(returns) / len(returns)
-        average_turnover = (
-            sum(period.turnover for period in backtest.periods) / len(backtest.periods)
+        average_turnover = sum(period.turnover for period in backtest.periods) / len(
+            backtest.periods
         )
 
         return ResearchBacktestPerformance(

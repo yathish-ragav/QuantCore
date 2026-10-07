@@ -66,13 +66,11 @@ def test_materialize_observations_uses_one_shared_pit_snapshot():
     service = make_service(definitions)
     snapshot = make_snapshot()
     service.pit_alignment_service.get_snapshot.return_value = snapshot
-    service.observation_service.create_observation.side_effect = lambda **kwargs: Mock(
-        **kwargs
-    )
+    service.observation_service.create_observation.side_effect = Mock
 
     result = service.materialize_observations(
         " aapl ",
-        as_of=datetime(2026, 8, 20, 15, 30),
+        as_of=datetime(2026, 8, 20, 15, 30),  # noqa: DTZ001
         macro_series_ids=["gdp"],
     )
 
@@ -90,7 +88,10 @@ def test_materialize_observations_uses_one_shared_pit_snapshot():
     for call in service.observation_service.create_observation.call_args_list:
         assert call.kwargs["security_id"] == 10
         assert call.kwargs["as_of"] == snapshot.as_of
-        assert call.kwargs["input_manifest"]["pit_snapshot"]["as_of"] == snapshot.as_of.isoformat()
+        assert (
+            call.kwargs["input_manifest"]["pit_snapshot"]["as_of"]
+            == snapshot.as_of.isoformat()
+        )
 
 
 def test_materialize_observations_can_select_versioned_identities():
@@ -131,7 +132,7 @@ def test_materialize_observations_computes_every_definition_before_persisting():
     )
     service.pit_alignment_service.get_snapshot.return_value = make_snapshot()
 
-    with pytest.raises(InvalidInputError, match="definition failed"):
+    with pytest.raises(InvalidInputError, match=r"definition\ failed"):
         service.materialize_observations(
             "AAPL",
             as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
@@ -143,7 +144,9 @@ def test_materialize_observations_computes_every_definition_before_persisting():
 def test_materialize_observations_rejects_empty_selection_before_snapshot():
     service = make_service((MetricDefinition("net_margin"),))
 
-    with pytest.raises(InvalidInputError, match="At least one definition identity"):
+    with pytest.raises(
+        InvalidInputError, match=r"At\ least\ one\ definition\ identity"
+    ):
         service.materialize_observations(
             "AAPL",
             as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
@@ -156,7 +159,7 @@ def test_materialize_observations_rejects_empty_selection_before_snapshot():
 def test_materialize_observations_rejects_duplicate_identity_before_snapshot():
     service = make_service((MetricDefinition("net_margin"),))
 
-    with pytest.raises(InvalidInputError, match="must not contain duplicates"):
+    with pytest.raises(InvalidInputError, match=r"must\ not\ contain\ duplicates"):
         service.materialize_observations(
             "AAPL",
             as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
@@ -169,7 +172,10 @@ def test_materialize_observations_rejects_duplicate_identity_before_snapshot():
 def test_materialize_observations_rejects_unknown_identity_before_snapshot():
     service = make_service((MetricDefinition("net_margin"),))
 
-    with pytest.raises(ResourceNotFoundError, match="Research observation definition not found"):
+    with pytest.raises(
+        ResourceNotFoundError,
+        match=r"Research\ observation\ definition\ not\ found",
+    ):
         service.materialize_observations(
             "AAPL",
             as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),

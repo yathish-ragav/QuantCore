@@ -33,24 +33,14 @@ class NewsService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
-        security = self.security_repo.get_by_symbol(
-            symbol
-        )
+        security = self.security_repo.get_by_symbol(symbol)
 
-        company = (
-            security.company
-            if security is not None
-            else None
-        )
+        company = security.company if security is not None else None
 
         if company is None:
-            raise ResourceNotFoundError(
-                f"{symbol} not found in database."
-            )
+            raise ResourceNotFoundError(f"{symbol} not found in database.")
 
         return security, company
 
@@ -58,13 +48,9 @@ class NewsService:
         self,
         symbol: str,
     ):
-        _, company = self.get_company_for_symbol(
-            symbol
-        )
+        _, company = self.get_company_for_symbol(symbol)
 
-        return self.news_repo.get_for_company(
-            company.id
-        )
+        return self.news_repo.get_for_company(company.id)
 
     def sync_news(
         self,
@@ -74,51 +60,34 @@ class NewsService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         try:
             # -------------------------------------------------
             # 1. Resolve Company identity.
             # -------------------------------------------------
-            security, company = (
-                self.get_company_for_symbol(symbol)
-            )
+            _security, company = self.get_company_for_symbol(symbol)
 
             # -------------------------------------------------
             # 2. Fetch external data.
             # -------------------------------------------------
-            raw_articles = self.client.get_news(
-                symbol
-            )
+            raw_articles = self.client.get_news(symbol)
 
             # -------------------------------------------------
             # 3. Transform.
             # -------------------------------------------------
-            articles = (
-                DataTransformer.news_articles(
-                    raw_articles
-                )
-            )
+            articles = DataTransformer.news_articles(raw_articles)
 
             # -------------------------------------------------
             # 4. Clean.
             # -------------------------------------------------
-            articles = [
-                DataCleaner.clean_news(article)
-                for article in articles
-            ]
+            articles = [DataCleaner.clean_news(article) for article in articles]
 
             # -------------------------------------------------
             # 5. Validate complete dataset before mutation.
             # -------------------------------------------------
-            if not DataValidator.validate_news_articles(
-                articles
-            ):
-                raise DataValidationError(
-                    f"Invalid news data for '{symbol}'."
-                )
+            if not DataValidator.validate_news_articles(articles):
+                raise DataValidationError(f"Invalid news data for '{symbol}'.")
 
             inserted = 0
             source = DataSource(self.client.SOURCE)
@@ -129,9 +98,7 @@ class NewsService:
             # -------------------------------------------------
             for article in articles:
 
-                existing = self.news_repo.get_by_url(
-                    article.url
-                )
+                existing = self.news_repo.get_by_url(article.url)
 
                 if existing is not None:
                     continue

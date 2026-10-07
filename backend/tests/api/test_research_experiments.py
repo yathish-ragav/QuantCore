@@ -2,14 +2,12 @@ from datetime import datetime, timezone
 from unittest.mock import Mock, patch
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
-from quantcore.models.research_experiment import ResearchExperimentRunStatus
 from quantcore.core.resource_identity import ResourceOwner
-
+from quantcore.models.research_experiment import ResearchExperimentRunStatus
 
 client = TestClient(app)
 
@@ -37,7 +35,10 @@ def make_run(*, status=ResearchExperimentRunStatus.COMPLETED):
     view.run_input_fingerprint = "a" * 64
     view.dataset_fingerprint = "b" * 64
     view.execution_input_fingerprint = "c" * 64
-    view.definition_payload = {"experiment_key": "value-quality", "definition_version": "1"}
+    view.definition_payload = {
+        "experiment_key": "value-quality",
+        "definition_version": "1",
+    }
     view.status = status
     view.submitted_at = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
     view.started_at = datetime(2026, 8, 20, 15, 31, tzinfo=timezone.utc)
@@ -123,7 +124,8 @@ def test_list_runs_exposes_versioned_research_contract_and_filters():
     assert query.statuses == (ResearchExperimentRunStatus.COMPLETED,)
     assert query.limit == 10
     assert service.list_runs.call_args.kwargs["owner"].key == (
-        "https://issuer.example", "test-user"
+        "https://issuer.example",
+        "test-user",
     )
 
 
@@ -254,7 +256,9 @@ def test_research_experiment_routes_are_in_openapi():
     assert "/api/v1/research/experiments/runs/{run_id}/artifacts" in paths
     assert "/api/v1/research/experiments/artifacts/{artifact_id}" in paths
     assert "/api/v1/research/experiments/artifacts/{artifact_id}/provenance" in paths
-    assert "/api/v1/research/experiments/comparison-results/{result_fingerprint}" in paths
+    assert (
+        "/api/v1/research/experiments/comparison-results/{result_fingerprint}" in paths
+    )
 
 
 def test_research_experiment_routes_require_authentication():

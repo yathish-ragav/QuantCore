@@ -8,8 +8,12 @@ from quantcore.schemas.research_portfolios import (
     ResearchPortfolioStressRequest,
     ResearchPortfolioStressResponse,
 )
-from quantcore.services.research_portfolio_product_service import ResearchPortfolioProductService
-from quantcore.services.research_portfolio_stress_service import ResearchStressScenarioDefinition
+from quantcore.services.research_portfolio_product_service import (
+    ResearchPortfolioProductService,
+)
+from quantcore.services.research_portfolio_stress_service import (
+    ResearchStressScenarioDefinition,
+)
 from quantcore.services.research_signal_service import ResearchSignalDefinition
 from quantcore.services.research_strategy_service import ResearchStrategyDefinition
 

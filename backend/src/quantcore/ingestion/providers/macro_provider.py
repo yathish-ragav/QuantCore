@@ -10,8 +10,7 @@ class MacroDataProvider(ABC):
     SOURCE: str
 
     @abstractmethod
-    def get_series(self, series_id: str) -> MacroSeriesData:
-        pass
+    def get_series(self, series_id: str) -> MacroSeriesData: ...
 
     @abstractmethod
     def get_observations(
@@ -19,5 +18,4 @@ class MacroDataProvider(ABC):
         series_id: str,
         *,
         vintage_date: date | None = None,
-    ) -> list[MacroObservationData]:
-        pass
+    ) -> list[MacroObservationData]: ...

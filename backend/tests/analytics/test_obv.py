@@ -65,7 +65,7 @@ def test_obv_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         OnBalanceVolume.calculate(
             closes,

@@ -15,7 +15,6 @@ from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalDatasetRow,
 )
 
-
 client = TestClient(app)
 
 
@@ -84,15 +83,18 @@ def make_evaluation():
 
 
 def test_evaluate_research_factor_returns_stable_contract():
-    with patch(
-        "quantcore.api.dependencies.ResearchHistoricalAnalysisService"
-    ) as historical_factory, patch(
-        "quantcore.api.dependencies.ResearchFactorPanelService"
-    ) as panel_factory, patch(
-        "quantcore.api.dependencies.ResearchFactorCrossSectionalService"
-    ) as cross_sectional_factory, patch(
-        "quantcore.api.dependencies.ResearchFactorEvaluationService"
-    ) as evaluation_factory:
+    with (
+        patch(
+            "quantcore.api.dependencies.ResearchHistoricalAnalysisService"
+        ) as historical_factory,
+        patch("quantcore.api.dependencies.ResearchFactorPanelService") as panel_factory,
+        patch(
+            "quantcore.api.dependencies.ResearchFactorCrossSectionalService"
+        ) as cross_sectional_factory,
+        patch(
+            "quantcore.api.dependencies.ResearchFactorEvaluationService"
+        ) as evaluation_factory,
+    ):
         historical_service = Mock()
         historical_service.build_historical_dataset.return_value = make_dataset()
         historical_factory.return_value = historical_service
@@ -157,9 +159,7 @@ def test_research_factor_evaluation_rejects_oversized_request():
             "/api/v1/research/factors/evaluation",
             json={
                 "symbols": [f"SYM{i}" for i in range(100)],
-                "as_ofs": [
-                    f"2026-08-{day:02d}T15:30:00Z" for day in range(1, 12)
-                ],
+                "as_ofs": [f"2026-08-{day:02d}T15:30:00Z" for day in range(1, 12)],
                 "factor_key": "quality_score",
                 "factor_definition_version": "1",
             },

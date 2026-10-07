@@ -2,13 +2,11 @@ from datetime import date
 from unittest.mock import Mock, patch
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
-
 
 client = TestClient(app)
 
@@ -71,13 +69,9 @@ def test_get_income_statements_returns_statements():
 
         mock_service_class.return_value = service
 
-        service.get_income_statements.return_value = [
-            statement
-        ]
+        service.get_income_statements.return_value = [statement]
 
-        response = client.get(
-            "/income-statements/AAPL"
-        )
+        response = client.get("/income-statements/AAPL")
 
     assert response.status_code == 200
 
@@ -120,9 +114,7 @@ def test_get_income_statements_returns_empty_list():
 
         service.get_income_statements.return_value = []
 
-        response = client.get(
-            "/income-statements/AAPL"
-        )
+        response = client.get("/income-statements/AAPL")
 
     assert response.status_code == 200
 
@@ -140,9 +132,7 @@ def test_get_income_statements_normalizes_lowercase_symbol():
 
         service.get_income_statements.return_value = []
 
-        response = client.get(
-            "/income-statements/aapl"
-        )
+        response = client.get("/income-statements/aapl")
 
     assert response.status_code == 200
 
@@ -150,7 +140,6 @@ def test_get_income_statements_normalizes_lowercase_symbol():
         "AAPL",
         as_of=None,
     )
-
 
 
 def test_get_income_statements_supports_as_of_query():
@@ -162,13 +151,15 @@ def test_get_income_statements_supports_as_of_query():
         mock_service_class.return_value = service
         service.get_income_statements.return_value = []
 
-        response = client.get(
-            "/income-statements/AAPL?as_of=2026-01-05T12:00:00Z"
-        )
+        response = client.get("/income-statements/AAPL?as_of=2026-01-05T12:00:00Z")
 
     assert response.status_code == 200
     service.get_income_statements.assert_called_once()
-    assert service.get_income_statements.call_args.kwargs["as_of"].isoformat() == "2026-01-05T12:00:00+00:00"
+    assert (
+        service.get_income_statements.call_args.kwargs["as_of"].isoformat()
+        == "2026-01-05T12:00:00+00:00"
+    )
+
 
 def test_sync_income_statements_returns_statements_added():
     with patch(
@@ -183,9 +174,7 @@ def test_sync_income_statements_returns_statements_added():
             created=2, updated=1, unchanged=3, records_processed=6
         )
 
-        response = client.post(
-            "/income-statements/AAPL/sync"
-        )
+        response = client.post("/income-statements/AAPL/sync")
 
     assert response.status_code == 200
 
@@ -197,9 +186,7 @@ def test_sync_income_statements_returns_statements_added():
         "records_processed": 6,
     }
 
-    service.sync_income_statements.assert_called_once_with(
-        "AAPL"
-    )
+    service.sync_income_statements.assert_called_once_with("AAPL")
 
 
 def test_sync_income_statements_returns_zero_when_none_added():
@@ -215,9 +202,7 @@ def test_sync_income_statements_returns_zero_when_none_added():
             created=0, updated=0, unchanged=0, records_processed=0
         )
 
-        response = client.post(
-            "/income-statements/AAPL/sync"
-        )
+        response = client.post("/income-statements/AAPL/sync")
 
     assert response.status_code == 200
 

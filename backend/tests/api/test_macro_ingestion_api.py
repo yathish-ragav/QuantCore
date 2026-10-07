@@ -1,18 +1,16 @@
-from datetime import date, datetime, timezone
+from datetime import date
 from unittest.mock import Mock
 
 import pytest
-
 from fastapi.testclient import TestClient
 
-from quantcore.api.dependencies import get_macro_ingestion_orchestrator
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
+from quantcore.api.dependencies import get_macro_ingestion_orchestrator
 from quantcore.api.main import app
 from quantcore.services.macro_ingestion_orchestrator import (
     MacroFreshnessView,
     MacroIngestionResult,
 )
-
 
 client = TestClient(app)
 

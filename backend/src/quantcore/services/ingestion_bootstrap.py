@@ -37,16 +37,12 @@ def _load_specs(raw: str | None) -> list[dict[str, Any]]:
     try:
         value = json.loads(raw)
     except json.JSONDecodeError as exc:
-        raise InvalidInputError(
-            f"{SCHEDULES_ENV} must contain valid JSON."
-        ) from exc
+        raise InvalidInputError(f"{SCHEDULES_ENV} must contain valid JSON.") from exc
     if not isinstance(value, list):
         raise InvalidInputError(f"{SCHEDULES_ENV} must contain a JSON array.")
     for index, item in enumerate(value):
         if not isinstance(item, dict):
-            raise InvalidInputError(
-                f"{SCHEDULES_ENV}[{index}] must be a JSON object."
-            )
+            raise InvalidInputError(f"{SCHEDULES_ENV}[{index}] must be a JSON object.")
     return value
 
 
@@ -67,14 +63,19 @@ def _normalize_spec(spec: dict[str, Any]) -> dict[str, Any]:
         ) from exc
 
     symbols = spec.get("symbols")
-    if symbols is not None:
-        if not isinstance(symbols, list) or not all(isinstance(item, str) for item in symbols):
-            raise InvalidInputError("Ingestion schedule symbols must be an array of strings.")
-        symbols = symbols
+    if symbols is not None and (
+        not isinstance(symbols, list)
+        or not all(isinstance(item, str) for item in symbols)
+    ):
+        raise InvalidInputError(
+            "Ingestion schedule symbols must be an array of strings."
+        )
 
     interval = spec["interval_seconds"]
     if isinstance(interval, bool) or not isinstance(interval, int):
-        raise InvalidInputError("Ingestion schedule interval_seconds must be an integer.")
+        raise InvalidInputError(
+            "Ingestion schedule interval_seconds must be an integer."
+        )
 
     limit = spec.get("limit")
     if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int)):
@@ -83,7 +84,9 @@ def _normalize_spec(spec: dict[str, Any]) -> dict[str, Any]:
     only_stale = spec.get("only_stale", True)
     enabled = spec.get("enabled", True)
     if not isinstance(only_stale, bool) or not isinstance(enabled, bool):
-        raise InvalidInputError("Ingestion schedule only_stale and enabled must be booleans.")
+        raise InvalidInputError(
+            "Ingestion schedule only_stale and enabled must be booleans."
+        )
 
     next_run_at = _parse_datetime(spec.get("next_run_at"), field="next_run_at")
 
@@ -106,7 +109,9 @@ def bootstrap_schedules(*, raw: str | None = None) -> int:
     matches. A name collision with different settings is treated as deployment
     drift rather than silently mutating a production schedule.
     """
-    configured_raw = raw if raw is not None else settings.QUANTCORE_INGESTION_SCHEDULES_JSON
+    configured_raw = (
+        raw if raw is not None else settings.QUANTCORE_INGESTION_SCHEDULES_JSON
+    )
     specs = [_normalize_spec(item) for item in _load_specs(configured_raw)]
     if not specs:
         logger.warning(
@@ -163,7 +168,10 @@ def bootstrap_schedules(*, raw: str | None = None) -> int:
 
         for spec in specs:
             if spec not in to_create:
-                logger.info("Ingestion schedule already configured name=%s", spec["name"].strip())
+                logger.info(
+                    "Ingestion schedule already configured name=%s",
+                    spec["name"].strip(),
+                )
 
         return created
     finally:

@@ -26,9 +26,7 @@ class _StatementMetricDefinition:
     def _select_source(self, snapshot: PITAlignedSnapshot):
         rows = tuple(getattr(snapshot, self.source_attr))
         candidates = tuple(
-            row
-            for row in rows
-            if getattr(row, "period_type", None) == self.period_type
+            row for row in rows if getattr(row, "period_type", None) == self.period_type
         )
         if not candidates:
             raise ResourceNotFoundError(
@@ -71,7 +69,9 @@ class _FreeCashFlowMarginDefinition:
 
     def compute(self, snapshot: PITAlignedSnapshot) -> ResearchObservationValue:
         income = _select_latest(snapshot.income_statements, FinancialPeriodType.TTM)
-        cash_flow = _select_latest(snapshot.cash_flow_statements, FinancialPeriodType.TTM)
+        cash_flow = _select_latest(
+            snapshot.cash_flow_statements, FinancialPeriodType.TTM
+        )
         revenue = getattr(income, "total_revenue", None)
         free_cash_flow = getattr(cash_flow, "free_cash_flow", None)
         if income.fiscal_date != cash_flow.fiscal_date:
@@ -96,9 +96,13 @@ class _FreeCashFlowMarginDefinition:
                 },
                 "source": {
                     "income_statement_id": getattr(income, "id", None),
-                    "income_statement_statement_id": getattr(income, "statement_id", None),
+                    "income_statement_statement_id": getattr(
+                        income, "statement_id", None
+                    ),
                     "cash_flow_statement_id": getattr(cash_flow, "id", None),
-                    "cash_flow_statement_statement_id": getattr(cash_flow, "statement_id", None),
+                    "cash_flow_statement_statement_id": getattr(
+                        cash_flow, "statement_id", None
+                    ),
                     "income_fiscal_date": income.fiscal_date.isoformat(),
                     "cash_flow_fiscal_date": cash_flow.fiscal_date.isoformat(),
                     "period_type": FinancialPeriodType.TTM.value,
@@ -193,6 +197,8 @@ CANONICAL_RESEARCH_METRICS: tuple[ResearchObservationDefinition, ...] = (
 )
 
 
-def get_canonical_research_metric_definitions() -> tuple[ResearchObservationDefinition, ...]:
+def get_canonical_research_metric_definitions() -> (
+    tuple[ResearchObservationDefinition, ...]
+):
     """Return the immutable canonical research metric definitions."""
     return CANONICAL_RESEARCH_METRICS

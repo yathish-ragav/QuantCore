@@ -12,7 +12,9 @@ from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolioPosition,
     ResearchPortfolioPositionSide,
 )
-from quantcore.services.research_portfolio_product_service import ResearchPortfolioProductResult
+from quantcore.services.research_portfolio_product_service import (
+    ResearchPortfolioProductResult,
+)
 
 client = TestClient(app)
 AS_OF = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
@@ -129,7 +131,9 @@ def test_construct_research_portfolio_returns_stable_contract():
 
 def test_construct_research_portfolio_requires_target_as_of_from_requested_points():
     body = payload()
-    body["target_as_of"] = datetime(2026, 8, 21, 15, 30, tzinfo=timezone.utc).isoformat()
+    body["target_as_of"] = datetime(
+        2026, 8, 21, 15, 30, tzinfo=timezone.utc
+    ).isoformat()
     response = client.post("/api/v1/research/portfolios", json=body)
     assert response.status_code == 422
 

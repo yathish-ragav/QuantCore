@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 
 from quantcore.api.main import app
 
-
 client = TestClient(app)
 
 
@@ -22,7 +21,7 @@ def make_price(
 ):
     price = Mock()
 
-    price.date = date or datetime(
+    price.date = date or datetime(  # noqa: DTZ001
         2026,
         1,
         2,
@@ -37,20 +36,19 @@ def make_price(
     price.volume = volume
     price.dividends = dividends
     price.stock_splits = stock_splits
+    price.source_reference = None
 
     return price
 
 
-@patch(
-    "quantcore.api.dependencies.PriceService"
-)
+@patch("quantcore.api.dependencies.PriceService")
 def test_get_prices_returns_price_history(
     mock_service,
 ):
     prices = [
         make_price(),
         make_price(
-            date=datetime(2026, 1, 3),
+            date=datetime(2026, 1, 3),  # noqa: DTZ001
             open_price=253.0,
             high=258.0,
             low=251.0,
@@ -64,9 +62,7 @@ def test_get_prices_returns_price_history(
 
     mock_service.return_value = service
 
-    response = client.get(
-        "/prices/AAPL"
-    )
+    response = client.get("/prices/AAPL")
 
     assert response.status_code == 200
 
@@ -82,6 +78,7 @@ def test_get_prices_returns_price_history(
             "volume": 1_000_000,
             "dividends": 0.0,
             "stock_splits": 0.0,
+            "source_reference": None,
         },
         {
             "date": "2026-01-03T00:00:00",
@@ -94,12 +91,11 @@ def test_get_prices_returns_price_history(
             "volume": 1_200_000,
             "dividends": 0.0,
             "stock_splits": 0.0,
+            "source_reference": None,
         },
     ]
 
-    service.get_price_history.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_price_history.assert_called_once_with("AAPL")
 
 
 @patch("quantcore.api.dependencies.PriceService")
@@ -124,51 +120,35 @@ def test_get_prices_normalizes_lowercase_symbol(
 ):
     service = Mock()
 
-    service.get_price_history.return_value = [
-        make_price()
-    ]
+    service.get_price_history.return_value = [make_price()]
 
     mock_service.return_value = service
 
-    response = client.get(
-        "/prices/aapl"
-    )
+    response = client.get("/prices/aapl")
 
     assert response.status_code == 200
 
-    service.get_price_history.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_price_history.assert_called_once_with("AAPL")
 
 
-@patch(
-    "quantcore.api.dependencies.PriceService"
-)
+@patch("quantcore.api.dependencies.PriceService")
 def test_get_prices_normalizes_mixed_case_symbol(
     mock_service,
 ):
     service = Mock()
 
-    service.get_price_history.return_value = [
-        make_price()
-    ]
+    service.get_price_history.return_value = [make_price()]
 
     mock_service.return_value = service
 
-    response = client.get(
-        "/prices/aApL"
-    )
+    response = client.get("/prices/aApL")
 
     assert response.status_code == 200
 
-    service.get_price_history.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_price_history.assert_called_once_with("AAPL")
 
 
-@patch(
-    "quantcore.api.dependencies.PriceService"
-)
+@patch("quantcore.api.dependencies.PriceService")
 def test_get_prices_returns_empty_list_when_no_prices(
     mock_service,
 ):
@@ -178,21 +158,15 @@ def test_get_prices_returns_empty_list_when_no_prices(
 
     mock_service.return_value = service
 
-    response = client.get(
-        "/prices/AAPL"
-    )
+    response = client.get("/prices/AAPL")
 
     assert response.status_code == 200
     assert response.json() == []
 
-    service.get_price_history.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_price_history.assert_called_once_with("AAPL")
 
 
-@patch(
-    "quantcore.api.dependencies.PriceService"
-)
+@patch("quantcore.api.dependencies.PriceService")
 def test_get_prices_preserves_dividends_and_stock_splits(
     mock_service,
 ):
@@ -202,15 +176,11 @@ def test_get_prices_preserves_dividends_and_stock_splits(
     )
 
     service = Mock()
-    service.get_price_history.return_value = [
-        price
-    ]
+    service.get_price_history.return_value = [price]
 
     mock_service.return_value = service
 
-    response = client.get(
-        "/prices/AAPL"
-    )
+    response = client.get("/prices/AAPL")
 
     assert response.status_code == 200
 
@@ -226,17 +196,14 @@ def test_get_prices_preserves_dividends_and_stock_splits(
             "volume": 1_000_000,
             "dividends": 0.25,
             "stock_splits": 2.0,
+            "source_reference": None,
         }
     ]
 
-    service.get_price_history.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_price_history.assert_called_once_with("AAPL")
 
 
-@patch(
-    "quantcore.api.dependencies.PriceService"
-)
+@patch("quantcore.api.dependencies.PriceService")
 def test_get_prices_propagates_service_error(
     mock_service,
 ):
@@ -252,10 +219,6 @@ def test_get_prices_propagates_service_error(
         ValueError,
         match="Security 'AAPL' not found",
     ):
-        client.get(
-            "/prices/AAPL"
-        )
+        client.get("/prices/AAPL")
 
-    service.get_price_history.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_price_history.assert_called_once_with("AAPL")

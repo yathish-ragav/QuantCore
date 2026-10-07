@@ -52,10 +52,13 @@ def make_actions():
 
 def test_get_actions_as_of_uses_revision_repository():
     service, _ = make_service()
-    service.listing_identity_service.resolve_security_as_of.return_value = make_security()
+    service.listing_identity_service.resolve_security_as_of.return_value = (
+        make_security()
+    )
     service.revision_repo.get_latest_for_security_as_of.return_value = [Mock()]
 
     from datetime import datetime, timezone
+
     as_of = datetime(2025, 1, 1, tzinfo=timezone.utc)
 
     result = service.get_actions("AAPL", as_of=as_of)
@@ -65,7 +68,9 @@ def test_get_actions_as_of_uses_revision_repository():
         "AAPL",
         as_of=as_of,
     )
-    service.revision_repo.get_latest_for_security_as_of.assert_called_once_with(10, as_of)
+    service.revision_repo.get_latest_for_security_as_of.assert_called_once_with(
+        10, as_of
+    )
 
 
 def test_sync_creates_actions():
@@ -108,8 +113,7 @@ def test_sync_is_idempotent():
         existing.new_exchange = action.new_exchange
         existing.source = DataSource.YAHOO
         existing.source_reference = (
-            f"AAPL:{action.effective_date.isoformat()}:"
-            f"{action.action_type.value}"
+            f"AAPL:{action.effective_date.isoformat()}:" f"{action.action_type.value}"
         )
         existing_actions.append(existing)
 
@@ -162,7 +166,6 @@ def test_sync_changed_action_creates_revision():
     db.commit.assert_called_once()
 
 
-
 def test_sync_accepts_distinct_provider_events_on_same_date():
     service, db = make_service()
     service.security_repo.get_by_symbol.return_value = make_security()
@@ -200,14 +203,20 @@ def test_sync_rejects_duplicate_provider_reference():
         source_reference="MASSIVE:DIVIDEND:duplicate",
     )
     service.client.SOURCE = "MASSIVE"
-    service.client.get_corporate_actions.return_value = [duplicate, duplicate.model_copy()]
+    service.client.get_corporate_actions.return_value = [
+        duplicate,
+        duplicate.model_copy(),
+    ]
 
-    with pytest.raises(DataValidationError, match="duplicate corporate-action identity"):
+    with pytest.raises(
+        DataValidationError, match="duplicate corporate-action identity"
+    ):
         service.sync_corporate_actions("AAON")
 
     service.action_repo.get_for_security.assert_not_called()
     db.commit.assert_not_called()
     db.rollback.assert_called_once()
+
 
 def test_sync_rejects_duplicate_provider_identity_before_persistence():
     service, db = make_service()
@@ -219,7 +228,9 @@ def test_sync_rejects_duplicate_provider_identity_before_persistence():
     )
     service.client.get_corporate_actions.return_value = [duplicate, duplicate]
 
-    with pytest.raises(DataValidationError, match="duplicate corporate-action identity"):
+    with pytest.raises(
+        DataValidationError, match="duplicate corporate-action identity"
+    ):
         service.sync_corporate_actions("AAPL")
 
     service.action_repo.get_for_security.assert_not_called()
@@ -242,7 +253,7 @@ def test_sync_uses_bulk_existing_lookup_and_single_flush_for_new_actions():
 
 
 def test_sync_uses_bulk_revision_numbers_for_changed_actions():
-    service, db = make_service()
+    service, _db = make_service()
     service.security_repo.get_by_symbol.return_value = make_security()
     action = CorporateActionData(
         effective_date=date(2024, 11, 1),

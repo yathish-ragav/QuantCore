@@ -24,7 +24,6 @@ from quantcore.services.research_transaction_cost_service import (
     ResearchTransactionCostDefinition,
 )
 
-
 router = APIRouter(
     prefix="/api/v1/research/backtests/attribution",
     tags=["Research Backtest Attribution"],
@@ -69,9 +68,18 @@ def analyze_research_backtest_attribution(
     backtest_definition = ResearchBacktestDefinition(
         backtest_key=request.backtest_key,
         definition_version=request.backtest_definition_version,
-        strategy_identity=(request.strategy.strategy_key, request.strategy.definition_version),
-        constraint_identity=(request.constraint_key, request.constraint_definition_version),
-        rebalance_identity=(request.rebalance_key, request.rebalance_definition_version),
+        strategy_identity=(
+            request.strategy.strategy_key,
+            request.strategy.definition_version,
+        ),
+        constraint_identity=(
+            request.constraint_key,
+            request.constraint_definition_version,
+        ),
+        rebalance_identity=(
+            request.rebalance_key,
+            request.rebalance_definition_version,
+        ),
         transaction_cost_identity=(request.cost_key, request.cost_definition_version),
         start_as_of=request.as_ofs[0],
         end_as_of=request.as_ofs[-1],
@@ -110,7 +118,12 @@ def analyze_research_backtest_attribution(
         dataset_identity=request.dataset_identity,
         signal=signal,
         factors=tuple(
-            (factor.factor_key, factor.definition_version, factor.weight, factor.higher_is_better)
+            (
+                factor.factor_key,
+                factor.definition_version,
+                factor.weight,
+                factor.higher_is_better,
+            )
             for factor in request.factors
         ),
         strategy=strategy,

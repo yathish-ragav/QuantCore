@@ -10,7 +10,6 @@ from quantcore.models.ingestion import IngestionJobStatus
 from quantcore.services.ingestion_execution_service import IngestionExecutionService
 from quantcore.services.ingestion_orchestrator import IngestionResult
 
-
 NOW = datetime(2026, 9, 6, 12, tzinfo=timezone.utc)
 
 
@@ -23,23 +22,23 @@ def make_service():
 
 
 def make_job(**overrides):
-    values = dict(
-        id=7,
-        dataset=IngestionDataset.PRICE_HISTORY,
-        symbols=["AAPL", "MSFT"],
-        target_limit=10,
-        only_stale=True,
-        idempotency_key="job-1",
-        request_fingerprint="fingerprint",
-        status=IngestionJobStatus.QUEUED,
-        attempt_count=0,
-        submitted_at=NOW,
-        started_at=None,
-        finished_at=None,
-        worker_id=None,
-        heartbeat_at=None,
-        error_summary=None,
-    )
+    values = {
+        "id": 7,
+        "dataset": IngestionDataset.PRICE_HISTORY,
+        "symbols": ["AAPL", "MSFT"],
+        "target_limit": 10,
+        "only_stale": True,
+        "idempotency_key": "job-1",
+        "request_fingerprint": "fingerprint",
+        "status": IngestionJobStatus.QUEUED,
+        "attempt_count": 0,
+        "submitted_at": NOW,
+        "started_at": None,
+        "finished_at": None,
+        "worker_id": None,
+        "heartbeat_at": None,
+        "error_summary": None,
+    }
     values.update(overrides)
     return SimpleNamespace(**values)
 
@@ -108,6 +107,7 @@ def test_claim_is_single_winner():
     service = make_service()
     job = make_job()
     service.repository.get_job.return_value = job
+
     def claim(job, **kwargs):
         job.status = IngestionJobStatus.RUNNING
         job.attempt_count = 1
@@ -130,7 +130,9 @@ def test_claim_raises_typed_conflict_when_atomic_claim_loses():
     service.repository.get_job.return_value = job
     service.repository.claim_job.return_value = False
 
-    with pytest.raises(IngestionJobClaimConflictError, match="claimed by another worker"):
+    with pytest.raises(
+        IngestionJobClaimConflictError, match="claimed by another worker"
+    ):
         service.claim(7, worker_id="worker-a")
 
     service.db.commit.assert_not_called()
@@ -149,13 +151,17 @@ def test_claim_rejects_already_running_job():
 def test_execute_finishes_job_from_deterministic_orchestrator_result():
     service = make_service()
     queued = make_job()
-    running = make_job(status=IngestionJobStatus.RUNNING, attempt_count=1, worker_id="worker-a")
+    running = make_job(
+        status=IngestionJobStatus.RUNNING, attempt_count=1, worker_id="worker-a"
+    )
     service.repository.get_job.side_effect = [queued, running, running]
+
     def claim(job, **kwargs):
         job.status = IngestionJobStatus.RUNNING
         job.attempt_count = 1
         job.worker_id = "worker-a"
         return True
+
     service.repository.claim_job.side_effect = claim
     service.orchestrator.sync_market.return_value = [
         IngestionResult(
@@ -184,7 +190,10 @@ def test_execute_finishes_job_from_deterministic_orchestrator_result():
         worker_id="worker-a",
     )
     service.repository.finish_owned_job.assert_called_once()
-    assert service.repository.finish_owned_job.call_args.kwargs["status"] is IngestionJobStatus.COMPLETED_WITH_ERRORS
+    assert (
+        service.repository.finish_owned_job.call_args.kwargs["status"]
+        is IngestionJobStatus.COMPLETED_WITH_ERRORS
+    )
 
 
 def test_heartbeat_requires_owning_worker():

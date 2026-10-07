@@ -5,13 +5,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
-from quantcore.api.main import app
 from quantcore.api.dependencies import (
     get_research_dataset_service,
     get_research_factor_computation_service,
 )
+from quantcore.api.main import app
 from quantcore.services.research_factor_computation_service import ResearchFactorValue
-
 
 client = TestClient(app)
 
@@ -53,9 +52,9 @@ def test_get_research_factor_returns_stable_pit_contract():
     )
 
     app.dependency_overrides[get_research_dataset_service] = lambda: feature_service
-    app.dependency_overrides[
-        get_research_factor_computation_service
-    ] = lambda: factor_service
+    app.dependency_overrides[get_research_factor_computation_service] = (
+        lambda: factor_service
+    )
     try:
         response = client.get(
             "/api/v1/research/factors/aapl",

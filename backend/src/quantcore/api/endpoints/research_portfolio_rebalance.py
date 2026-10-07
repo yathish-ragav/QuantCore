@@ -15,7 +15,6 @@ from quantcore.services.research_rebalance_service import ResearchRebalanceDefin
 from quantcore.services.research_signal_service import ResearchSignalDefinition
 from quantcore.services.research_strategy_service import ResearchStrategyDefinition
 
-
 router = APIRouter(
     prefix="/api/v1/research/portfolios/rebalance",
     tags=["Research Portfolio Rebalance"],
@@ -43,8 +42,7 @@ def rebalance_research_portfolio(
         signal_key=request.signal_key,
         definition_version=request.signal_definition_version,
         factor_identities=tuple(
-            (factor.factor_key, factor.definition_version)
-            for factor in request.factors
+            (factor.factor_key, factor.definition_version) for factor in request.factors
         ),
         weights=tuple(factor.weight for factor in request.factors),
         description=request.signal_description,

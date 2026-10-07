@@ -9,7 +9,6 @@ from quantcore.schemas.responses import (
 )
 from quantcore.services.sec_filing_service import SECFilingService
 
-
 router = APIRouter(
     prefix="/sec-filings",
     tags=["SEC Filings"],

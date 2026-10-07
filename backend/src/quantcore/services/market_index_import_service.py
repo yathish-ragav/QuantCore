@@ -1,13 +1,18 @@
+import json
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from hashlib import sha256
-import json
 
 from quantcore.core.exceptions import DataValidationError, InvalidInputError
 from quantcore.models.market_index_load import MarketIndexDataLoadStatus
-from quantcore.repositories.market_index_load_repository import MarketIndexDataLoadRepository
-from quantcore.services.market_index_service import IndexConstituentInput, MarketIndexService
+from quantcore.repositories.market_index_load_repository import (
+    MarketIndexDataLoadRepository,
+)
+from quantcore.services.market_index_service import (
+    IndexConstituentInput,
+    MarketIndexService,
+)
 from quantcore.services.market_index_source_service import MarketIndexDataSourceService
 
 
@@ -38,7 +43,9 @@ class MarketIndexImportService:
             {
                 "security_id": row.security_id,
                 "effective_from": row.effective_from.isoformat(),
-                "effective_to": row.effective_to.isoformat() if row.effective_to else None,
+                "effective_to": (
+                    row.effective_to.isoformat() if row.effective_to else None
+                ),
                 "weight": str(row.weight) if row.weight is not None else None,
                 "known_at": row.known_at.isoformat(),
                 "source_reference": row.source_reference,
@@ -116,7 +123,7 @@ class MarketIndexImportService:
                 ],
                 observed_at=observed_at,
             )
-            load.status = MarketIndexDataLoadStatus.COMPLETED.value
+            load.status = MarketIndexDataLoadStatus.COMPLETED
             load.records_imported = imported
             load.completed_at = datetime.now(timezone.utc)
             self.db.commit()
@@ -127,7 +134,7 @@ class MarketIndexImportService:
                 index.id, source.id, fingerprint
             )
             if failed is not None:
-                failed.status = MarketIndexDataLoadStatus.FAILED.value
+                failed.status = MarketIndexDataLoadStatus.FAILED
                 failed.error_message = str(exc)[:4000]
                 failed.completed_at = datetime.now(timezone.utc)
                 self.db.commit()

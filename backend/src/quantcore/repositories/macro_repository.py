@@ -106,14 +106,17 @@ class MacroRepository:
         vintage_date: date,
     ) -> bool:
         """Return whether at least one observation from an exact vintage is stored."""
-        return self.db.scalar(
-            select(MacroObservation.id)
-            .where(
-                MacroObservation.series_id == series_id,
-                MacroObservation.vintage_date == vintage_date,
+        return (
+            self.db.scalar(
+                select(MacroObservation.id)
+                .where(
+                    MacroObservation.series_id == series_id,
+                    MacroObservation.vintage_date == vintage_date,
+                )
+                .limit(1)
             )
-            .limit(1)
-        ) is not None
+            is not None
+        )
 
     def create_observation(self, **kwargs) -> MacroObservation:
         observation = MacroObservation(**kwargs)

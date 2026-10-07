@@ -1,7 +1,7 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
 from math import isfinite
-from typing import Iterable
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_factor_computation_service import ResearchFactorValue
@@ -87,9 +87,11 @@ class ResearchFactorCrossSectionalService:
             ordered = sorted(
                 cross_section,
                 key=lambda row: (
-                    -float(row.factor_value.value_numeric)
-                    if higher_is_better
-                    else float(row.factor_value.value_numeric),
+                    (
+                        -self._numeric_factor_value(row)
+                        if higher_is_better
+                        else self._numeric_factor_value(row)
+                    ),
                     row.symbol,
                     row.security_id,
                 ),
@@ -97,7 +99,7 @@ class ResearchFactorCrossSectionalService:
             ranks = self._average_tie_ranks(ordered)
             size = len(ordered)
             for index, row in enumerate(ordered):
-                numeric_value = float(row.factor_value.value_numeric)
+                numeric_value = self._numeric_factor_value(row)
                 rank = ranks[index]
                 normalized = 0.5 if size == 1 else (size - rank) / (size - 1)
                 ranked.append(
@@ -157,19 +159,37 @@ class ResearchFactorCrossSectionalService:
             seen.add(point)
 
     @staticmethod
+    def _numeric_factor_value(
+        row: ResearchFactorPanelRow | ResearchFactorRankRow,
+    ) -> float:
+        value = row.factor_value.value_numeric
+        if value is None:
+            raise InvalidInputError(
+                "Cross-sectional ranking requires numeric factor values."
+            )
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise InvalidInputError(
+                "Cross-sectional ranking requires numeric factor values."
+            ) from exc
+        if not isfinite(numeric):
+            raise InvalidInputError(
+                "Cross-sectional ranking requires finite factor values."
+            )
+        return numeric
+
     def _average_tie_ranks(
+        self,
         ordered: Iterable[ResearchFactorPanelRow],
     ) -> tuple[float, ...]:
         rows = tuple(ordered)
         ranks: list[float] = [0.0] * len(rows)
         start = 0
         while start < len(rows):
-            value = float(rows[start].factor_value.value_numeric)
+            value = self._numeric_factor_value(rows[start])
             end = start + 1
-            while (
-                end < len(rows)
-                and float(rows[end].factor_value.value_numeric) == value
-            ):
+            while end < len(rows) and self._numeric_factor_value(rows[end]) == value:
                 end += 1
             average_rank = (start + 1 + end) / 2.0
             for index in range(start, end):

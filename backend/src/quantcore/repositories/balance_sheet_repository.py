@@ -17,13 +17,10 @@ class BalanceSheetRepository:
         fiscal_date: date,
         period_type: FinancialPeriodType = FinancialPeriodType.ANNUAL,
     ) -> BalanceSheet | None:
-        stmt = (
-            select(BalanceSheet)
-            .where(
-                BalanceSheet.company_id == company_id,
-                BalanceSheet.fiscal_date == fiscal_date,
-                BalanceSheet.period_type == period_type,
-            )
+        stmt = select(BalanceSheet).where(
+            BalanceSheet.company_id == company_id,
+            BalanceSheet.fiscal_date == fiscal_date,
+            BalanceSheet.period_type == period_type,
         )
 
         return self.db.scalar(stmt)

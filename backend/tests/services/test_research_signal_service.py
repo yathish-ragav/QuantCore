@@ -13,11 +13,12 @@ from quantcore.services.research_signal_service import (
     ResearchSignalService,
 )
 
-
 AS_OF = datetime(2026, 8, 20, 16, tzinfo=timezone.utc)
 
 
-def ranked_panel(factor_key: str, version: str, rows: list[tuple[int, str, float]]) -> ResearchFactorRankedPanel:
+def ranked_panel(
+    factor_key: str, version: str, rows: list[tuple[int, str, float]]
+) -> ResearchFactorRankedPanel:
     return ResearchFactorRankedPanel(
         factor_key=factor_key,
         definition_version=version,
@@ -78,7 +79,9 @@ def test_preserves_factor_contributions_and_provenance():
         ("quality", "1"),
         ("momentum", "1"),
     ]
-    assert [c.weighted_contribution for c in contributions] == pytest.approx([0.5, 0.25])
+    assert [c.weighted_contribution for c in contributions] == pytest.approx(
+        [0.5, 0.25]
+    )
 
 
 def test_signal_identity_and_construction_are_explicit():
@@ -132,14 +135,16 @@ def test_rejects_duplicate_factor_identities():
 
 def test_rejects_missing_factor_panel():
     with pytest.raises(InvalidInputError):
-        ResearchSignalService().construct_signal(definition(), {(
-            "quality", "1"
-        ): panels()[("quality", "1")]})
+        ResearchSignalService().construct_signal(
+            definition(), {("quality", "1"): panels()[("quality", "1")]}
+        )
 
 
 def test_rejects_extra_factor_panel():
     supplied = panels()
-    supplied[("value", "1")] = ranked_panel("value", "1", [(1, "AAA", 0.5), (2, "BBB", 0.5)])
+    supplied[("value", "1")] = ranked_panel(
+        "value", "1", [(1, "AAA", 0.5), (2, "BBB", 0.5)]
+    )
     with pytest.raises(InvalidInputError):
         ResearchSignalService().construct_signal(definition(), supplied)
 
@@ -168,7 +173,7 @@ def test_rejects_duplicate_security_as_of_in_input():
         definition_version=panel.definition_version,
         ranking=panel.ranking,
         higher_is_better=panel.higher_is_better,
-        rows=panel.rows + (duplicate,),
+        rows=(*panel.rows, duplicate),
     )
     supplied = panels()
     supplied[("quality", "1")] = bad

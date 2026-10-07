@@ -1,10 +1,9 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
 from enum import Enum
 from math import isfinite
-from typing import Iterable
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
-
 
 ResearchSignalIdentity = tuple[str, str]
 
@@ -38,24 +37,37 @@ class ResearchStrategyDefinition:
     def __post_init__(self) -> None:
         if not isinstance(self.strategy_key, str) or not self.strategy_key.strip():
             raise InvalidInputError("Strategy key must be a non-empty string.")
-        if not isinstance(self.definition_version, str) or not self.definition_version.strip():
-            raise InvalidInputError("Strategy definition version must be a non-empty string.")
+        if (
+            not isinstance(self.definition_version, str)
+            or not self.definition_version.strip()
+        ):
+            raise InvalidInputError(
+                "Strategy definition version must be a non-empty string."
+            )
 
         signal_identity = self._normalize_signal_identity(self.signal_identity)
         direction = self._normalize_direction(self.direction)
         long_threshold = self._validate_threshold(self.long_threshold, "long_threshold")
-        short_threshold = self._validate_threshold(self.short_threshold, "short_threshold")
+        short_threshold = self._validate_threshold(
+            self.short_threshold, "short_threshold"
+        )
 
         if direction is ResearchStrategyDirection.LONG_ONLY:
             if long_threshold is None:
                 raise InvalidInputError("LONG_ONLY strategies require long_threshold.")
             if short_threshold is not None:
-                raise InvalidInputError("LONG_ONLY strategies must not define short_threshold.")
+                raise InvalidInputError(
+                    "LONG_ONLY strategies must not define short_threshold."
+                )
         elif direction is ResearchStrategyDirection.SHORT_ONLY:
             if short_threshold is None:
-                raise InvalidInputError("SHORT_ONLY strategies require short_threshold.")
+                raise InvalidInputError(
+                    "SHORT_ONLY strategies require short_threshold."
+                )
             if long_threshold is not None:
-                raise InvalidInputError("SHORT_ONLY strategies must not define long_threshold.")
+                raise InvalidInputError(
+                    "SHORT_ONLY strategies must not define long_threshold."
+                )
         else:
             if long_threshold is None or short_threshold is None:
                 raise InvalidInputError(
@@ -79,7 +91,9 @@ class ResearchStrategyDefinition:
             object.__setattr__(self, "description", self.description.strip() or None)
 
     @staticmethod
-    def _normalize_signal_identity(identity: ResearchSignalIdentity) -> ResearchSignalIdentity:
+    def _normalize_signal_identity(
+        identity: ResearchSignalIdentity,
+    ) -> ResearchSignalIdentity:
         if not isinstance(identity, tuple) or len(identity) != 2:
             raise InvalidInputError(
                 "Strategy signal identity must be a (signal_key, definition_version) tuple."
@@ -91,11 +105,15 @@ class ResearchStrategyDefinition:
             )
         normalized = (signal_key.strip(), signal_version.strip())
         if not normalized[0] or not normalized[1]:
-            raise InvalidInputError("Strategy signal identity values must not be empty.")
+            raise InvalidInputError(
+                "Strategy signal identity values must not be empty."
+            )
         return normalized
 
     @staticmethod
-    def _normalize_direction(direction: ResearchStrategyDirection) -> ResearchStrategyDirection:
+    def _normalize_direction(
+        direction: ResearchStrategyDirection,
+    ) -> ResearchStrategyDirection:
         if isinstance(direction, ResearchStrategyDirection):
             return direction
         try:
@@ -146,11 +164,15 @@ class ResearchStrategyDefinitionRegistry:
         """Return definitions in deterministic registration order."""
         return tuple(self._definitions.values())
 
-    def get(self, strategy_key: str, definition_version: str) -> ResearchStrategyDefinition:
+    def get(
+        self, strategy_key: str, definition_version: str
+    ) -> ResearchStrategyDefinition:
         if not isinstance(strategy_key, str) or not strategy_key.strip():
             raise InvalidInputError("Strategy key must be a non-empty string.")
         if not isinstance(definition_version, str) or not definition_version.strip():
-            raise InvalidInputError("Strategy definition version must be a non-empty string.")
+            raise InvalidInputError(
+                "Strategy definition version must be a non-empty string."
+            )
         key = (strategy_key.strip(), definition_version.strip())
         definition = self._definitions.get(key)
         if definition is None:

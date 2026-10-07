@@ -2,42 +2,24 @@ class VolumeWeightedAveragePrice:
 
     @staticmethod
     def calculate(
-        highs,
-        lows,
-        closes,
-        volumes,
-    ):
-        if not (
-            len(highs)
-            == len(lows)
-            == len(closes)
-            == len(volumes)
-        ):
-            raise ValueError(
-                "Input lengths must match."
-            )
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
+        volumes: list[float],
+    ) -> list[float | None]:
+        if not (len(highs) == len(lows) == len(closes) == len(volumes)):
+            raise ValueError("Input lengths must match.")
 
         cumulative_price_volume = 0.0
         cumulative_volume = 0.0
 
-        result = []
+        result: list[float | None] = []
 
-        for high, low, close, volume in zip(
-            highs,
-            lows,
-            closes,
-            volumes,
-        ):
+        for high, low, close, volume in zip(highs, lows, closes, volumes, strict=True):
 
-            typical_price = (
-                high
-                + low
-                + close
-            ) / 3
+            typical_price = (high + low + close) / 3
 
-            cumulative_price_volume += (
-                typical_price * volume
-            )
+            cumulative_price_volume += typical_price * volume
 
             cumulative_volume += volume
 
@@ -47,9 +29,6 @@ class VolumeWeightedAveragePrice:
 
             else:
 
-                result.append(
-                    cumulative_price_volume
-                    / cumulative_volume
-                )
+                result.append(cumulative_price_volume / cumulative_volume)
 
         return result

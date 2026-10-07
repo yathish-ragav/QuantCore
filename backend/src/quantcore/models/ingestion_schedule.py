@@ -1,12 +1,12 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
     Index,
     Integer,
-    JSON,
     String,
     UniqueConstraint,
 )

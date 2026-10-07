@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from quantcore.core.enums import SecurityType
 from quantcore.core.exceptions import (
     DataValidationError,
     InvalidInputError,
@@ -9,7 +10,6 @@ from quantcore.core.exceptions import (
 )
 from quantcore.ingestion.providers.factory import ProviderFactory
 from quantcore.models.provenance import CompanyField, DataSource
-from quantcore.core.enums import SecurityType
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
@@ -18,7 +18,6 @@ from quantcore.repositories.company_field_provenance_repository import (
 )
 from quantcore.repositories.company_repository import CompanyRepository
 from quantcore.repositories.security_repository import SecurityRepository
-
 
 # SEC is the authoritative source for issuer identity. Other providers
 # must not silently replace these fields after SEC has established them.
@@ -45,30 +44,23 @@ class CompanyService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
-        security = self.security_repo.get_by_symbol(
-            symbol
-        )
+        security = self.security_repo.get_by_symbol(symbol)
 
         if security is None:
             raise ResourceNotFoundError(
-                f"Security '{symbol}' not found. "
-                "Run universe sync first."
+                f"Security '{symbol}' not found. " "Run universe sync first."
             )
 
         company = security.company
 
         if company is None:
             raise ResourceNotFoundError(
-                f"Company for security '{symbol}' "
-                "not found."
+                f"Company for security '{symbol}' " "not found."
             )
 
         return company
-
 
     def search(
         self,
@@ -101,19 +93,14 @@ class CompanyService:
         if ownership.source in (source, DataSource.UNKNOWN):
             return True
 
-        authoritative_source = AUTHORITATIVE_COMPANY_FIELDS.get(
-            field_name
-        )
+        authoritative_source = AUTHORITATIVE_COMPANY_FIELDS.get(field_name)
 
         if authoritative_source == ownership.source:
             return False
 
-        if authoritative_source == source:
-            return True
-
         # Conservative default: an existing owner is never silently
         # replaced unless the incoming source is explicitly authoritative.
-        return False
+        return authoritative_source == source
 
     def sync_company(
         self,
@@ -123,46 +110,30 @@ class CompanyService:
             symbol = DataCleaner.clean_symbol(symbol)
 
             if not symbol:
-                raise InvalidInputError(
-                    "Symbol must not be empty."
-                )
+                raise InvalidInputError("Symbol must not be empty.")
 
-            security = self.security_repo.get_by_symbol(
-                symbol
-            )
+            security = self.security_repo.get_by_symbol(symbol)
 
             if security is None:
                 raise ResourceNotFoundError(
-                    f"Security '{symbol}' not found. "
-                    "Run universe sync first."
+                    f"Security '{symbol}' not found. " "Run universe sync first."
                 )
 
             company = security.company
 
             if company is None:
                 raise ResourceNotFoundError(
-                    f"Company for security '{symbol}' "
-                    "not found."
+                    f"Company for security '{symbol}' " "not found."
                 )
 
-            raw_data = self.client.get_company_info(
-                symbol
-            )
+            raw_data = self.client.get_company_info(symbol)
 
-            data = DataTransformer.company(
-                raw_data
-            )
+            data = DataTransformer.company(raw_data)
 
-            data = DataCleaner.clean_company(
-                data
-            )
+            data = DataCleaner.clean_company(data)
 
-            if not DataValidator.validate_company(
-                data
-            ):
-                raise DataValidationError(
-                    f"Invalid company data for '{symbol}'."
-                )
+            if not DataValidator.validate_company(data):
+                raise DataValidationError(f"Invalid company data for '{symbol}'.")
 
             if data.symbol != symbol:
                 raise DataValidationError(

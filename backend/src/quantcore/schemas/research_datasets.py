@@ -3,7 +3,6 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field
 
-
 ResearchSymbols = Annotated[list[str], Field(min_length=1, max_length=100)]
 ResearchAsOfs = Annotated[list[datetime], Field(min_length=1, max_length=50)]
 ResearchDefinitionIdentities = Annotated[

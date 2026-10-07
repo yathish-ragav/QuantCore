@@ -1,18 +1,13 @@
-from typing import List
-
-
 class IchimokuCloud:
 
     @staticmethod
     def calculate(
-        highs: List[float],
-        lows: List[float],
-    ) -> List[dict]:
+        highs: list[float],
+        lows: list[float],
+    ) -> list[dict]:
 
         if len(highs) != len(lows):
-            raise ValueError(
-                "Input lengths must match."
-            )
+            raise ValueError("Input lengths must match.")
 
         results = []
 
@@ -25,53 +20,30 @@ class IchimokuCloud:
 
             if i >= 8:
 
-                highest = max(
-                    highs[i - 8:i + 1]
-                )
+                highest = max(highs[i - 8 : i + 1])
 
-                lowest = min(
-                    lows[i - 8:i + 1]
-                )
+                lowest = min(lows[i - 8 : i + 1])
 
-                tenkan = (
-                    highest + lowest
-                ) / 2
+                tenkan = (highest + lowest) / 2
 
             if i >= 25:
 
-                highest = max(
-                    highs[i - 25:i + 1]
-                )
+                highest = max(highs[i - 25 : i + 1])
 
-                lowest = min(
-                    lows[i - 25:i + 1]
-                )
+                lowest = min(lows[i - 25 : i + 1])
 
-                kijun = (
-                    highest + lowest
-                ) / 2
+                kijun = (highest + lowest) / 2
 
-            if (
-                tenkan is not None
-                and kijun is not None
-            ):
-                span_a = (
-                    tenkan + kijun
-                ) / 2
+            if tenkan is not None and kijun is not None:
+                span_a = (tenkan + kijun) / 2
 
             if i >= 51:
 
-                highest = max(
-                    highs[i - 51:i + 1]
-                )
+                highest = max(highs[i - 51 : i + 1])
 
-                lowest = min(
-                    lows[i - 51:i + 1]
-                )
+                lowest = min(lows[i - 51 : i + 1])
 
-                span_b = (
-                    highest + lowest
-                ) / 2
+                span_b = (highest + lowest) / 2
 
             results.append(
                 {

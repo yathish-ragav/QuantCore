@@ -31,17 +31,13 @@ class MarketIndexDataSource(Base):
 
     __tablename__ = "market_index_data_sources"
 
-    __table_args__ = (
-        UniqueConstraint("key", name="uq_market_index_data_sources_key"),
-    )
+    __table_args__ = (UniqueConstraint("key", name="uq_market_index_data_sources_key"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     key: Mapped[str] = mapped_column(String(100), nullable=False)
     provider: Mapped[str] = mapped_column(String(255), nullable=False)
     dataset: Mapped[str] = mapped_column(String(255), nullable=False)
-    authority: Mapped[IndexSourceAuthority] = mapped_column(
-        String(30), nullable=False
-    )
+    authority: Mapped[IndexSourceAuthority] = mapped_column(String(30), nullable=False)
     license_status: Mapped[IndexLicenseStatus] = mapped_column(
         String(30), nullable=False, default=IndexLicenseStatus.NOT_REVIEWED
     )

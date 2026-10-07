@@ -11,7 +11,7 @@ def test_sec_xbrl_fact_observation_preserves_revision_identity():
         taxonomy="us-gaap",
         concept="RevenueFromContractWithCustomerExcludingAssessedTax",
         unit="USD",
-        value=Decimal("391035000000"),
+        value=Decimal(391035000000),
         period_start=date(2023, 10, 1),
         period_end=date(2024, 9, 28),
         filed_at=date(2024, 11, 1),
@@ -23,7 +23,7 @@ def test_sec_xbrl_fact_observation_preserves_revision_identity():
     assert observation.accession_number == "0000320193-24-000123"
     assert observation.taxonomy == "us-gaap"
     assert observation.concept.startswith("Revenue")
-    assert observation.value == Decimal("391035000000")
+    assert observation.value == Decimal(391035000000)
 
 
 def test_sec_xbrl_fact_observation_has_revision_and_filing_columns():

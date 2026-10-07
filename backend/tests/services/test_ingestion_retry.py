@@ -1,4 +1,8 @@
-from quantcore.core.exceptions import DataValidationError, ExternalDataError, RateLimitError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    ExternalDataError,
+    RateLimitError,
+)
 from quantcore.ingestion.retry import (
     IngestionFailureClass,
     IngestionRetryPolicy,

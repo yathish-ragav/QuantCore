@@ -9,6 +9,7 @@ from quantcore.core.exceptions import (
     ResourceNotFoundError,
 )
 from quantcore.ingestion.providers.factory import ProviderFactory
+from quantcore.models.price import Price
 from quantcore.models.provenance import DataSource
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
@@ -18,7 +19,10 @@ from quantcore.repositories.price_observation_revision_repository import (
 )
 from quantcore.repositories.price_repository import PriceRepository
 from quantcore.repositories.security_repository import SecurityRepository
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
+from quantcore.schemas.price import PriceData
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
+)
 
 
 @dataclass(frozen=True)
@@ -52,18 +56,13 @@ class PriceService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
-        security = self.security_repo.get_by_symbol(
-            symbol
-        )
+        security = self.security_repo.get_by_symbol(symbol)
 
         if security is None:
             raise ResourceNotFoundError(
-                f"Security '{symbol}' not found. "
-                "Run security sync first."
+                f"Security '{symbol}' not found. " "Run security sync first."
             )
 
         return security
@@ -87,6 +86,7 @@ class PriceService:
                 "volume",
                 "dividends",
                 "stock_splits",
+                "source_reference",
             )
         )
 
@@ -125,9 +125,7 @@ class PriceService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         try:
             security = self.get_security(symbol)
@@ -137,13 +135,11 @@ class PriceService:
                 period=period,
             )
 
-            prices = DataTransformer.prices(
-                raw_history
-            )
+            prices = DataTransformer.prices(raw_history)
 
-            normalized_prices = []
-            for price in prices:
-                cleaned = DataCleaner.clean_price(price)
+            normalized_prices: list[PriceData] = []
+            for price_data in prices:
+                cleaned = DataCleaner.clean_price(price_data)
                 normalized_prices.append(
                     cleaned.model_copy(
                         update={
@@ -159,12 +155,8 @@ class PriceService:
                 )
             prices = normalized_prices
 
-            if not DataValidator.validate_prices(
-                prices
-            ):
-                raise DataValidationError(
-                    f"Invalid price data for '{symbol}'."
-                )
+            if not DataValidator.validate_prices(prices):
+                raise DataValidationError(f"Invalid price data for '{symbol}'.")
 
             created = 0
             updated = 0
@@ -172,6 +164,11 @@ class PriceService:
             records_processed = len(prices)
             source = DataSource(self.client.SOURCE)
             known_at = datetime.now(timezone.utc)
+            for price in prices:
+                price.source_reference = (
+                    f"{source.value}:PRICE:DAY:{symbol}:"
+                    f"{price.date.date().isoformat()}"
+                )
             coverage_start = min((price.date for price in prices), default=None)
             coverage_end = max((price.date for price in prices), default=None)
 
@@ -181,7 +178,7 @@ class PriceService:
                 security.id,
                 [price.date for price in prices],
             )
-            existing_by_date = {}
+            existing_by_date: dict[object, Price] = {}
             for existing in existing_prices:
                 observation_day = existing.date.date()
                 if observation_day in existing_by_date:
@@ -192,48 +189,50 @@ class PriceService:
                     )
                 existing_by_date[observation_day] = existing
 
-            new_prices = []
-            changed_prices = []
+            new_prices: list[Price] = []
+            changed_prices: list[Price] = []
 
-            for data in prices:
-                existing = existing_by_date.get(data.date.date())
+            for price_data in prices:
+                existing_price = existing_by_date.get(price_data.date.date())
 
-                if existing is None:
-                    price = self.price_repo.create(
+                if existing_price is None:
+                    created_price = self.price_repo.create(
                         security_id=security.id,
-                        date=data.date,
-                        open=data.open,
-                        high=data.high,
-                        low=data.low,
-                        close=data.close,
-                        adjusted_close=data.adjusted_close,
-                        price_basis=data.price_basis,
-                        volume=data.volume,
-                        dividends=data.dividends,
-                        stock_splits=data.stock_splits,
+                        date=price_data.date,
+                        open=price_data.open,
+                        high=price_data.high,
+                        low=price_data.low,
+                        close=price_data.close,
+                        adjusted_close=price_data.adjusted_close,
+                        price_basis=price_data.price_basis,
+                        volume=price_data.volume,
+                        dividends=price_data.dividends,
+                        stock_splits=price_data.stock_splits,
                         source=source,
                         fetched_at=known_at,
+                        source_reference=price_data.source_reference,
                     )
-                    new_prices.append(price)
+                    new_prices.append(created_price)
                     created += 1
                     continue
 
-                if self._matches(existing, data):
+                if self._matches(existing_price, price_data):
                     unchanged += 1
                     continue
 
-                existing.open = data.open
-                existing.high = data.high
-                existing.low = data.low
-                existing.close = data.close
-                existing.adjusted_close = data.adjusted_close
-                existing.price_basis = data.price_basis
-                existing.volume = data.volume
-                existing.dividends = data.dividends
-                existing.stock_splits = data.stock_splits
-                existing.source = source
-                existing.fetched_at = known_at
-                changed_prices.append(existing)
+                existing_price.open = price_data.open
+                existing_price.high = price_data.high
+                existing_price.low = price_data.low
+                existing_price.close = price_data.close
+                existing_price.adjusted_close = price_data.adjusted_close
+                existing_price.price_basis = price_data.price_basis
+                existing_price.volume = price_data.volume
+                existing_price.dividends = price_data.dividends
+                existing_price.stock_splits = price_data.stock_splits
+                existing_price.source = source
+                existing_price.fetched_at = known_at
+                existing_price.source_reference = price_data.source_reference
+                changed_prices.append(existing_price)
                 updated += 1
 
             # New rows need database-generated IDs before their immutable
@@ -243,23 +242,23 @@ class PriceService:
                 self.db.flush()
 
             next_revision_numbers = self.revision_repo.get_next_revision_numbers(
-                [price.id for price in changed_prices]
+                [changed_price.id for changed_price in changed_prices]
             )
 
-            for price in new_prices:
+            for new_price in new_prices:
                 self._create_revision(
-                    price,
+                    new_price,
                     source=source,
                     known_at=known_at,
                     revision_number=1,
                 )
 
-            for price in changed_prices:
+            for changed_price in changed_prices:
                 self._create_revision(
-                    price,
+                    changed_price,
                     source=source,
                     known_at=known_at,
-                    revision_number=next_revision_numbers[price.id],
+                    revision_number=next_revision_numbers[changed_price.id],
                 )
 
             self.db.commit()
@@ -283,9 +282,7 @@ class PriceService:
     ):
         security = self.get_security(symbol)
 
-        return self.price_repo.get_for_security(
-            security.id
-        )
+        return self.price_repo.get_for_security(security.id)
 
     def get_price_revision_history_known_as_of(
         self,

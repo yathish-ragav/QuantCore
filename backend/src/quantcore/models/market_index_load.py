@@ -47,7 +47,8 @@ class MarketIndexDataLoad(Base):
         Integer, nullable=False, default=0, server_default="0"
     )
     started_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False,
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(timezone.utc),
     )
     completed_at: Mapped[datetime | None] = mapped_column(

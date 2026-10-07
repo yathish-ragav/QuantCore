@@ -5,7 +5,6 @@ from quantcore.api.dependencies import get_company_service
 from quantcore.schemas.responses import CompanyResponse, CompanySearchResult
 from quantcore.services.company_service import CompanyService
 
-
 router = APIRouter(
     prefix="/companies",
     tags=["Companies"],
@@ -63,9 +62,7 @@ def get_company(
 ):
     normalized_symbol = symbol.strip().upper()
 
-    company = service.get_company(
-        normalized_symbol
-    )
+    company = service.get_company(normalized_symbol)
 
     return _to_company_response(
         company,
@@ -84,9 +81,7 @@ def sync_company(
 ):
     normalized_symbol = symbol.strip().upper()
 
-    company = service.sync_company(
-        normalized_symbol
-    )
+    company = service.sync_company(normalized_symbol)
 
     return _to_company_response(
         company,

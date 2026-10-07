@@ -67,7 +67,7 @@ def test_elder_ray_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         ElderRayIndex.calculate(
             highs,
@@ -84,7 +84,7 @@ def test_elder_ray_invalid_period():
 
     with pytest.raises(
         ValueError,
-        match="Period must be greater than zero.",
+        match=r"Period\ must\ be\ greater\ than\ zero\.",
     ):
         ElderRayIndex.calculate(
             highs,

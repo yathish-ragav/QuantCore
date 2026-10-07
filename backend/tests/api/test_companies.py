@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 
-
 client = TestClient(app)
 
 
@@ -45,9 +44,7 @@ def test_get_company_returns_company_data():
 
     company = make_company()
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
 
         service = Mock()
 
@@ -55,9 +52,7 @@ def test_get_company_returns_company_data():
 
         mock_service.return_value = service
 
-        response = client.get(
-            "/companies/AAPL"
-        )
+        response = client.get("/companies/AAPL")
 
     assert response.status_code == 200
 
@@ -74,9 +69,7 @@ def test_get_company_returns_company_data():
         "market_cap": 3000000000000,
     }
 
-    service.get_company.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_company.assert_called_once_with("AAPL")
 
     service.sync_company.assert_not_called()
 
@@ -85,9 +78,7 @@ def test_get_company_normalizes_lowercase_symbol():
 
     company = make_company()
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
 
         service = Mock()
 
@@ -95,9 +86,7 @@ def test_get_company_normalizes_lowercase_symbol():
 
         mock_service.return_value = service
 
-        response = client.get(
-            "/companies/aapl"
-        )
+        response = client.get("/companies/aapl")
 
     assert response.status_code == 200
 
@@ -105,9 +94,7 @@ def test_get_company_normalizes_lowercase_symbol():
 
     assert data["symbol"] == "AAPL"
 
-    service.get_company.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_company.assert_called_once_with("AAPL")
 
     service.sync_company.assert_not_called()
 
@@ -116,9 +103,7 @@ def test_get_company_normalizes_mixed_case_symbol():
 
     company = make_company()
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
 
         service = Mock()
 
@@ -126,9 +111,7 @@ def test_get_company_normalizes_mixed_case_symbol():
 
         mock_service.return_value = service
 
-        response = client.get(
-            "/companies/aApL"
-        )
+        response = client.get("/companies/aApL")
 
     assert response.status_code == 200
 
@@ -136,24 +119,18 @@ def test_get_company_normalizes_mixed_case_symbol():
 
     assert data["symbol"] == "AAPL"
 
-    service.get_company.assert_called_once_with(
-        "AAPL"
-    )
+    service.get_company.assert_called_once_with("AAPL")
 
     service.sync_company.assert_not_called()
 
 
 def test_get_company_propagates_service_error():
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
 
         service = Mock()
 
-        service.get_company.side_effect = ValueError(
-            "Company not found"
-        )
+        service.get_company.side_effect = ValueError("Company not found")
 
         mock_service.return_value = service
 
@@ -161,13 +138,9 @@ def test_get_company_propagates_service_error():
             ValueError,
             match="Company not found",
         ):
-            client.get(
-                "/companies/AAPL"
-            )
+            client.get("/companies/AAPL")
 
-        service.get_company.assert_called_once_with(
-            "AAPL"
-        )
+        service.get_company.assert_called_once_with("AAPL")
 
         service.sync_company.assert_not_called()
 
@@ -176,9 +149,7 @@ def test_sync_company_returns_company_data():
 
     company = make_company()
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
 
         service = Mock()
 
@@ -186,9 +157,7 @@ def test_sync_company_returns_company_data():
 
         mock_service.return_value = service
 
-        response = client.post(
-            "/companies/AAPL/sync"
-        )
+        response = client.post("/companies/AAPL/sync")
 
     assert response.status_code == 200
 
@@ -205,9 +174,7 @@ def test_sync_company_returns_company_data():
         "market_cap": 3000000000000,
     }
 
-    service.sync_company.assert_called_once_with(
-        "AAPL"
-    )
+    service.sync_company.assert_called_once_with("AAPL")
 
     service.get_company.assert_not_called()
 
@@ -216,9 +183,7 @@ def test_sync_company_normalizes_lowercase_symbol():
 
     company = make_company()
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
 
         service = Mock()
 
@@ -226,9 +191,7 @@ def test_sync_company_normalizes_lowercase_symbol():
 
         mock_service.return_value = service
 
-        response = client.post(
-            "/companies/aapl/sync"
-        )
+        response = client.post("/companies/aapl/sync")
 
     assert response.status_code == 200
 
@@ -236,9 +199,7 @@ def test_sync_company_normalizes_lowercase_symbol():
 
     assert data["symbol"] == "AAPL"
 
-    service.sync_company.assert_called_once_with(
-        "AAPL"
-    )
+    service.sync_company.assert_called_once_with("AAPL")
 
     service.get_company.assert_not_called()
 
@@ -247,9 +208,7 @@ def test_sync_company_normalizes_mixed_case_symbol():
 
     company = make_company()
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
 
         service = Mock()
 
@@ -257,9 +216,7 @@ def test_sync_company_normalizes_mixed_case_symbol():
 
         mock_service.return_value = service
 
-        response = client.post(
-            "/companies/aApL/sync"
-        )
+        response = client.post("/companies/aApL/sync")
 
     assert response.status_code == 200
 
@@ -267,24 +224,18 @@ def test_sync_company_normalizes_mixed_case_symbol():
 
     assert data["symbol"] == "AAPL"
 
-    service.sync_company.assert_called_once_with(
-        "AAPL"
-    )
+    service.sync_company.assert_called_once_with("AAPL")
 
     service.get_company.assert_not_called()
 
 
 def test_sync_company_propagates_service_error():
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
 
         service = Mock()
 
-        service.sync_company.side_effect = ValueError(
-            "Company not found"
-        )
+        service.sync_company.side_effect = ValueError("Company not found")
 
         mock_service.return_value = service
 
@@ -292,15 +243,12 @@ def test_sync_company_propagates_service_error():
             ValueError,
             match="Company not found",
         ):
-            client.post(
-                "/companies/AAPL/sync"
-            )
+            client.post("/companies/AAPL/sync")
 
-        service.sync_company.assert_called_once_with(
-            "AAPL"
-        )
+        service.sync_company.assert_called_once_with("AAPL")
 
         service.get_company.assert_not_called()
+
 
 def test_search_companies_returns_listing_identity():
     company = make_company()
@@ -314,9 +262,7 @@ def test_search_companies_returns_listing_identity():
     security.status.value = "ACTIVE"
     security.company = company
 
-    with patch(
-        "quantcore.api.dependencies.CompanyService"
-    ) as mock_service:
+    with patch("quantcore.api.dependencies.CompanyService") as mock_service:
         service = Mock()
         service.search.return_value = [security]
         mock_service.return_value = service

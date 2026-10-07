@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 
 from fastapi import APIRouter, Depends, Query
 
@@ -10,7 +10,6 @@ from quantcore.schemas.indexes import (
     ResearchUniverseResponse,
 )
 from quantcore.services.market_index_service import MarketIndexService
-
 
 router = APIRouter(
     prefix="/indexes",
@@ -33,7 +32,7 @@ def list_indexes(
                 source_reference=index.source_reference,
                 is_active=index.is_active,
             )
-            for index in service.list_active()
+            for index in service.list_active_public()
         ]
     )
 
@@ -43,7 +42,7 @@ def get_index(
     key: str,
     service: MarketIndexService = Depends(get_market_index_service),
 ):
-    index = service.get(key)
+    index = service.get_public(key)
     return MarketIndexResponse(
         id=index.id,
         key=index.key,
@@ -88,7 +87,7 @@ def resolve_index_universe(
     snapshot = service.resolve(key, as_of=as_of)
     return ResearchUniverseResponse(
         index_key=snapshot.index_key,
-        as_of=snapshot.as_of,
+        as_of=datetime.combine(snapshot.as_of, time.min),
         security_ids=list(snapshot.security_ids),
         fingerprint=snapshot.fingerprint,
         size=snapshot.size,

@@ -1,12 +1,13 @@
 from datetime import datetime, timezone
 from enum import Enum
 
-from sqlalchemy import DateTime, Enum as SQLAlchemyEnum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from quantcore.core.enums import SecurityType
 from quantcore.db.database import Base
 from quantcore.models.provenance import DATA_SOURCE_ENUM, DataSource, ProvenanceMixin
-from quantcore.core.enums import SecurityType
 
 
 class SecurityStatus(str, Enum):

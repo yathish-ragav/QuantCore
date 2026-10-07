@@ -1,17 +1,16 @@
 from math import sqrt
-from typing import List
 
 
 class BollingerBands:
 
     @staticmethod
     def calculate(
-        prices: List[float],
+        prices: list[float],
         period: int = 20,
         multiplier: float = 2.0,
-    ):
+    ) -> list[dict[str, float | None]]:
 
-        bands = []
+        bands: list[dict[str, float | None]] = []
 
         for i in range(len(prices)):
 
@@ -29,10 +28,7 @@ class BollingerBands:
 
             sma = sum(window) / period
 
-            variance = sum(
-                (x - sma) ** 2
-                for x in window
-            ) / period
+            variance = sum((x - sma) ** 2 for x in window) / period
 
             std = sqrt(variance)
 

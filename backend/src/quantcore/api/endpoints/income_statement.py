@@ -12,7 +12,6 @@ from quantcore.services.income_statement_service import (
     IncomeStatementService,
 )
 
-
 router = APIRouter(
     prefix="/income-statements",
     tags=["Income Statements"],
@@ -29,9 +28,7 @@ def get_income_statements(
         default=None,
         description="Return the latest statement revisions known at this timestamp.",
     ),
-    service: IncomeStatementService = Depends(
-        get_income_statement_service
-    ),
+    service: IncomeStatementService = Depends(get_income_statement_service),
 ):
     normalized_symbol = symbol.strip().upper()
 
@@ -71,15 +68,11 @@ def get_income_statements(
 )
 def sync_income_statements(
     symbol: str,
-    service: IncomeStatementService = Depends(
-        get_income_statement_service
-    ),
+    service: IncomeStatementService = Depends(get_income_statement_service),
 ):
     normalized_symbol = symbol.strip().upper()
 
-    result = service.sync_income_statements(
-        normalized_symbol
-    )
+    result = service.sync_income_statements(normalized_symbol)
 
     return IncomeStatementSyncResponse(
         symbol=normalized_symbol,

@@ -40,7 +40,9 @@ class ResearchExperimentRepository:
     ) -> list[ResearchExperimentRun]:
         if not run_ids:
             return []
-        stmt = select(ResearchExperimentRun).where(ResearchExperimentRun.run_id.in_(run_ids))
+        stmt = select(ResearchExperimentRun).where(
+            ResearchExperimentRun.run_id.in_(run_ids)
+        )
         if owner is not None:
             stmt = stmt.where(
                 ResearchExperimentRun.owner_issuer == owner.issuer,
@@ -48,8 +50,7 @@ class ResearchExperimentRepository:
             )
         return list(
             self.db.scalars(
-                stmt
-                .order_by(
+                stmt.order_by(
                     ResearchExperimentRun.submitted_at.desc(),
                     ResearchExperimentRun.id.desc(),
                 )
@@ -72,9 +73,7 @@ class ResearchExperimentRepository:
 
         stmt = select(ResearchExperimentRun)
         if experiment_key is not None:
-            stmt = stmt.where(
-                ResearchExperimentRun.experiment_key == experiment_key
-            )
+            stmt = stmt.where(ResearchExperimentRun.experiment_key == experiment_key)
         if definition_version is not None:
             stmt = stmt.where(
                 ResearchExperimentRun.definition_version == definition_version
@@ -91,13 +90,10 @@ class ResearchExperimentRepository:
                 ResearchExperimentRun.owner_subject == owner.subject,
             )
 
-        stmt = (
-            stmt.order_by(
-                ResearchExperimentRun.submitted_at.desc(),
-                ResearchExperimentRun.id.desc(),
-            )
-            .limit(limit)
-        )
+        stmt = stmt.order_by(
+            ResearchExperimentRun.submitted_at.desc(),
+            ResearchExperimentRun.id.desc(),
+        ).limit(limit)
         return list(self.db.scalars(stmt).all())
 
     def create(
@@ -139,7 +135,7 @@ class ResearchExperimentRepository:
         now: datetime,
         error_summary: str | None = None,
     ) -> bool:
-        values = {"status": status}
+        values: dict[str, object] = {"status": status}
         if status is ResearchExperimentRunStatus.RUNNING:
             values.update(started_at=now, finished_at=None, error_summary=None)
         elif status in (
@@ -160,11 +156,10 @@ class ResearchExperimentRepository:
             )
             .values(**values)
         )
-        if result.rowcount != 1:
+        if getattr(result, "rowcount", None) != 1:
             return False
         self.db.refresh(run)
         return True
-
 
     def get_result(self, run_id: str) -> ResearchExperimentRunResult | None:
         return self.db.scalar(
@@ -214,7 +209,6 @@ class ResearchExperimentRepository:
         self.db.flush()
         return result
 
-
     def get_comparison_result(
         self,
         result_fingerprint: str,
@@ -222,7 +216,8 @@ class ResearchExperimentRepository:
         owner: ResourceOwner | None = None,
     ) -> ResearchExperimentComparisonResultRecord | None:
         stmt = select(ResearchExperimentComparisonResultRecord).where(
-            ResearchExperimentComparisonResultRecord.result_fingerprint == result_fingerprint
+            ResearchExperimentComparisonResultRecord.result_fingerprint
+            == result_fingerprint
         )
         if owner is not None:
             stmt = stmt.where(
@@ -260,7 +255,6 @@ class ResearchExperimentRepository:
         self.db.flush()
         return result
 
-
     def get_artifact(self, artifact_id: str) -> ResearchExperimentArtifact | None:
         return self.db.scalar(
             select(ResearchExperimentArtifact).where(
@@ -273,7 +267,9 @@ class ResearchExperimentRepository:
             self.db.scalars(
                 select(ResearchExperimentArtifact)
                 .where(ResearchExperimentArtifact.run_id == run_id)
-                .order_by(ResearchExperimentArtifact.created_at, ResearchExperimentArtifact.id)
+                .order_by(
+                    ResearchExperimentArtifact.created_at, ResearchExperimentArtifact.id
+                )
             )
         )
 

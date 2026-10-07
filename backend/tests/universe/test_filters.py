@@ -25,10 +25,7 @@ def test_filter_us_equities_keeps_major_exchanges():
 
     result = filter_us_equities(companies)
 
-    assert [
-        company.symbol
-        for company in result
-    ] == [
+    assert [company.symbol for company in result] == [
         "AAPL",
         "IBM",
         "XYZ",
@@ -44,10 +41,7 @@ def test_filter_us_equities_removes_unsupported_exchange():
 
     result = filter_us_equities(companies)
 
-    assert [
-        company.symbol
-        for company in result
-    ] == ["AAPL"]
+    assert [company.symbol for company in result] == ["AAPL"]
 
 
 def test_filter_us_equities_is_case_insensitive():

@@ -75,43 +75,45 @@ def test_fmp_empty_response():
 def test_fmp_http_error():
     fake_response = Mock()
 
-    fake_response.raise_for_status.side_effect = requests.HTTPError(
-        "500 Server Error"
-    )
+    fake_response.raise_for_status.side_effect = requests.HTTPError("500 Server Error")
 
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        return_value=fake_response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            return_value=fake_response,
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            FMPClient().get_income_statements("AAPL")
+        FMPClient().get_income_statements("AAPL")
 
 
 def test_fmp_timeout():
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        side_effect=requests.Timeout("Request timed out"),
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            side_effect=requests.Timeout("Request timed out"),
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            FMPClient().get_income_statements("AAPL")
+        FMPClient().get_income_statements("AAPL")
 
 
 def test_fmp_invalid_response_shape():
     fake_response = Mock()
 
-    fake_response.json.return_value = {
-        "error": "Invalid symbol"
-    }
+    fake_response.json.return_value = {"error": "Invalid symbol"}
 
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        return_value=fake_response,
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            return_value=fake_response,
+        ),
+        pytest.raises(
             ValueError,
             match="must be a list",
-        ):
-            FMPClient().get_income_statements("INVALID")
+        ),
+    ):
+        FMPClient().get_income_statements("INVALID")
 
 
 def test_fmp_empty_symbol():
@@ -169,6 +171,7 @@ def test_fmp_multiple_statements():
     assert len(result) == 2
     assert result[0].total_revenue == 1000
     assert result[1].total_revenue == 900
+
 
 def test_fmp_cash_flow_success():
     fake_response = Mock()
@@ -260,39 +263,43 @@ def test_fmp_cash_flow_empty_response():
 
 
 def test_fmp_cash_flow_http_error():
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        side_effect=requests.exceptions.HTTPError(),
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            side_effect=requests.exceptions.HTTPError(),
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            FMPClient().get_cash_flow_statements("AAPL")
+        FMPClient().get_cash_flow_statements("AAPL")
 
 
 def test_fmp_cash_flow_timeout():
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        side_effect=requests.exceptions.Timeout(),
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            side_effect=requests.exceptions.Timeout(),
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            FMPClient().get_cash_flow_statements("AAPL")
+        FMPClient().get_cash_flow_statements("AAPL")
 
 
 def test_fmp_cash_flow_invalid_response_shape():
     fake_response = Mock()
 
-    fake_response.json.return_value = {
-        "error": "Invalid symbol"
-    }
+    fake_response.json.return_value = {"error": "Invalid symbol"}
 
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        return_value=fake_response,
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            return_value=fake_response,
+        ),
+        pytest.raises(
             ValueError,
             match="must be a list",
-        ):
-            FMPClient().get_cash_flow_statements("INVALID")
+        ),
+    ):
+        FMPClient().get_cash_flow_statements("INVALID")
 
 
 def test_fmp_cash_flow_empty_symbol():

@@ -1,5 +1,7 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
+from typing import cast
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_backtest_attribution_service import (
@@ -10,7 +12,10 @@ from quantcore.services.research_backtest_product_service import (
     ResearchBacktestProductResult,
     ResearchBacktestProductService,
 )
-from quantcore.services.research_backtest_service import ResearchBacktestDefinition
+from quantcore.services.research_backtest_service import (
+    ResearchBacktestDefinition,
+    ResearchBacktestPriceObservation,
+)
 from quantcore.services.research_portfolio_constraint_service import (
     ResearchPortfolioConstraintDefinition,
 )
@@ -39,18 +44,24 @@ class ResearchBacktestAttributionProductService:
         attribution_service: ResearchBacktestAttributionService | None = None,
     ) -> None:
         self._backtest_product_service = backtest_product_service
-        self._attribution_service = attribution_service or ResearchBacktestAttributionService()
+        self._attribution_service = (
+            attribution_service or ResearchBacktestAttributionService()
+        )
 
     def analyze(
         self,
         *,
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
         backtest_definition: ResearchBacktestDefinition,
         constraint_definition: ResearchPortfolioConstraintDefinition,
@@ -84,7 +95,10 @@ class ResearchBacktestAttributionProductService:
         attribution = self._attribution_service.attribute(
             backtest_result.backtest,
             tuple(result.portfolio for result in backtest_result.target_portfolios),
-            price_history,
+            cast(
+                Mapping[int, tuple[ResearchBacktestPriceObservation, ...]],
+                price_history,
+            ),
         )
         return ResearchBacktestAttributionProductResult(
             backtest=backtest_result,

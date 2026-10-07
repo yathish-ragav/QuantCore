@@ -61,7 +61,10 @@ def test_coerces_valid_direction_string():
         (ResearchStrategyDirection.LONG_ONLY, {"short_threshold": 0.2}),
         (ResearchStrategyDirection.SHORT_ONLY, {"long_threshold": 0.8}),
         (ResearchStrategyDirection.LONG_SHORT, {"long_threshold": 0.8}),
-        (ResearchStrategyDirection.LONG_SHORT, {"long_threshold": None, "short_threshold": 0.2}),
+        (
+            ResearchStrategyDirection.LONG_SHORT,
+            {"long_threshold": None, "short_threshold": 0.2},
+        ),
     ],
 )
 def test_rejects_missing_or_forbidden_thresholds(direction, kwargs):

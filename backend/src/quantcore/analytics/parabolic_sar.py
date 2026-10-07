@@ -8,9 +8,7 @@ class ParabolicSAR:
         max_step=0.2,
     ):
         if len(highs) != len(lows):
-            raise ValueError(
-                "High and Low lengths must match."
-            )
+            raise ValueError("High and Low lengths must match.")
 
         if len(highs) == 0:
             return []

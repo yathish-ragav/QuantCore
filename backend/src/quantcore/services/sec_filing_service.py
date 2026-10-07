@@ -47,9 +47,7 @@ class SECFilingService:
         security = self.security_repo.get_by_symbol(symbol)
         company = security.company if security is not None else None
         if company is None:
-            raise ResourceNotFoundError(
-                f"Company not found: {symbol}"
-            )
+            raise ResourceNotFoundError(f"Company not found: {symbol}")
         return security, company
 
     def get_filings(self, symbol: str):
@@ -75,9 +73,7 @@ class SECFilingService:
             raw_filings = self.provider.get_sec_filings(company.cik)
 
             if not isinstance(raw_filings, list):
-                raise DataValidationError(
-                    f"Invalid SEC filing data for '{symbol}'."
-                )
+                raise DataValidationError(f"Invalid SEC filing data for '{symbol}'.")
 
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)
@@ -99,9 +95,7 @@ class SECFilingService:
                     )
                 normalized[accession] = data
 
-            existing_by_accession = self.filing_repo.get_by_accessions(
-                set(normalized)
-            )
+            existing_by_accession = self.filing_repo.get_by_accessions(set(normalized))
             filings_by_accession = dict(existing_by_accession)
 
             for accession, data in normalized.items():
@@ -137,11 +131,22 @@ class SECFilingService:
                 filing = existing
                 changed = False
                 for field in (
-                    "filing_date", "report_date", "acceptance_datetime", "form",
-                    "act", "file_number", "film_number", "items",
-                    "primary_document", "primary_doc_description", "is_xbrl",
-                    "is_inline_xbrl", "fiscal_year", "fiscal_period",
-                    "is_amendment", "filing_url",
+                    "filing_date",
+                    "report_date",
+                    "acceptance_datetime",
+                    "form",
+                    "act",
+                    "file_number",
+                    "film_number",
+                    "items",
+                    "primary_document",
+                    "primary_doc_description",
+                    "is_xbrl",
+                    "is_inline_xbrl",
+                    "fiscal_year",
+                    "fiscal_period",
+                    "is_amendment",
+                    "filing_url",
                 ):
                     value = getattr(data, field)
                     if getattr(filing, field) != value:
@@ -167,14 +172,11 @@ class SECFilingService:
             )
             for accession, data in normalized.items():
                 filing = filings_by_accession[accession]
-                occurred_at = (
-                    data.acceptance_datetime
-                    or datetime(
-                        data.filing_date.year,
-                        data.filing_date.month,
-                        data.filing_date.day,
-                        tzinfo=timezone.utc,
-                    )
+                occurred_at = data.acceptance_datetime or datetime(
+                    data.filing_date.year,
+                    data.filing_date.month,
+                    data.filing_date.day,
+                    tzinfo=timezone.utc,
                 )
                 event_type = (
                     FilingEventType.AMENDED

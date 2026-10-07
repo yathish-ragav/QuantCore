@@ -42,13 +42,9 @@ def test_vortex_basic():
     # index 2 = |10 - 12| = 2
     # VM- sum = 3
 
-    assert result[2]["vortex_plus"] == pytest.approx(
-        9 / 7
-    )
+    assert result[2]["vortex_plus"] == pytest.approx(9 / 7)
 
-    assert result[2]["vortex_minus"] == pytest.approx(
-        3 / 7
-    )
+    assert result[2]["vortex_minus"] == pytest.approx(3 / 7)
 
 
 def test_vortex_period_larger_than_data():
@@ -115,7 +111,7 @@ def test_vortex_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         VortexIndicator.calculate(
             highs,
@@ -132,7 +128,7 @@ def test_vortex_invalid_period():
 
     with pytest.raises(
         ValueError,
-        match="Period must be greater than zero.",
+        match=r"Period\ must\ be\ greater\ than\ zero\.",
     ):
         VortexIndicator.calculate(
             highs,

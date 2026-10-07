@@ -1,7 +1,7 @@
 import pytest
 
-from quantcore.analytics.supertrend import Supertrend
 from quantcore.analytics.atr import AverageTrueRange
+from quantcore.analytics.supertrend import Supertrend
 
 
 def test_supertrend_basic():
@@ -39,9 +39,7 @@ def test_supertrend_basic():
     hl2 = (highs[i] + lows[i]) / 2
     expected_lower = hl2 + 0.0 - multiplier * atr[i]
 
-    assert result[i] == pytest.approx(
-        expected_lower
-    )
+    assert result[i] == pytest.approx(expected_lower)
 
 
 def test_supertrend_follows_lower_band_when_close_above_trend():
@@ -73,13 +71,9 @@ def test_supertrend_follows_lower_band_when_close_above_trend():
     # current lower band.
     for i in range(period, len(closes)):
         hl2 = (highs[i] + lows[i]) / 2
-        expected_lower = (
-            hl2 - multiplier * atr[i]
-        )
+        expected_lower = hl2 - multiplier * atr[i]
 
-        assert result[i] == pytest.approx(
-            expected_lower
-        )
+        assert result[i] == pytest.approx(expected_lower)
 
 
 def test_supertrend_switches_to_upper_band():
@@ -109,17 +103,11 @@ def test_supertrend_switches_to_upper_band():
     # with the lower band.
     first = period - 1
 
-    hl2_first = (
-        highs[first] + lows[first]
-    ) / 2
+    hl2_first = (highs[first] + lows[first]) / 2
 
-    expected_first = (
-        hl2_first - multiplier * atr[first]
-    )
+    expected_first = hl2_first - multiplier * atr[first]
 
-    assert result[first] == pytest.approx(
-        expected_first
-    )
+    assert result[first] == pytest.approx(expected_first)
 
     # Verify that whenever the implementation's
     # condition closes[i] <= previous trend is met,
@@ -132,22 +120,13 @@ def test_supertrend_switches_to_upper_band():
     for i in range(period, len(closes)):
         hl2 = (highs[i] + lows[i]) / 2
 
-        upper = (
-            hl2 + multiplier * atr[i]
-        )
+        upper = hl2 + multiplier * atr[i]
 
-        lower = (
-            hl2 - multiplier * atr[i]
-        )
+        lower = hl2 - multiplier * atr[i]
 
-        if closes[i] > trend:
-            expected = lower
-        else:
-            expected = upper
+        expected = lower if closes[i] > trend else upper
 
-        assert result[i] == pytest.approx(
-            expected
-        )
+        assert result[i] == pytest.approx(expected)
 
         trend = expected
 

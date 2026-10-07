@@ -1,8 +1,10 @@
 import hashlib
 import json
 import time
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from typing import Any, TypedDict
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -15,13 +17,13 @@ from quantcore.ingestion.datasets import (
     IngestionDataset,
     IngestionScope,
 )
+from quantcore.ingestion.retry import IngestionRetryPolicy
 from quantcore.models.ingestion import (
     IngestionOutcome,
+    IngestionRun,
     IngestionRunStatus,
     IngestionState,
 )
-from quantcore.services.ingestion_lineage_service import IngestionLineageService
-from quantcore.ingestion.retry import IngestionRetryPolicy
 from quantcore.models.security import Security, SecurityStatus
 from quantcore.repositories.ingestion_state_repository import (
     IngestionStateRepository,
@@ -32,15 +34,19 @@ from quantcore.services.cash_flow_statement_service import (
     CashFlowStatementService,
 )
 from quantcore.services.company_service import CompanyService
-from quantcore.services.income_statement_service import IncomeStatementService
+from quantcore.services.corporate_action_service import CorporateActionService
 from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
+from quantcore.services.income_statement_service import IncomeStatementService
+from quantcore.services.ingestion_lineage_service import IngestionLineageService
 from quantcore.services.news_service import NewsService
 from quantcore.services.price_service import PriceService, PriceSyncResult
-from quantcore.services.corporate_action_service import CorporateActionService
-from quantcore.services.sec_xbrl_fact_service import SECXBRLFactService, SECXBRLFactSyncResult
 from quantcore.services.sec_filing_service import (
     SECFilingService,
     SECFilingSyncResult,
+)
+from quantcore.services.sec_xbrl_fact_service import (
+    SECXBRLFactService,
+    SECXBRLFactSyncResult,
 )
 
 
@@ -69,6 +75,17 @@ class FreshnessView:
     last_outcome: IngestionOutcome | None
     next_check_at: datetime | None
     is_fresh: bool
+
+
+class _CompanyFactsContext(TypedDict):
+    run: IngestionRun
+    attempted: int
+    succeeded: int
+    skipped: int
+    failed: int
+    errors: list[str]
+    seen_entities: set[int]
+    service: Any
 
 
 class IngestionOrchestrator:
@@ -201,9 +218,7 @@ class IngestionOrchestrator:
                 return result.records_processed
             return len(result)
 
-        raise InvalidInputError(
-            f"Unsupported ingestion dataset: {dataset.value}"
-        )
+        raise InvalidInputError(f"Unsupported ingestion dataset: {dataset.value}")
 
     def _is_fresh(
         self,
@@ -218,16 +233,10 @@ class IngestionOrchestrator:
         # Freshness is provider-specific. A successful Yahoo/FMP ingestion
         # must not suppress a required Massive/SEC refresh after the active
         # provider configuration changes.
-        if (
-            current_source is not None
-            and state.last_success_source != current_source
-        ):
+        if current_source is not None and state.last_success_source != current_source:
             return False
 
-        return (
-            now - state.last_success_at
-            < DATASET_POLICIES[dataset].max_age
-        )
+        return now - state.last_success_at < DATASET_POLICIES[dataset].max_age
 
     @staticmethod
     def _is_unavailable_blocked(
@@ -259,15 +268,9 @@ class IngestionOrchestrator:
         for dataset in IngestionDataset:
             scope = DATASET_SCOPES[dataset]
             company_id = (
-                security.company_id
-                if scope is IngestionScope.COMPANY
-                else None
+                security.company_id if scope is IngestionScope.COMPANY else None
             )
-            security_id = (
-                security.id
-                if scope is IngestionScope.SECURITY
-                else None
-            )
+            security_id = security.id if scope is IngestionScope.SECURITY else None
             state = self.state_repo.get(
                 dataset,
                 company_id=company_id,
@@ -275,28 +278,16 @@ class IngestionOrchestrator:
             )
             current_source = None
             if state is not None and state.last_success_at is not None:
-                current_source = self._source_for(
-                    self._service_for(self.db, dataset)
-                )
+                current_source = self._source_for(self._service_for(self.db, dataset))
             views.append(
                 FreshnessView(
                     dataset=dataset,
                     scope=scope,
-                    last_attempt_at=(
-                        state.last_attempt_at if state else None
-                    ),
-                    last_success_at=(
-                        state.last_success_at if state else None
-                    ),
-                    last_success_source=(
-                        state.last_success_source if state else None
-                    ),
-                    last_success_records=(
-                        state.last_success_records if state else 0
-                    ),
-                    consecutive_failures=(
-                        state.consecutive_failures if state else 0
-                    ),
+                    last_attempt_at=(state.last_attempt_at if state else None),
+                    last_success_at=(state.last_success_at if state else None),
+                    last_success_source=(state.last_success_source if state else None),
+                    last_success_records=(state.last_success_records if state else 0),
+                    consecutive_failures=(state.consecutive_failures if state else 0),
                     last_error=state.last_error if state else None,
                     last_outcome=(state.last_outcome if state else None),
                     next_check_at=(state.next_check_at if state else None),
@@ -360,7 +351,7 @@ class IngestionOrchestrator:
         request_fingerprint: str,
         job_id: int | None = None,
         attempt_number: int = 1,
-    ) -> tuple[object, bool]:
+    ) -> tuple[IngestionRun, bool]:
         if idempotency_key is None:
             return (
                 self.state_repo.create_run(dataset),
@@ -375,11 +366,11 @@ class IngestionOrchestrator:
             if existing.request_fingerprint != request_fingerprint:
                 raise InvalidInputError(
                     "Idempotency key was already used for a different ingestion request."
-                )
+                ) from None
             if existing.status is IngestionRunStatus.RUNNING:
                 raise InvalidInputError(
                     "An ingestion run with this idempotency key is already running."
-                )
+                ) from None
             return existing, True
 
         try:
@@ -404,11 +395,11 @@ class IngestionOrchestrator:
             if existing.request_fingerprint != request_fingerprint:
                 raise InvalidInputError(
                     "Idempotency key was already used for a different ingestion request."
-                )
+                ) from None
             if existing.status is IngestionRunStatus.RUNNING:
                 raise InvalidInputError(
                     "An ingestion run with this idempotency key is already running."
-                )
+                ) from None
             return existing, True
 
     def recover_stale_runs(
@@ -440,9 +431,7 @@ class IngestionOrchestrator:
                 succeeded=run.succeeded,
                 skipped=run.skipped,
                 failed=run.failed,
-                error_summary=(
-                    "Ingestion execution became stale before completion."
-                ),
+                error_summary=("Ingestion execution became stale before completion."),
             )
 
         if runs:
@@ -522,7 +511,7 @@ class IngestionOrchestrator:
         allows SECProvider's bounded per-issuer cache to reuse that document
         across all selected CompanyFacts-derived datasets.
         """
-        contexts: dict[IngestionDataset, dict[str, object]] = {}
+        contexts: dict[IngestionDataset, _CompanyFactsContext] = {}
         results_by_dataset: dict[IngestionDataset, IngestionResult] = {}
 
         for dataset in datasets:
@@ -587,19 +576,25 @@ class IngestionOrchestrator:
                     )
                     state = self.state_repo.get(
                         dataset,
-                        company_id=security.company_id if scope is IngestionScope.COMPANY else None,
-                        security_id=security.id if scope is IngestionScope.SECURITY else None,
+                        company_id=(
+                            security.company_id
+                            if scope is IngestionScope.COMPANY
+                            else None
+                        ),
+                        security_id=(
+                            security.id if scope is IngestionScope.SECURITY else None
+                        ),
                     )
                     current_source = self._source_for(service)
                     now = datetime.now(timezone.utc)
                     if only_stale and self._is_unavailable_blocked(state, now):
                         context["skipped"] += 1
                         continue
-                    if (
-                        only_stale
-                        and self._is_fresh(
-                            state, dataset, datetime.now(timezone.utc), current_source=current_source
-                        )
+                    if only_stale and self._is_fresh(
+                        state,
+                        dataset,
+                        datetime.now(timezone.utc),
+                        current_source=current_source,
                     ):
                         context["skipped"] += 1
                         continue
@@ -608,25 +603,44 @@ class IngestionOrchestrator:
                     state = self.state_repo.get_or_create(
                         dataset,
                         scope,
-                        company_id=security.company_id if scope is IngestionScope.COMPANY else None,
-                        security_id=security.id if scope is IngestionScope.SECURITY else None,
+                        company_id=(
+                            security.company_id
+                            if scope is IngestionScope.COMPANY
+                            else None
+                        ),
+                        security_id=(
+                            security.id if scope is IngestionScope.SECURITY else None
+                        ),
                     )
                     attempted_at = datetime.now(timezone.utc)
                     self.state_repo.mark_attempt(state, attempted_at)
 
                     try:
-                        records = self._sync_with_retry(service, dataset, security.symbol)
+                        records = self._sync_with_retry(
+                            service, dataset, security.symbol
+                        )
                         succeeded_at = datetime.now(timezone.utc)
                         source = self._source_for(service)
                         self.state_repo.mark_success(
-                            state, succeeded_at=succeeded_at, source=source, records=records
+                            state,
+                            succeeded_at=succeeded_at,
+                            source=source,
+                            records=records,
                         )
                         self.lineage_service.record_success(
                             ingestion_run_id=run.id,
                             dataset=dataset,
                             scope=scope,
-                            company_id=security.company_id if scope is IngestionScope.COMPANY else None,
-                            security_id=security.id if scope is IngestionScope.SECURITY else None,
+                            company_id=(
+                                security.company_id
+                                if scope is IngestionScope.COMPANY
+                                else None
+                            ),
+                            security_id=(
+                                security.id
+                                if scope is IngestionScope.SECURITY
+                                else None
+                            ),
                             source=source,
                             records_processed=records,
                             recorded_at=succeeded_at,
@@ -638,8 +652,16 @@ class IngestionOrchestrator:
                         state = self.state_repo.get_or_create(
                             dataset,
                             scope,
-                            company_id=security.company_id if scope is IngestionScope.COMPANY else None,
-                            security_id=security.id if scope is IngestionScope.SECURITY else None,
+                            company_id=(
+                                security.company_id
+                                if scope is IngestionScope.COMPANY
+                                else None
+                            ),
+                            security_id=(
+                                security.id
+                                if scope is IngestionScope.SECURITY
+                                else None
+                            ),
                         )
                         checked_at = datetime.now(timezone.utc)
                         self.state_repo.mark_attempt(state, attempted_at)
@@ -657,8 +679,16 @@ class IngestionOrchestrator:
                         state = self.state_repo.get_or_create(
                             dataset,
                             scope,
-                            company_id=security.company_id if scope is IngestionScope.COMPANY else None,
-                            security_id=security.id if scope is IngestionScope.SECURITY else None,
+                            company_id=(
+                                security.company_id
+                                if scope is IngestionScope.COMPANY
+                                else None
+                            ),
+                            security_id=(
+                                security.id
+                                if scope is IngestionScope.SECURITY
+                                else None
+                            ),
                         )
                         self.state_repo.mark_attempt(state, attempted_at)
                         self.state_repo.mark_failure(
@@ -685,7 +715,9 @@ class IngestionOrchestrator:
                     succeeded=context["succeeded"],
                     skipped=context["skipped"],
                     failed=failed,
-                    error_summary=("; ".join(context["errors"]) if context["errors"] else None),
+                    error_summary=(
+                        "; ".join(context["errors"]) if context["errors"] else None
+                    ),
                     worker_id=worker_id,
                     attempt_number=attempt_number,
                 )
@@ -702,12 +734,18 @@ class IngestionOrchestrator:
                 )
         except Exception as exc:
             self.db.rollback()
-            for dataset, context in contexts.items():
-                run = self.state_repo.get_run(context["run"].id)
-                if run is not None and run.status is IngestionRunStatus.RUNNING:
-                    try:
+            for _, context in contexts.items():
+                recovered_run = self.state_repo.get_run(context["run"].id)
+                if (
+                    recovered_run is not None
+                    and recovered_run.status is IngestionRunStatus.RUNNING
+                ):
+                    with suppress(RuntimeError):
+                        # The execution lease may have been recovered by another
+                        # worker. Preserve the fenced terminal state instead of
+                        # overwriting it from this stale process.
                         self._finish_run(
-                            run,
+                            recovered_run,
                             status=IngestionRunStatus.FAILED,
                             finished_at=datetime.now(timezone.utc),
                             eligible=len(context["seen_entities"]),
@@ -719,11 +757,6 @@ class IngestionOrchestrator:
                             worker_id=worker_id,
                             attempt_number=attempt_number,
                         )
-                    except RuntimeError:
-                        # The execution lease may have been recovered by another
-                        # worker. Preserve the fenced terminal state instead of
-                        # overwriting it from this stale process.
-                        pass
             self.db.commit()
             raise
 
@@ -772,7 +805,9 @@ class IngestionOrchestrator:
             if not idempotency_key:
                 raise InvalidInputError("Idempotency key must not be empty.")
             if len(idempotency_key) > 128:
-                raise InvalidInputError("Idempotency key must be at most 128 characters.")
+                raise InvalidInputError(
+                    "Idempotency key must be at most 128 characters."
+                )
 
         normalized_symbols = None
         if symbols is not None:
@@ -784,9 +819,7 @@ class IngestionOrchestrator:
                 )
             )
             if not normalized_symbols:
-                raise InvalidInputError(
-                    "At least one valid symbol is required."
-                )
+                raise InvalidInputError("At least one valid symbol is required.")
 
         security_stmt = (
             select(Security)
@@ -794,9 +827,7 @@ class IngestionOrchestrator:
             .order_by(Security.id)
         )
         if normalized_symbols is not None:
-            security_stmt = security_stmt.where(
-                Security.symbol.in_(normalized_symbols)
-            )
+            security_stmt = security_stmt.where(Security.symbol.in_(normalized_symbols))
         if limit is not None:
             security_stmt = security_stmt.limit(limit)
 
@@ -826,7 +857,9 @@ class IngestionOrchestrator:
                 )
             )
 
-        selected = [dataset for dataset in selected if dataset not in company_facts_datasets]
+        selected = [
+            dataset for dataset in selected if dataset not in company_facts_datasets
+        ]
 
         for dataset in selected:
             scope = DATASET_SCOPES[dataset]
@@ -877,9 +910,7 @@ class IngestionOrchestrator:
                             else None
                         ),
                         security_id=(
-                            security.id
-                            if scope is IngestionScope.SECURITY
-                            else None
+                            security.id if scope is IngestionScope.SECURITY else None
                         ),
                     )
 
@@ -887,14 +918,11 @@ class IngestionOrchestrator:
                         skipped += 1
                         continue
 
-                    if (
-                        only_stale
-                        and self._is_fresh(
-                            state,
-                            dataset,
-                            now,
-                            current_source=current_source,
-                        )
+                    if only_stale and self._is_fresh(
+                        state,
+                        dataset,
+                        now,
+                        current_source=current_source,
                     ):
                         skipped += 1
                         continue
@@ -909,9 +937,7 @@ class IngestionOrchestrator:
                             else None
                         ),
                         security_id=(
-                            security.id
-                            if scope is IngestionScope.SECURITY
-                            else None
+                            security.id if scope is IngestionScope.SECURITY else None
                         ),
                     )
                     attempted_at = datetime.now(timezone.utc)
@@ -980,9 +1006,7 @@ class IngestionOrchestrator:
                         self.db.commit()
 
                         failed += 1
-                        errors.append(
-                            f"{security.symbol}: {str(exc)[:500]}"
-                        )
+                        errors.append(f"{security.symbol}: {str(exc)[:500]}")
 
                 status = (
                     IngestionRunStatus.COMPLETED_WITH_ERRORS
@@ -1007,11 +1031,11 @@ class IngestionOrchestrator:
 
             except Exception as exc:
                 self.db.rollback()
-                run = self.state_repo.get_run(run.id)
-                if run is not None:
+                current_run = self.state_repo.get_run(run.id)
+                if current_run is not None:
                     try:
                         self._finish_run(
-                            run,
+                            current_run,
                             status=IngestionRunStatus.FAILED,
                             finished_at=datetime.now(timezone.utc),
                             eligible=len(seen_entities),

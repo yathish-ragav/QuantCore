@@ -34,9 +34,7 @@ def test_stochastic_basic():
     #
     # K = (12 - 0) / (14 - 0) * 100
     #   = 85.714285...
-    assert result[2]["k"] == pytest.approx(
-        85.7142857143
-    )
+    assert result[2]["k"] == pytest.approx(85.7142857143)
 
     # Only one valid K value exists,
     # so D is not available yet.
@@ -49,14 +47,10 @@ def test_stochastic_basic():
     #
     # K = (14 - 2) / (16 - 2) * 100
     #   = 85.714285...
-    assert result[3]["k"] == pytest.approx(
-        85.7142857143
-    )
+    assert result[3]["k"] == pytest.approx(85.7142857143)
 
     # D = average of K at indices 2 and 3
-    assert result[3]["d"] == pytest.approx(
-        85.7142857143
-    )
+    assert result[3]["d"] == pytest.approx(85.7142857143)
 
 
 def test_stochastic_period_larger_than_data():
@@ -128,9 +122,7 @@ def test_stochastic_signal_period():
     # index 3 = 87.5
     # index 4 = 90
     assert result[1]["k"] == pytest.approx(75.0)
-    assert result[2]["k"] == pytest.approx(
-        83.3333333333
-    )
+    assert result[2]["k"] == pytest.approx(83.3333333333)
     assert result[3]["k"] == pytest.approx(87.5)
     assert result[4]["k"] == pytest.approx(90.0)
 
@@ -139,10 +131,6 @@ def test_stochastic_signal_period():
     assert result[1]["d"] is None
     assert result[2]["d"] is None
 
-    assert result[3]["d"] == pytest.approx(
-        (75.0 + 83.3333333333 + 87.5) / 3
-    )
+    assert result[3]["d"] == pytest.approx((75.0 + 83.3333333333 + 87.5) / 3)
 
-    assert result[4]["d"] == pytest.approx(
-        (83.3333333333 + 87.5 + 90.0) / 3
-    )
+    assert result[4]["d"] == pytest.approx((83.3333333333 + 87.5 + 90.0) / 3)

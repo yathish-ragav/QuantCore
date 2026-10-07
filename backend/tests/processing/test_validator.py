@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from types import SimpleNamespace
 
 from quantcore.core.enums import FinancialPeriodType, PriceBasis
@@ -23,7 +23,7 @@ def make_company(**overrides):
 
 def make_price(**overrides):
     data = {
-        "date": datetime(2026, 1, 2),
+        "date": datetime(2026, 1, 2),  # noqa: DTZ001
         "open": 250.0,
         "high": 255.0,
         "low": 248.0,
@@ -46,7 +46,7 @@ def make_news(**overrides):
         "publisher": "Reuters",
         "summary": "Apple reported strong quarterly results.",
         "url": "https://example.com/article",
-        "published_at": datetime(2026, 1, 2),
+        "published_at": datetime(2026, 1, 2),  # noqa: DTZ001
     }
 
     data.update(overrides)
@@ -153,7 +153,7 @@ def test_validate_prices_accepts_valid_list():
     prices = [
         make_price(),
         make_price(
-            date=datetime(2026, 1, 3),
+            date=datetime(2026, 1, 3),  # noqa: DTZ001
         ),
     ]
 
@@ -177,10 +177,7 @@ def test_validate_news_articles_accepts_valid_list():
         ),
     ]
 
-    assert (
-        DataValidator.validate_news_articles(articles)
-        is True
-    )
+    assert DataValidator.validate_news_articles(articles) is True
 
 
 def test_validate_news_articles_rejects_invalid_article():
@@ -189,10 +186,7 @@ def test_validate_news_articles_rejects_invalid_article():
         make_news(title=""),
     ]
 
-    assert (
-        DataValidator.validate_news_articles(articles)
-        is False
-    )
+    assert DataValidator.validate_news_articles(articles) is False
 
 
 def test_validate_companies_accepts_valid_list():
@@ -201,10 +195,7 @@ def test_validate_companies_accepts_valid_list():
         make_company(symbol="MSFT"),
     ]
 
-    assert (
-        DataValidator.validate_companies(companies)
-        is True
-    )
+    assert DataValidator.validate_companies(companies) is True
 
 
 def test_validate_companies_rejects_invalid_company():
@@ -213,10 +204,7 @@ def test_validate_companies_rejects_invalid_company():
         make_company(symbol=""),
     ]
 
-    assert (
-        DataValidator.validate_companies(companies)
-        is False
-    )
+    assert DataValidator.validate_companies(companies) is False
 
 
 def test_validate_price_rejects_nan():
@@ -229,6 +217,7 @@ def test_validate_price_rejects_infinite_value():
     price = make_price(close=float("inf"))
 
     assert DataValidator.validate_price(price) is False
+
 
 def test_validate_company_accepts_provider_missing_optional_enrichment_fields():
     company = make_company(
@@ -249,7 +238,7 @@ def test_validate_prices_rejects_duplicate_dates():
 
 def test_validate_income_statement_accepts_distinct_share_fields():
     statement = SimpleNamespace(
-        fiscal_date=datetime(2024, 9, 28).date(),
+        fiscal_date=date(2024, 9, 28),
         period_type=FinancialPeriodType.ANNUAL,
         total_revenue=100.0,
         gross_profit=50.0,
@@ -265,7 +254,7 @@ def test_validate_income_statement_accepts_distinct_share_fields():
 
 def test_validate_income_statement_rejects_non_integer_weighted_average_shares():
     statement = SimpleNamespace(
-        fiscal_date=datetime(2024, 9, 28).date(),
+        fiscal_date=date(2024, 9, 28),
         period_type=FinancialPeriodType.ANNUAL,
         total_revenue=100.0,
         gross_profit=50.0,

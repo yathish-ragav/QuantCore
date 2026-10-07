@@ -3,13 +3,13 @@ from __future__ import annotations
 import time
 from datetime import date, datetime, timedelta, timezone
 from threading import Lock
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse
+from typing import ClassVar
+from urllib.parse import parse_qs, urlparse
 
 import requests
 from sqlalchemy import text
 
 from quantcore.core.config import settings
-from quantcore.db.database import SessionLocal
 from quantcore.core.enums import CorporateActionType, PriceBasis, SecurityType
 from quantcore.core.exceptions import (
     ConfigurationError,
@@ -18,6 +18,7 @@ from quantcore.core.exceptions import (
     InvalidInputError,
     RateLimitError,
 )
+from quantcore.db.database import SessionLocal
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.corporate_action import CorporateActionData
 from quantcore.schemas.news import NewsData
@@ -121,7 +122,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
     SOURCE = "MASSIVE"
     BASE_URL = "https://api.massive.com"
 
-    _PERIOD_DAYS = {
+    _PERIOD_DAYS: ClassVar[dict[str, int]] = {
         "1d": 2,
         "5d": 7,
         "1mo": 35,
@@ -143,7 +144,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
             raise ConfigurationError(
                 "MASSIVE_API_KEY is required for the Massive provider."
             )
-        global _MASSIVE_REQUEST_LIMITER
+        global _MASSIVE_REQUEST_LIMITER  # noqa: PLW0603
         if request_limiter is None:
             interval_seconds = settings.MASSIVE_REQUEST_INTERVAL_SECONDS
             if interval_seconds < 0:
@@ -160,14 +161,10 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                 and settings.ENVIRONMENT.strip().lower() == "production"
                 else MassiveRequestLimiter
             )
-            if (
-                not isinstance(_MASSIVE_REQUEST_LIMITER, limiter_type)
-                or _MASSIVE_REQUEST_LIMITER._interval_seconds
-                != float(interval_seconds)
-            ):
-                _MASSIVE_REQUEST_LIMITER = limiter_type(
-                    float(interval_seconds)
-                )
+            if not isinstance(
+                _MASSIVE_REQUEST_LIMITER, limiter_type
+            ) or _MASSIVE_REQUEST_LIMITER._interval_seconds != float(interval_seconds):
+                _MASSIVE_REQUEST_LIMITER = limiter_type(float(interval_seconds))
             self._request_limiter = _MASSIVE_REQUEST_LIMITER
         else:
             self._request_limiter = request_limiter
@@ -216,18 +213,14 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                 f"Massive market-data request failed with HTTP {response.status_code}."
             ) from exc
         except ValueError as exc:
-            raise DataValidationError(
-                "Massive response was not valid JSON."
-            ) from exc
+            raise DataValidationError("Massive response was not valid JSON.") from exc
 
         if not isinstance(payload, dict):
             raise DataValidationError("Massive response must be an object.")
 
         status = payload.get("status")
         if status is not None and status not in accepted_statuses:
-            raise ExternalDataError(
-                f"Massive returned status {status!r}."
-            )
+            raise ExternalDataError(f"Massive returned status {status!r}.")
         return payload
 
     @staticmethod
@@ -250,7 +243,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                 "Unsupported Massive price period. Use one of "
                 "1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, or max."
             )
-        return date.today() - timedelta(
+        return datetime.now(timezone.utc).date() - timedelta(
             days=MassiveClient._PERIOD_DAYS[normalized]
         )
 
@@ -292,9 +285,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
         payload = self._get(f"/v3/reference/tickers/{symbol}")
         item = payload.get("results")
         if not isinstance(item, dict):
-            raise DataValidationError(
-                "Massive ticker response is missing results."
-            )
+            raise DataValidationError("Massive ticker response is missing results.")
 
         returned = str(item.get("ticker") or symbol).upper()
         if returned != symbol:
@@ -360,7 +351,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
             raise InvalidInputError("Symbol must not be empty.")
 
         start = self._period_start(period)
-        end = date.today()
+        end = datetime.now(timezone.utc).date()
 
         aggregate_statuses = ("OK", "DELAYED")
         raw = self._paged_results(
@@ -375,9 +366,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
         )
 
         adjusted_by_timestamp = {
-            int(row["t"]): row
-            for row in adjusted
-            if "t" in row and "c" in row
+            int(row["t"]): row for row in adjusted if "t" in row and "c" in row
         }
 
         prices: list[PriceData] = []
@@ -408,9 +397,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                     )
                 )
             except (KeyError, TypeError, ValueError, OverflowError) as exc:
-                raise DataValidationError(
-                    "Invalid Massive aggregate row."
-                ) from exc
+                raise DataValidationError("Invalid Massive aggregate row.") from exc
 
         return prices
 
@@ -423,7 +410,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
         if not symbol:
             raise InvalidInputError("Symbol must not be empty.")
         start = self._period_start(period)
-        end = date.today()
+        end = datetime.now(timezone.utc).date()
 
         dividends = self._paged_results(
             "/stocks/v1/dividends",
@@ -457,16 +444,14 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                         action_type=CorporateActionType.DIVIDEND,
                         amount=float(amount) if amount is not None else None,
                         source_reference=(
-                            f"MASSIVE:DIVIDEND:{str(item['id'])}"
+                            f"MASSIVE:DIVIDEND:{item['id']!s}"
                             if item.get("id") is not None
                             else None
                         ),
                     )
                 )
             except (KeyError, TypeError, ValueError) as exc:
-                raise DataValidationError(
-                    "Invalid Massive dividend row."
-                ) from exc
+                raise DataValidationError("Invalid Massive dividend row.") from exc
 
         for item in splits:
             try:
@@ -481,16 +466,14 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                         action_type=CorporateActionType.STOCK_SPLIT,
                         split_ratio=split_to / split_from,
                         source_reference=(
-                            f"MASSIVE:STOCK_SPLIT:{str(item['id'])}"
+                            f"MASSIVE:STOCK_SPLIT:{item['id']!s}"
                             if item.get("id") is not None
                             else None
                         ),
                     )
                 )
             except (KeyError, TypeError, ValueError) as exc:
-                raise DataValidationError(
-                    "Invalid Massive split row."
-                ) from exc
+                raise DataValidationError("Invalid Massive split row.") from exc
 
         return sorted(
             actions,
@@ -520,9 +503,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                 publisher = item.get("publisher") or {}
                 published_at = item.get("published_utc")
                 parsed = (
-                    datetime.fromisoformat(
-                        str(published_at).replace("Z", "+00:00")
-                    )
+                    datetime.fromisoformat(str(published_at).replace("Z", "+00:00"))
                     if published_at
                     else None
                 )
@@ -530,9 +511,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                     NewsData(
                         title=str(item.get("title") or ""),
                         publisher=str(
-                            publisher.get("name")
-                            or publisher.get("homepage_url")
-                            or ""
+                            publisher.get("name") or publisher.get("homepage_url") or ""
                         ),
                         summary=str(item.get("description") or ""),
                         url=str(item["article_url"]),
@@ -540,9 +519,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
                     )
                 )
             except (KeyError, TypeError, ValueError) as exc:
-                raise DataValidationError(
-                    "Invalid Massive news row."
-                ) from exc
+                raise DataValidationError("Invalid Massive news row.") from exc
         return output
 
     def get_quote(self, symbol: str) -> QuoteData:
@@ -551,7 +528,7 @@ class MassiveClient(MarketDataProvider, QuoteProvider):
             raise InvalidInputError("Symbol must not be empty.")
 
         payload = self._get(
-            f"/v3/snapshot",
+            "/v3/snapshot",
             params={"ticker.any_of": symbol},
         )
         results = payload.get("results")

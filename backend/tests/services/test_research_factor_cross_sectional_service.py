@@ -14,7 +14,6 @@ from quantcore.services.research_factor_panel_service import (
     ResearchFactorPanelRow,
 )
 
-
 AS_OF_1 = datetime(2026, 8, 19, 15, 30, tzinfo=timezone.utc)
 AS_OF_2 = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
 

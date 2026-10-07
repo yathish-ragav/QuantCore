@@ -5,7 +5,6 @@ from fastapi.testclient import TestClient
 
 from quantcore.api.main import app
 
-
 client = TestClient(app)
 
 
@@ -23,9 +22,7 @@ def test_get_ingestion_freshness():
     view.next_check_at = None
     view.is_fresh = True
 
-    with patch(
-        "quantcore.api.dependencies.IngestionOrchestrator"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.IngestionOrchestrator") as service_class:
         service = Mock()
         service_class.return_value = service
         service.get_freshness.return_value = [view]
@@ -50,9 +47,7 @@ def test_get_ingestion_freshness():
 
 
 def test_get_ingestion_freshness_normalizes_symbol():
-    with patch(
-        "quantcore.api.dependencies.IngestionOrchestrator"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.IngestionOrchestrator") as service_class:
         service = Mock()
         service_class.return_value = service
         service.get_freshness.return_value = []

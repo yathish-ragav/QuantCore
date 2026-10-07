@@ -4,31 +4,31 @@ from unittest.mock import Mock
 import pytest
 
 from quantcore.core.exceptions import InvalidInputError
-from quantcore.services.research_factor_cross_sectional_service import (
-    ResearchFactorCrossSectionalService,
-)
 from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolio,
     ResearchPortfolioConstructionStatus,
-)
-from quantcore.services.research_portfolio_stress_service import ResearchStressScenarioDefinition
-from quantcore.services.research_rebalance_service import (
-    ResearchRebalanceDefinition,
-    ResearchRebalanceFrequency,
 )
 from quantcore.services.research_portfolio_product_service import (
     ResearchPortfolioProductResult,
     ResearchPortfolioProductService,
     ResearchPortfolioRebalanceProductResult,
 )
+from quantcore.services.research_portfolio_stress_service import (
+    ResearchStressScenarioDefinition,
+)
+from quantcore.services.research_rebalance_service import (
+    ResearchRebalanceDefinition,
+    ResearchRebalanceFrequency,
+)
 from quantcore.services.research_signal_service import (
     ResearchSignalDefinition,
-    ResearchSignalPanel,
 )
-from quantcore.services.research_transaction_cost_service import ResearchTransactionCostDefinition
 from quantcore.services.research_strategy_service import (
     ResearchStrategyDefinition,
     ResearchStrategyDirection,
+)
+from quantcore.services.research_transaction_cost_service import (
+    ResearchTransactionCostDefinition,
 )
 
 AS_OF = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
@@ -501,10 +501,14 @@ def test_construct_with_transaction_cost_rejects_invalid_cost_definition():
         )
 
 
-
 def test_construct_with_stress_composes_portfolio_and_stress_service():
     service = ResearchPortfolioProductService(
-        Mock(), Mock(), Mock(), Mock(), Mock(), Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
     )
     portfolio_result = Mock(spec=ResearchPortfolioProductResult)
     portfolio = Mock(spec=ResearchPortfolio)
@@ -538,13 +542,20 @@ def test_construct_with_stress_composes_portfolio_and_stress_service():
     assert result.stress is stress_result
     service.construct.assert_called_once()
     stress_service.apply.assert_called_once_with(
-        portfolio, scenario, portfolio_value=100_000.0,
+        portfolio,
+        scenario,
+        portfolio_value=100_000.0,
     )
 
 
 def test_construct_with_stress_rejects_invalid_scenario_definition():
     service = ResearchPortfolioProductService(
-        Mock(), Mock(), Mock(), Mock(), Mock(), Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
     )
 
     with pytest.raises(InvalidInputError, match="ResearchStressScenarioDefinition"):

@@ -58,7 +58,7 @@ def test_mark_all_not_current_marks_current_rows_inactive():
         security_id=1,
         symbol="AAPL",
         exchange="NASDAQ",
-        effective_from=date.today(),
+        effective_from=datetime.now(timezone.utc).date(),
         known_at=datetime.now(timezone.utc),
         first_seen_at=datetime.now(timezone.utc),
         last_seen_at=datetime.now(timezone.utc),
@@ -146,30 +146,32 @@ def test_get_for_security_as_of_respects_knowledge_cutoff():
 
         early = datetime(2019, 2, 1, tzinfo=timezone.utc)
         late = datetime(2021, 1, 1, tzinfo=timezone.utc)
-        session.add_all([
-            SecurityIdentifierHistory(
-                security_id=security.id,
-                symbol="OLD",
-                exchange="NASDAQ",
-                effective_from=date(2019, 1, 1),
-                effective_to=date(2020, 6, 1),
-                known_at=early,
-                first_seen_at=early,
-                last_seen_at=datetime(2020, 5, 1, tzinfo=timezone.utc),
-                is_current=False,
-            ),
-            SecurityIdentifierHistory(
-                security_id=security.id,
-                symbol="NEW",
-                exchange="NASDAQ",
-                effective_from=date(2020, 6, 1),
-                effective_to=None,
-                known_at=late,
-                first_seen_at=late,
-                last_seen_at=late,
-                is_current=True,
-            ),
-        ])
+        session.add_all(
+            [
+                SecurityIdentifierHistory(
+                    security_id=security.id,
+                    symbol="OLD",
+                    exchange="NASDAQ",
+                    effective_from=date(2019, 1, 1),
+                    effective_to=date(2020, 6, 1),
+                    known_at=early,
+                    first_seen_at=early,
+                    last_seen_at=datetime(2020, 5, 1, tzinfo=timezone.utc),
+                    is_current=False,
+                ),
+                SecurityIdentifierHistory(
+                    security_id=security.id,
+                    symbol="NEW",
+                    exchange="NASDAQ",
+                    effective_from=date(2020, 6, 1),
+                    effective_to=None,
+                    known_at=late,
+                    first_seen_at=late,
+                    last_seen_at=late,
+                    is_current=True,
+                ),
+            ]
+        )
         session.commit()
 
         repository = SecurityIdentifierHistoryRepository(session)
@@ -207,41 +209,43 @@ def test_resolve_as_of_does_not_leak_backdated_transition_before_known_at():
 
         old_known = datetime(2020, 1, 2, tzinfo=timezone.utc)
         transition_known = datetime(2025, 7, 1, tzinfo=timezone.utc)
-        session.add_all([
-            SecurityIdentifierHistory(
-                security_id=security.id,
-                symbol="OLD",
-                exchange="NASDAQ",
-                effective_from=date(2020, 1, 1),
-                effective_to=None,
-                known_at=old_known,
-                first_seen_at=old_known,
-                last_seen_at=old_known,
-                is_current=False,
-            ),
-            SecurityIdentifierHistory(
-                security_id=security.id,
-                symbol="OLD",
-                exchange="NASDAQ",
-                effective_from=date(2020, 1, 1),
-                effective_to=date(2025, 6, 2),
-                known_at=transition_known,
-                first_seen_at=old_known,
-                last_seen_at=transition_known,
-                is_current=False,
-            ),
-            SecurityIdentifierHistory(
-                security_id=security.id,
-                symbol="NEW",
-                exchange="NASDAQ",
-                effective_from=date(2025, 6, 2),
-                effective_to=None,
-                known_at=transition_known,
-                first_seen_at=transition_known,
-                last_seen_at=transition_known,
-                is_current=True,
-            ),
-        ])
+        session.add_all(
+            [
+                SecurityIdentifierHistory(
+                    security_id=security.id,
+                    symbol="OLD",
+                    exchange="NASDAQ",
+                    effective_from=date(2020, 1, 1),
+                    effective_to=None,
+                    known_at=old_known,
+                    first_seen_at=old_known,
+                    last_seen_at=old_known,
+                    is_current=False,
+                ),
+                SecurityIdentifierHistory(
+                    security_id=security.id,
+                    symbol="OLD",
+                    exchange="NASDAQ",
+                    effective_from=date(2020, 1, 1),
+                    effective_to=date(2025, 6, 2),
+                    known_at=transition_known,
+                    first_seen_at=old_known,
+                    last_seen_at=transition_known,
+                    is_current=False,
+                ),
+                SecurityIdentifierHistory(
+                    security_id=security.id,
+                    symbol="NEW",
+                    exchange="NASDAQ",
+                    effective_from=date(2025, 6, 2),
+                    effective_to=None,
+                    known_at=transition_known,
+                    first_seen_at=transition_known,
+                    last_seen_at=transition_known,
+                    is_current=True,
+                ),
+            ]
+        )
         session.commit()
 
         repository = SecurityIdentifierHistoryRepository(session)
@@ -302,7 +306,6 @@ def test_revise_current_with_effective_to_preserves_prior_knowledge():
     db.add.assert_called_once_with(revised)
 
 
-
 def test_revise_interval_with_effective_to_preserves_prior_knowledge():
     repository, db = make_repository()
     original_known = datetime(2020, 1, 2, tzinfo=timezone.utc)
@@ -353,30 +356,32 @@ def test_get_for_security_as_of_does_not_leak_later_known_backdated_revision():
 
         old_known = datetime(2020, 1, 2, tzinfo=timezone.utc)
         transition_known = datetime(2025, 7, 1, tzinfo=timezone.utc)
-        session.add_all([
-            SecurityIdentifierHistory(
-                security_id=security.id,
-                symbol="OLD",
-                exchange="NASDAQ",
-                effective_from=date(2020, 1, 1),
-                effective_to=None,
-                known_at=old_known,
-                first_seen_at=old_known,
-                last_seen_at=old_known,
-                is_current=False,
-            ),
-            SecurityIdentifierHistory(
-                security_id=security.id,
-                symbol="OLD",
-                exchange="NASDAQ",
-                effective_from=date(2020, 1, 1),
-                effective_to=date(2025, 6, 2),
-                known_at=transition_known,
-                first_seen_at=old_known,
-                last_seen_at=transition_known,
-                is_current=False,
-            ),
-        ])
+        session.add_all(
+            [
+                SecurityIdentifierHistory(
+                    security_id=security.id,
+                    symbol="OLD",
+                    exchange="NASDAQ",
+                    effective_from=date(2020, 1, 1),
+                    effective_to=None,
+                    known_at=old_known,
+                    first_seen_at=old_known,
+                    last_seen_at=old_known,
+                    is_current=False,
+                ),
+                SecurityIdentifierHistory(
+                    security_id=security.id,
+                    symbol="OLD",
+                    exchange="NASDAQ",
+                    effective_from=date(2020, 1, 1),
+                    effective_to=date(2025, 6, 2),
+                    known_at=transition_known,
+                    first_seen_at=old_known,
+                    last_seen_at=transition_known,
+                    is_current=False,
+                ),
+            ]
+        )
         session.commit()
 
         repository = SecurityIdentifierHistoryRepository(session)

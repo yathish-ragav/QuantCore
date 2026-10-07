@@ -27,11 +27,12 @@ from quantcore.services.research_factor_panel_service import ResearchFactorPanel
 from quantcore.services.research_factor_return_methodology_service import (
     ResearchFactorReturnMethodologyService,
 )
-from quantcore.services.research_factor_return_service import ResearchFactorReturnService
+from quantcore.services.research_factor_return_service import (
+    ResearchFactorReturnService,
+)
 from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalAnalysisService,
 )
-
 
 router = APIRouter(
     prefix="/api/v1/research/factors",

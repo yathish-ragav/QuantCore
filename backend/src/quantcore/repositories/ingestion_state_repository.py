@@ -7,10 +7,10 @@ from quantcore.ingestion.datasets import IngestionDataset, IngestionScope
 from quantcore.models.ingestion import (
     IngestionJob,
     IngestionJobStatus,
+    IngestionOutcome,
     IngestionRun,
     IngestionRunStatus,
     IngestionState,
-    IngestionOutcome,
 )
 
 
@@ -178,9 +178,7 @@ class IngestionStateRepository:
         idempotency_key: str,
     ) -> IngestionJob | None:
         return self.db.scalar(
-            select(IngestionJob).where(
-                IngestionJob.idempotency_key == idempotency_key
-            )
+            select(IngestionJob).where(IngestionJob.idempotency_key == idempotency_key)
         )
 
     def get_queued_jobs(self, *, limit: int = 1) -> list[IngestionJob]:
@@ -217,7 +215,7 @@ class IngestionStateRepository:
                 error_summary=None,
             )
         )
-        if result.rowcount != 1:
+        if getattr(result, "rowcount", None) != 1:
             return False
         self.db.refresh(job)
         return True
@@ -241,7 +239,7 @@ class IngestionStateRepository:
             )
             .values(heartbeat_at=at)
         )
-        if result.rowcount != 1:
+        if getattr(result, "rowcount", None) != 1:
             return False
         self.db.refresh(job)
         return True
@@ -272,7 +270,7 @@ class IngestionStateRepository:
                 error_summary=error_summary[:4000] if error_summary else None,
             )
         )
-        if result.rowcount != 1:
+        if getattr(result, "rowcount", None) != 1:
             return False
         self.db.refresh(job)
         return True
@@ -321,7 +319,7 @@ class IngestionStateRepository:
                 error_summary="Ingestion job became stale before completion.",
             )
         )
-        if result.rowcount != 1:
+        if getattr(result, "rowcount", None) != 1:
             return False
         self.db.refresh(job)
         return True
@@ -414,7 +412,7 @@ class IngestionStateRepository:
                 error_summary=error_summary[:4000] if error_summary else None,
             )
         )
-        if result.rowcount != 1:
+        if getattr(result, "rowcount", None) != 1:
             return False
         self.db.refresh(run)
         return True

@@ -1,9 +1,8 @@
 from unittest.mock import Mock
 
-from quantcore.models.provenance import CompanyField, DataSource
-
 import pytest
 
+from quantcore.models.provenance import CompanyField, DataSource
 from quantcore.schemas.company import CompanyData
 from quantcore.services.company_service import CompanyService
 
@@ -50,9 +49,7 @@ def make_service():
 
     db = Mock()
 
-    service = CompanyService.__new__(
-        CompanyService
-    )
+    service = CompanyService.__new__(CompanyService)
 
     service.db = db
     service.client = Mock()
@@ -72,29 +69,19 @@ def test_sync_company_updates_existing_company():
     company = make_company()
     security = make_security(company)
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.client.get_company_info.return_value = (
-        make_company_data()
-    )
+    service.client.get_company_info.return_value = make_company_data()
 
     updated_company = Mock()
 
-    service.company_repo.update.return_value = (
-        updated_company
-    )
+    service.company_repo.update.return_value = updated_company
 
     result = service.sync_company("AAPL")
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
-    service.client.get_company_info.assert_called_once_with(
-        "AAPL"
-    )
+    service.client.get_company_info.assert_called_once_with("AAPL")
 
     service.company_repo.update.assert_called_once_with(
         company=company,
@@ -113,39 +100,27 @@ def test_sync_company_updates_existing_company():
     assert result == updated_company
 
     db.commit.assert_called_once()
-    db.refresh.assert_called_once_with(
-        updated_company
-    )
+    db.refresh.assert_called_once_with(updated_company)
 
 
 def test_sync_company_normalizes_symbol():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     company = make_company()
     security = make_security(company)
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.client.get_company_info.return_value = (
-        make_company_data()
-    )
+    service.client.get_company_info.return_value = make_company_data()
 
-    service.company_repo.update.return_value = (
-        company
-    )
+    service.company_repo.update.return_value = company
 
     service.sync_company("  aapl  ")
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
-    service.client.get_company_info.assert_called_once_with(
-        "AAPL"
-    )
+    service.client.get_company_info.assert_called_once_with("AAPL")
 
 
 def test_sync_company_security_not_found():
@@ -175,9 +150,7 @@ def test_sync_company_company_not_found():
     security.symbol = "AAPL"
     security.company = None
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     with pytest.raises(
         ValueError,
@@ -192,7 +165,7 @@ def test_sync_company_company_not_found():
 
 def test_sync_company_rejects_empty_symbol():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     with pytest.raises(
         ValueError,
@@ -212,9 +185,7 @@ def test_sync_company_rejects_provider_symbol_mismatch():
     company = make_company()
     security = make_security(company)
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
     provider_data = make_company_data()
 
@@ -224,9 +195,7 @@ def test_sync_company_rejects_provider_symbol_mismatch():
         }
     )
 
-    service.client.get_company_info.return_value = (
-        provider_data
-    )
+    service.client.get_company_info.return_value = provider_data
 
     with pytest.raises(
         ValueError,
@@ -246,17 +215,11 @@ def test_sync_company_rolls_back_on_error():
     company = make_company()
     security = make_security(company)
 
-    service.security_repo.get_by_symbol.return_value = (
-        security
-    )
+    service.security_repo.get_by_symbol.return_value = security
 
-    service.client.get_company_info.return_value = (
-        make_company_data()
-    )
+    service.client.get_company_info.return_value = make_company_data()
 
-    service.company_repo.update.side_effect = (
-        RuntimeError("database error")
-    )
+    service.company_repo.update.side_effect = RuntimeError("database error")
 
     with pytest.raises(
         RuntimeError,
@@ -268,9 +231,10 @@ def test_sync_company_rolls_back_on_error():
 
     db.commit.assert_not_called()
 
+
 def test_sync_company_does_not_overwrite_sec_owned_name():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     company = make_company()
     company.name = "Apple Inc."
@@ -316,7 +280,7 @@ def test_sync_company_does_not_overwrite_sec_owned_name():
 
 def test_sync_company_records_yahoo_provenance_for_unowned_fields():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     company = make_company()
     security = make_security(company)
@@ -374,7 +338,7 @@ def test_search_rejects_blank_query():
 
 
 def test_sync_company_preserves_existing_values_for_missing_provider_fields():
-    service, db = make_service()
+    service, _db = make_service()
 
     company = make_company()
     security = make_security(company)
@@ -416,16 +380,14 @@ def test_sync_company_preserves_existing_values_for_missing_provider_fields():
 
 def test_sync_company_replaces_unknown_legacy_ownership():
 
-    service, db = make_service()
+    service, _db = make_service()
     company = make_company()
     security = make_security(company)
 
     service.security_repo.get_by_symbol.return_value = security
     service.client.get_company_info.return_value = make_company_data()
     service.provenance_repo.get.side_effect = lambda _id, field: (
-        Mock(source=DataSource.UNKNOWN)
-        if field is CompanyField.SECTOR
-        else None
+        Mock(source=DataSource.UNKNOWN) if field is CompanyField.SECTOR else None
     )
     service.company_repo.update.return_value = company
 
@@ -436,10 +398,11 @@ def test_sync_company_replaces_unknown_legacy_ownership():
         for call in service.provenance_repo.upsert.call_args_list
     )
 
+
 def test_sync_company_records_security_type_provenance():
     from quantcore.core.enums import SecurityType
 
-    service, db = make_service()
+    service, _db = make_service()
     company = make_company()
     company.cik = "0000320193"
     security = make_security(company)
@@ -455,6 +418,4 @@ def test_sync_company_records_security_type_provenance():
     assert security.security_type is SecurityType.COMMON_STOCK
     assert security.security_type_source is DataSource.MASSIVE
     assert security.security_type_fetched_at is not None
-    assert security.security_type_source_reference == (
-        "MASSIVE:TICKER:AAPL:0000320193"
-    )
+    assert security.security_type_source_reference == ("MASSIVE:TICKER:AAPL:0000320193")

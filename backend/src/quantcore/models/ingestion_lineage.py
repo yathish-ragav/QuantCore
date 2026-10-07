@@ -9,10 +9,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from quantcore.db.database import Base
 from quantcore.ingestion.datasets import IngestionDataset, IngestionScope
 from quantcore.models.ingestion import DATASET_ENUM, SCOPE_ENUM
 from quantcore.models.provenance import DATA_SOURCE_ENUM, DataSource
-from quantcore.db.database import Base
 
 
 class IngestionLineage(Base):

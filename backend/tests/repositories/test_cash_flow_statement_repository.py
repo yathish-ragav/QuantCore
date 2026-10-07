@@ -20,9 +20,7 @@ def test_get_by_company_and_date_returns_statement():
 
     repository, db = make_repository()
 
-    statement = Mock(
-        spec=CashFlowStatement
-    )
+    statement = Mock(spec=CashFlowStatement)
 
     db.scalar.return_value = statement
 
@@ -125,9 +123,7 @@ def test_create_cash_flow_statement():
         net_change_in_cash=700_000_000,
     )
 
-    db.add.assert_called_once_with(
-        statement
-    )
+    db.add.assert_called_once_with(statement)
 
     assert isinstance(
         statement,
@@ -140,36 +136,16 @@ def test_create_cash_flow_statement():
         9,
         28,
     )
-    assert statement.operating_cash_flow == (
-        118_000_000_000
-    )
-    assert statement.capital_expenditure == (
-        -9_500_000_000
-    )
-    assert statement.free_cash_flow == (
-        108_500_000_000
-    )
-    assert statement.investing_cash_flow == (
-        3_700_000_000
-    )
-    assert statement.financing_cash_flow == (
-        -121_000_000_000
-    )
-    assert statement.depreciation_and_amortization == (
-        11_400_000_000
-    )
-    assert statement.stock_based_compensation == (
-        11_700_000_000
-    )
-    assert statement.dividends_paid == (
-        -15_200_000_000
-    )
-    assert statement.share_repurchases == (
-        -95_000_000_000
-    )
-    assert statement.net_change_in_cash == (
-        700_000_000
-    )
+    assert statement.operating_cash_flow == (118_000_000_000)
+    assert statement.capital_expenditure == (-9_500_000_000)
+    assert statement.free_cash_flow == (108_500_000_000)
+    assert statement.investing_cash_flow == (3_700_000_000)
+    assert statement.financing_cash_flow == (-121_000_000_000)
+    assert statement.depreciation_and_amortization == (11_400_000_000)
+    assert statement.stock_based_compensation == (11_700_000_000)
+    assert statement.dividends_paid == (-15_200_000_000)
+    assert statement.share_repurchases == (-95_000_000_000)
+    assert statement.net_change_in_cash == (700_000_000)
 
     # Repository must not control the transaction.
     db.commit.assert_not_called()

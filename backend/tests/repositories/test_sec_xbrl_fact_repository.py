@@ -22,7 +22,7 @@ def test_get_by_identity():
         period_end=date(2024, 9, 28),
         frame="",
         qtrs=0,
-        value=Decimal("100"),
+        value=Decimal(100),
     )
 
     assert result is expected
@@ -38,7 +38,7 @@ def test_create():
         taxonomy="us-gaap",
         concept="Assets",
         unit="USD",
-        value=Decimal("100"),
+        value=Decimal(100),
         period_end=date(2024, 9, 28),
         filed_at=date(2024, 11, 1),
         form="10-K",

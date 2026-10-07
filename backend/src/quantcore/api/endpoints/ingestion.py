@@ -4,7 +4,6 @@ from quantcore.api.dependencies import get_ingestion_orchestrator
 from quantcore.schemas.responses import IngestionFreshnessResponse
 from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
 
-
 router = APIRouter(
     prefix="/ingestion",
     tags=["Ingestion"],
@@ -17,9 +16,7 @@ router = APIRouter(
 )
 def get_ingestion_freshness(
     symbol: str,
-    service: IngestionOrchestrator = Depends(
-        get_ingestion_orchestrator
-    ),
+    service: IngestionOrchestrator = Depends(get_ingestion_orchestrator),
 ):
     normalized_symbol = symbol.strip().upper()
 
@@ -35,7 +32,8 @@ def get_ingestion_freshness(
             last_error=(
                 (
                     "Dataset unavailable for this entity; next capability check is scheduled."
-                    if view.last_outcome is not None and view.last_outcome.value == "UNAVAILABLE"
+                    if view.last_outcome is not None
+                    and view.last_outcome.value == "UNAVAILABLE"
                     else "Ingestion failed; consult operational logs."
                 )
                 if view.last_error

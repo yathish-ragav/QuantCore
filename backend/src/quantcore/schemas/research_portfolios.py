@@ -44,7 +44,10 @@ class ResearchPortfolioRequest(BaseModel):
 
     @model_validator(mode="after")
     def validate_target_as_of(self):
-        if any(value.tzinfo is None for value in self.as_ofs) or self.target_as_of.tzinfo is None:
+        if (
+            any(value.tzinfo is None for value in self.as_ofs)
+            or self.target_as_of.tzinfo is None
+        ):
             raise ValueError("as_ofs and target_as_of must be timezone-aware")
         if self.target_as_of not in self.as_ofs:
             raise ValueError("target_as_of must be one of the requested as_ofs")
@@ -135,7 +138,6 @@ class ResearchPortfolioFactorRiskResponse(BaseModel):
     dataset_fingerprint: str
     dataset_identity: tuple[str, str] | None
     signal_construction: str
-
 
 
 class ResearchPortfolioConstraintRequest(ResearchPortfolioRequest):

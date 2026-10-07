@@ -1,7 +1,8 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index as SQLIndex, Numeric, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint
+from sqlalchemy import Index as SQLIndex
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.db.database import Base
@@ -26,7 +27,9 @@ class MarketIndex(Base):
         nullable=True,
         index=True,
     )
-    methodology_reference: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    methodology_reference: Mapped[str | None] = mapped_column(
+        String(1000), nullable=True
+    )
     source_reference: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     is_active: Mapped[bool] = mapped_column(
         nullable=False,
@@ -41,7 +44,9 @@ class MarketIndex(Base):
     )
 
     data_source = relationship("MarketIndexDataSource", back_populates="indexes")
-    data_loads = relationship("MarketIndexDataLoad", back_populates="index", cascade="all, delete-orphan")
+    data_loads = relationship(
+        "MarketIndexDataLoad", back_populates="index", cascade="all, delete-orphan"
+    )
 
     constituents = relationship(
         "MarketIndexConstituent",

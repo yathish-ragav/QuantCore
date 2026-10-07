@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import ClassVar
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.ingestion.datasets import IngestionDataset, IngestionScope
@@ -45,7 +46,7 @@ class IngestionHealthView:
 class IngestionHealthService:
     """Classify ingestion operational health without mutating ingestion state."""
 
-    _SEVERITY = {
+    _SEVERITY: ClassVar[dict[IngestionHealthStatus, int]] = {
         IngestionHealthStatus.HEALTHY: 0,
         IngestionHealthStatus.STALE: 1,
         IngestionHealthStatus.FAILED: 2,
@@ -66,12 +67,10 @@ class IngestionHealthService:
                 return IngestionHealthStatus.FAILED
             return IngestionHealthStatus.NEVER_INGESTED
 
-        if view.consecutive_failures > 0:
-            if (
-                view.last_attempt_at is None
-                or view.last_attempt_at >= view.last_success_at
-            ):
-                return IngestionHealthStatus.FAILED
+        if view.consecutive_failures > 0 and (
+            view.last_attempt_at is None or view.last_attempt_at >= view.last_success_at
+        ):
+            return IngestionHealthStatus.FAILED
 
         if not view.is_fresh:
             return IngestionHealthStatus.STALE

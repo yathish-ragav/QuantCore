@@ -14,9 +14,7 @@ class SECFilingRepository:
         accession_number: str,
     ) -> SECFiling | None:
         return self.db.scalar(
-            select(SECFiling).where(
-                SECFiling.accession_number == accession_number
-            )
+            select(SECFiling).where(SECFiling.accession_number == accession_number)
         )
 
     def get_by_accessions(
@@ -26,7 +24,7 @@ class SECFilingRepository:
         accessions = {value for value in accession_numbers if value}
         if not accessions:
             return {}
-        rows = []
+        rows: list[SECFiling] = []
         values = list(accessions)
         for start in range(0, len(values), 1000):
             rows.extend(

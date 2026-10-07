@@ -1,7 +1,8 @@
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from math import isfinite
-from typing import Iterable, Mapping, Protocol
+from typing import Protocol
 
 from quantcore.core.enums import PriceBasis
 from quantcore.core.exceptions import InvalidInputError
@@ -79,7 +80,9 @@ class ResearchFactorReturnService:
         requested horizon is unavailable, the row is retained with an explicit
         ``HORIZON_UNAVAILABLE`` status rather than silently dropped.
         """
-        self._validate_inputs(panel, price_history_by_security, horizon, return_price_basis)
+        self._validate_inputs(
+            panel, price_history_by_security, horizon, return_price_basis
+        )
 
         rows: list[ResearchFactorReturnRow] = []
         for factor_row in panel.rows:
@@ -168,7 +171,9 @@ class ResearchFactorReturnService:
         if not isinstance(price_history_by_security, Mapping):
             raise InvalidInputError("Price history must be keyed by security ID.")
         if not isinstance(horizon, int) or isinstance(horizon, bool) or horizon < 1:
-            raise InvalidInputError("Forward-return horizon must be a positive integer.")
+            raise InvalidInputError(
+                "Forward-return horizon must be a positive integer."
+            )
         if not isinstance(return_price_basis, PriceBasis):
             raise InvalidInputError("Return price basis must be a valid PriceBasis.")
 
@@ -234,10 +239,9 @@ class ResearchFactorReturnService:
 
     @staticmethod
     def _validate_price_value(value: object, field: str) -> None:
-        try:
-            numeric = float(value)
-        except (TypeError, ValueError) as exc:
-            raise InvalidInputError(f"Price observation {field} must be numeric.") from exc
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise InvalidInputError(f"Price observation {field} must be numeric.")
+        numeric = float(value)
         if not isfinite(numeric):
             raise InvalidInputError(f"Price observation {field} must be finite.")
 

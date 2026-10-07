@@ -14,25 +14,27 @@ from quantcore.schemas.quote import QuoteData
 
 def test_fmp_quote_success():
     response = Mock()
-    response.json.return_value = [{
-        "symbol": "AAPL",
-        "name": "Apple Inc.",
-        "price": 200.0,
-        "change": 2.0,
-        "changePercentage": 1.0,
-        "dayLow": 198.0,
-        "dayHigh": 202.0,
-        "yearLow": 150.0,
-        "yearHigh": 220.0,
-        "marketCap": 3000000000000,
-        "priceAvg50": 195.0,
-        "priceAvg200": 180.0,
-        "volume": 1000000,
-        "exchange": "NASDAQ",
-        "open": 199.0,
-        "previousClose": 198.0,
-        "timestamp": 1760000000,
-    }]
+    response.json.return_value = [
+        {
+            "symbol": "AAPL",
+            "name": "Apple Inc.",
+            "price": 200.0,
+            "change": 2.0,
+            "changePercentage": 1.0,
+            "dayLow": 198.0,
+            "dayHigh": 202.0,
+            "yearLow": 150.0,
+            "yearHigh": 220.0,
+            "marketCap": 3000000000000,
+            "priceAvg50": 195.0,
+            "priceAvg200": 180.0,
+            "volume": 1000000,
+            "exchange": "NASDAQ",
+            "open": 199.0,
+            "previousClose": 198.0,
+            "timestamp": 1760000000,
+        }
+    ]
 
     with patch(
         "quantcore.ingestion.providers.fmp.requests.get",
@@ -55,58 +57,66 @@ def test_fmp_quote_empty_symbol():
 
 def test_fmp_quote_http_error():
     response = Mock()
-    response.raise_for_status.side_effect = requests.HTTPError(
-        "500"
-    )
+    response.raise_for_status.side_effect = requests.HTTPError("500")
 
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            FMPClient().get_quote("AAPL")
+        FMPClient().get_quote("AAPL")
 
 
 def test_fmp_quote_timeout():
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        side_effect=requests.Timeout(),
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            side_effect=requests.Timeout(),
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            FMPClient().get_quote("AAPL")
+        FMPClient().get_quote("AAPL")
 
 
 def test_fmp_quote_invalid_shape():
     response = Mock()
     response.json.return_value = {"error": "bad"}
 
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(DataValidationError),
     ):
-        with pytest.raises(DataValidationError):
-            FMPClient().get_quote("AAPL")
+        FMPClient().get_quote("AAPL")
 
 
 def test_fmp_quote_empty_response():
     response = Mock()
     response.json.return_value = []
 
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(DataValidationError),
     ):
-        with pytest.raises(DataValidationError):
-            FMPClient().get_quote("AAPL")
+        FMPClient().get_quote("AAPL")
 
 
 def test_fmp_quote_invalid_item():
     response = Mock()
     response.json.return_value = ["invalid"]
 
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(DataValidationError),
     ):
-        with pytest.raises(DataValidationError):
-            FMPClient().get_quote("AAPL")
+        FMPClient().get_quote("AAPL")

@@ -39,18 +39,24 @@ class ResearchBacktestPerformanceProductService:
         performance_service: ResearchBacktestPerformanceService | None = None,
     ) -> None:
         self._backtest_product_service = backtest_product_service
-        self._performance_service = performance_service or ResearchBacktestPerformanceService()
+        self._performance_service = (
+            performance_service or ResearchBacktestPerformanceService()
+        )
 
     def analyze(
         self,
         *,
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
         backtest_definition: ResearchBacktestDefinition,
         constraint_definition: ResearchPortfolioConstraintDefinition,

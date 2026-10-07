@@ -16,10 +16,7 @@ class DataTransformer:
         if isinstance(data, dict):
             return CompanyData.model_validate(data)
 
-        raise TypeError(
-            "Company data must be a CompanyData instance "
-            "or dictionary."
-        )
+        raise TypeError("Company data must be a CompanyData instance " "or dictionary.")
 
     @staticmethod
     def price(data) -> PriceData:
@@ -29,10 +26,7 @@ class DataTransformer:
         if isinstance(data, dict):
             return PriceData.model_validate(data)
 
-        raise TypeError(
-            "Price data must be a PriceData instance "
-            "or dictionary."
-        )
+        raise TypeError("Price data must be a PriceData instance " "or dictionary.")
 
     @staticmethod
     def news(data) -> NewsData:
@@ -42,10 +36,7 @@ class DataTransformer:
         if isinstance(data, dict):
             return NewsData.model_validate(data)
 
-        raise TypeError(
-            "News data must be a NewsData instance "
-            "or dictionary."
-        )
+        raise TypeError("News data must be a NewsData instance " "or dictionary.")
 
     @staticmethod
     def income_statement(
@@ -56,9 +47,7 @@ class DataTransformer:
             return data
 
         if isinstance(data, dict):
-            return IncomeStatementData.model_validate(
-                data
-            )
+            return IncomeStatementData.model_validate(data)
 
         raise TypeError(
             "Income statement data must be an "
@@ -71,14 +60,9 @@ class DataTransformer:
     ) -> list[CompanyData]:
 
         if not isinstance(data, list):
-            raise TypeError(
-                "Company data must be a list."
-            )
+            raise TypeError("Company data must be a list.")
 
-        return [
-            DataTransformer.company(item)
-            for item in data
-        ]
+        return [DataTransformer.company(item) for item in data]
 
     @staticmethod
     def prices(
@@ -86,14 +70,9 @@ class DataTransformer:
     ) -> list[PriceData]:
 
         if not isinstance(data, list):
-            raise TypeError(
-                "Price data must be a list."
-            )
+            raise TypeError("Price data must be a list.")
 
-        return [
-            DataTransformer.price(item)
-            for item in data
-        ]
+        return [DataTransformer.price(item) for item in data]
 
     @staticmethod
     def news_articles(
@@ -101,14 +80,9 @@ class DataTransformer:
     ) -> list[NewsData]:
 
         if not isinstance(data, list):
-            raise TypeError(
-                "News data must be a list."
-            )
+            raise TypeError("News data must be a list.")
 
-        return [
-            DataTransformer.news(item)
-            for item in data
-        ]
+        return [DataTransformer.news(item) for item in data]
 
     @staticmethod
     def income_statements(
@@ -116,15 +90,9 @@ class DataTransformer:
     ) -> list[IncomeStatementData]:
 
         if not isinstance(data, list):
-            raise TypeError(
-                "Income statement data must be a list."
-            )
+            raise TypeError("Income statement data must be a list.")
 
-        return [
-            DataTransformer.income_statement(item)
-            for item in data
-        ]
-
+        return [DataTransformer.income_statement(item) for item in data]
 
     @staticmethod
     def balance_sheet(
@@ -137,8 +105,7 @@ class DataTransformer:
             return BalanceSheetData.model_validate(data)
 
         raise TypeError(
-            "Balance sheet data must be a "
-            "BalanceSheetData instance or dictionary."
+            "Balance sheet data must be a " "BalanceSheetData instance or dictionary."
         )
 
     @staticmethod
@@ -146,14 +113,9 @@ class DataTransformer:
         data,
     ) -> list[BalanceSheetData]:
         if not isinstance(data, list):
-            raise TypeError(
-                "Balance sheet data must be a list."
-            )
+            raise TypeError("Balance sheet data must be a list.")
 
-        return [
-            DataTransformer.balance_sheet(item)
-            for item in data
-        ]
+        return [DataTransformer.balance_sheet(item) for item in data]
 
     @staticmethod
     def cash_flow_statement(
@@ -164,9 +126,7 @@ class DataTransformer:
             return data
 
         if isinstance(data, dict):
-            return CashFlowStatementData.model_validate(
-                data
-            )
+            return CashFlowStatementData.model_validate(data)
 
         raise TypeError(
             "Cash flow statement data must be a "
@@ -179,11 +139,6 @@ class DataTransformer:
     ) -> list[CashFlowStatementData]:
 
         if not isinstance(data, list):
-            raise TypeError(
-                "Cash flow statement data must be a list."
-            )
+            raise TypeError("Cash flow statement data must be a list.")
 
-        return [
-            DataTransformer.cash_flow_statement(item)
-            for item in data
-        ]
+        return [DataTransformer.cash_flow_statement(item) for item in data]

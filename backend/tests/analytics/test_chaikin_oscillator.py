@@ -53,7 +53,7 @@ def test_chaikin_oscillator_mismatched_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         ChaikinOscillator.calculate(
             highs,
@@ -71,7 +71,7 @@ def test_chaikin_oscillator_invalid_periods():
 
     with pytest.raises(
         ValueError,
-        match="Periods must be greater than zero.",
+        match=r"Periods\ must\ be\ greater\ than\ zero\.",
     ):
         ChaikinOscillator.calculate(
             highs,
@@ -91,7 +91,7 @@ def test_chaikin_oscillator_fast_period_must_be_less():
 
     with pytest.raises(
         ValueError,
-        match="Fast period must be less than slow period.",
+        match=r"Fast\ period\ must\ be\ less\ than\ slow\ period\.",
     ):
         ChaikinOscillator.calculate(
             highs,

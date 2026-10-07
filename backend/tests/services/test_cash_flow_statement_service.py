@@ -3,9 +3,8 @@ from unittest.mock import ANY, Mock, patch
 
 import pytest
 
+from quantcore.core.enums import FinancialPeriodType
 from quantcore.models.provenance import DataSource
-
-from quantcore.core.enums import FinancialStatementType, FinancialPeriodType
 from quantcore.schemas.cash_flow_statement import (
     CashFlowStatementData,
 )
@@ -60,9 +59,7 @@ def make_service():
 
     db = Mock()
 
-    service = CashFlowStatementService.__new__(
-        CashFlowStatementService
-    )
+    service = CashFlowStatementService.__new__(CashFlowStatementService)
 
     service.db = db
     service.provider = Mock()
@@ -78,32 +75,26 @@ def make_service():
 
 def test_get_cash_flow_statements_returns_statements():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     company = make_company()
 
     statements = [Mock(), Mock()]
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.statement_repo.get_for_company.return_value = (
-        statements
-    )
+    service.statement_repo.get_for_company.return_value = statements
 
     result = service.get_cash_flow_statements("AAPL")
 
     assert result == statements
 
-    service.statement_repo.get_for_company.assert_called_once_with(
-        company.id
-    )
+    service.statement_repo.get_for_company.assert_called_once_with(company.id)
 
 
 def test_get_cash_flow_statements_company_not_found():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     service.security_repo.get_by_symbol.return_value = None
 
@@ -127,7 +118,9 @@ def test_sync_cash_flow_includes_sec_quarterly_rows():
     service.provider.get_cash_flow_statements.return_value = [annual]
     service.provider.get_quarterly_cash_flow_statements.return_value = [quarterly]
     service.statement_repo.get_for_company.return_value = []
-    with patch("quantcore.services.cash_flow_statement_service.FinancialPeriodMaterializer") as materializer:
+    with patch(
+        "quantcore.services.cash_flow_statement_service.FinancialPeriodMaterializer"
+    ) as materializer:
         result = service.sync_cash_flow_statements("AAPL")
 
     assert result.records_processed == 2
@@ -159,30 +152,20 @@ def test_sync_cash_flow_statements_creates_new_statements():
         ),
     ]
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.provider.get_cash_flow_statements.return_value = (
-        statements
-    )
+    service.provider.get_cash_flow_statements.return_value = statements
 
     service.statement_repo.get_for_company.return_value = []
 
-    result = service.sync_cash_flow_statements(
-        "AAPL"
-    )
+    result = service.sync_cash_flow_statements("AAPL")
 
     assert result.created == 2
     assert result.updated == 0
     assert result.unchanged == 0
     assert result.records_processed == 2
 
-    assert (
-        service.statement_repo
-        .create.call_count
-        == 2
-    )
+    assert service.statement_repo.create.call_count == 2
 
     db.commit.assert_called_once()
     db.rollback.assert_not_called()
@@ -194,9 +177,7 @@ def test_sync_cash_flow_statements_skips_existing():
 
     company = make_company()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
     service.provider.get_cash_flow_statements.return_value = [
         make_statement(
@@ -212,9 +193,7 @@ def test_sync_cash_flow_statements_skips_existing():
         make_statement(date(2024, 9, 28))
     ]
 
-    result = service.sync_cash_flow_statements(
-        "AAPL"
-    )
+    result = service.sync_cash_flow_statements("AAPL")
 
     assert result.created == 0
     assert result.updated == 0
@@ -253,12 +232,10 @@ def test_sync_cash_flow_statements_rolls_back_on_provider_error():
 
     company = make_company()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
-    service.provider.get_cash_flow_statements.side_effect = (
-        RuntimeError("provider error")
+    service.provider.get_cash_flow_statements.side_effect = RuntimeError(
+        "provider error"
     )
 
     with pytest.raises(
@@ -279,9 +256,7 @@ def test_sync_cash_flow_statements_rolls_back_on_repository_lookup_error():
 
     company = make_company()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
     service.provider.get_cash_flow_statements.return_value = [
         make_statement(
@@ -315,9 +290,7 @@ def test_sync_cash_flow_statements_rolls_back_on_repository_create_error():
 
     company = make_company()
 
-    service.security_repo.get_by_symbol.return_value = (
-        make_security(company)
-    )
+    service.security_repo.get_by_symbol.return_value = make_security(company)
 
     service.provider.get_cash_flow_statements.return_value = [
         make_statement(
@@ -331,9 +304,7 @@ def test_sync_cash_flow_statements_rolls_back_on_repository_create_error():
 
     service.statement_repo.get_for_company.return_value = []
 
-    service.statement_repo.create.side_effect = (
-        RuntimeError("database error")
-    )
+    service.statement_repo.create.side_effect = RuntimeError("database error")
 
     with pytest.raises(
         RuntimeError,
@@ -351,7 +322,7 @@ def test_sync_cash_flow_statements_rejects_empty_symbol():
 
     with pytest.raises(
         ValueError,
-        match="Symbol must not be empty.",
+        match=r"Symbol\ must\ not\ be\ empty\.",
     ):
         service.sync_cash_flow_statements("   ")
 
@@ -392,7 +363,9 @@ def test_sync_cash_flow_statements_updates_changed_observation_and_creates_revis
     company = make_company()
     service.security_repo.get_by_symbol.return_value = make_security(company)
     incoming = make_statement(date(2024, 9, 28), operating_cash_flow=1000.0)
-    existing = SimpleNamespace(**incoming.model_dump(), id=42, company_id=company.id, source_reference=None)
+    existing = SimpleNamespace(
+        **incoming.model_dump(), id=42, company_id=company.id, source_reference=None
+    )
     existing.operating_cash_flow = 900.0
     service.provider.get_cash_flow_statements.return_value = [incoming]
     service.statement_repo.get_for_company.return_value = [existing]
@@ -408,6 +381,7 @@ def test_sync_cash_flow_statements_updates_changed_observation_and_creates_revis
     service.revision_repo.create.assert_called_once()
     db.commit.assert_called_once()
 
+
 def test_sync_cash_flow_statements_can_defer_commit():
     service, db = make_service()
     company = make_company()
@@ -420,5 +394,3 @@ def test_sync_cash_flow_statements_can_defer_commit():
     assert result.records_processed == 0
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
-
-

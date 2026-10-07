@@ -135,21 +135,23 @@ def test_multiple_factor_identities_are_sorted_and_preserved():
     value = ResearchFactorRankedPanel(
         factor_key="value",
         definition_version="2",
-        rows=(ResearchFactorRankRow(
-            symbol="T1",
-            security_id=1,
-            as_of=AS_OF,
-            factor_value=ResearchFactorValue(
-                factor_key="value",
-                definition_version="2",
+        rows=(
+            ResearchFactorRankRow(
                 symbol="T1",
                 security_id=1,
                 as_of=AS_OF,
-                value_numeric=0.0,
+                factor_value=ResearchFactorValue(
+                    factor_key="value",
+                    definition_version="2",
+                    symbol="T1",
+                    security_id=1,
+                    as_of=AS_OF,
+                    value_numeric=0.0,
+                ),
+                rank=1.0,
+                normalized_rank=0.0,
             ),
-            rank=1.0,
-            normalized_rank=0.0,
-        ),),
+        ),
         ranking="average_tie",
         higher_is_better=True,
     )

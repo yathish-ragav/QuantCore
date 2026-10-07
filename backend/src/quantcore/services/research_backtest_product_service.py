@@ -1,12 +1,15 @@
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from types import MappingProxyType
-from typing import Mapping
+from typing import cast
+
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.price_service import PriceService
 from quantcore.services.research_backtest_service import (
     ResearchBacktest,
     ResearchBacktestDefinition,
+    ResearchBacktestPriceObservation,
     ResearchBacktestService,
 )
 from quantcore.services.research_portfolio_constraint_service import (
@@ -41,8 +44,9 @@ class ResearchBacktestProductResult:
 
     backtest: ResearchBacktest
     target_portfolios: tuple[ResearchPortfolioProductResult, ...]
-    price_history_by_security: Mapping[int, tuple[ResearchBacktestProductPriceObservation, ...]] | None = None
-
+    price_history_by_security: (
+        Mapping[int, tuple[ResearchBacktestProductPriceObservation, ...]] | None
+    ) = None
 
 
 class ResearchBacktestProductService:
@@ -63,11 +67,15 @@ class ResearchBacktestProductService:
         *,
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
         backtest_definition: ResearchBacktestDefinition,
         constraint_definition: ResearchPortfolioConstraintDefinition,
@@ -75,7 +83,9 @@ class ResearchBacktestProductService:
         transaction_cost_definition: ResearchTransactionCostDefinition,
     ) -> ResearchBacktestProductResult:
         if not isinstance(backtest_definition, ResearchBacktestDefinition):
-            raise InvalidInputError("Backtest product analysis requires a ResearchBacktestDefinition.")
+            raise InvalidInputError(
+                "Backtest product analysis requires a ResearchBacktestDefinition."
+            )
 
         target_portfolios = self._portfolio_product_service.construct_sequence(
             symbols=symbols,
@@ -93,7 +103,10 @@ class ResearchBacktestProductService:
         backtest = self._backtest_service.run(
             backtest_definition,
             tuple(result.portfolio for result in target_portfolios),
-            price_history_by_security,
+            cast(
+                Mapping[int, Iterable[ResearchBacktestPriceObservation]],
+                price_history_by_security,
+            ),
             constraint_definition,
             rebalance_definition,
             transaction_cost_definition,

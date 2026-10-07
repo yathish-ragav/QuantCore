@@ -8,7 +8,6 @@ from quantcore.ingestion.datasets import IngestionDataset, IngestionScope
 from quantcore.models.provenance import DataSource
 from quantcore.services.ingestion_lineage_service import IngestionLineageService
 
-
 AS_OF = datetime(2026, 1, 2, 15, 30, tzinfo=timezone.utc)
 
 

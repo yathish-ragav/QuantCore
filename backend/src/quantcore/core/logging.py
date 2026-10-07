@@ -8,7 +8,6 @@ from typing import Any
 
 from quantcore.core.config import settings
 
-
 _SAFE_EXTRA_FIELDS = {
     "event",
     "request_id",
@@ -65,17 +64,15 @@ def configure_logging() -> None:
     if settings.LOG_FORMAT.strip().lower() == "json":
         formatter = JsonFormatter()
     elif settings.LOG_FORMAT.strip().lower() == "text":
-        formatter = logging.Formatter(
-            "%(asctime)s %(levelname)s %(name)s %(message)s"
-        )
+        formatter = logging.Formatter("%(asctime)s %(levelname)s %(name)s %(message)s")
     else:
         raise ValueError(f"Unsupported LOG_FORMAT: {settings.LOG_FORMAT!r}")
 
     root = logging.getLogger()
     root.setLevel(level)
     if not root.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        root.addHandler(handler)
+        stream_handler = logging.StreamHandler(sys.stdout)
+        root.addHandler(stream_handler)
     for handler in root.handlers:
         handler.setFormatter(formatter)
         handler.setLevel(level)

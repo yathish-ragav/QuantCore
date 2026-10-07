@@ -12,7 +12,6 @@ from quantcore.services.ingestion_health_service import (
 )
 from quantcore.services.ingestion_orchestrator import FreshnessView
 
-
 NOW = datetime(2026, 1, 2, 15, 30, tzinfo=timezone.utc)
 
 
@@ -50,7 +49,9 @@ def test_unavailable_is_distinct_from_never_ingested():
     service = IngestionHealthService.__new__(IngestionHealthService)
 
     view = freshness(last_success_at=None, last_attempt_at=NOW)
-    view = view.__class__(**{**view.__dict__, "last_outcome": IngestionOutcome.UNAVAILABLE})
+    view = view.__class__(
+        **{**view.__dict__, "last_outcome": IngestionOutcome.UNAVAILABLE}
+    )
     assert service._status(view) is IngestionHealthStatus.UNAVAILABLE
 
 
@@ -58,9 +59,7 @@ def test_never_ingested_is_distinct_from_failed():
     service = IngestionHealthService.__new__(IngestionHealthService)
 
     assert (
-        service._status(
-            freshness(last_success_at=None, last_attempt_at=None)
-        )
+        service._status(freshness(last_success_at=None, last_attempt_at=None))
         is IngestionHealthStatus.NEVER_INGESTED
     )
     assert (

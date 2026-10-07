@@ -64,7 +64,7 @@ def test_build_historical_dataset_builds_deterministic_chronological_panel():
 
 def test_build_historical_dataset_normalizes_naive_timestamps_and_symbols():
     service = make_service()
-    as_of = datetime(2026, 8, 20, 15, 30)
+    as_of = datetime(2026, 8, 20, 15, 30)  # noqa: DTZ001
     service.dataset_service.build_feature_vector.return_value = make_vector(
         "AAPL", 10, as_of.replace(tzinfo=timezone.utc)
     )
@@ -126,7 +126,9 @@ def test_build_historical_dataset_rejects_duplicate_as_ofs_before_reads():
     service = make_service()
     as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)
 
-    with pytest.raises(InvalidInputError, match="as-of timestamps must not contain duplicates"):
+    with pytest.raises(
+        InvalidInputError, match="as-of timestamps must not contain duplicates"
+    ):
         service.build_historical_dataset(
             ["AAPL"],
             as_ofs=[as_of, as_of],
@@ -153,8 +155,10 @@ def test_build_historical_dataset_rejects_empty_inputs_before_reads():
 
 def test_build_historical_dataset_rejects_future_timestamp_before_reads():
     service = make_service()
-    future = datetime.now(timezone.utc).replace(microsecond=0).replace(
-        year=datetime.now(timezone.utc).year + 1
+    future = (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .replace(year=datetime.now(timezone.utc).year + 1)
     )
 
     with pytest.raises(InvalidInputError, match="must not be in the future"):
@@ -209,6 +213,7 @@ def test_historical_dataset_fingerprint_binds_definition_schema():
     )
 
     assert first.dataset_fingerprint != second.dataset_fingerprint
+
 
 def test_historical_dataset_fingerprint_is_independent_of_row_and_definition_order():
     first_as_of = datetime(2026, 8, 19, 15, 30, tzinfo=timezone.utc)

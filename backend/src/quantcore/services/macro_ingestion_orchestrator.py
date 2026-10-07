@@ -111,7 +111,7 @@ class MacroIngestionOrchestrator:
 
         now = datetime.now(timezone.utc)
         state = self.state_repo.get(self.SOURCE, normalized)
-        if only_stale and self._is_fresh(state, policy, now):
+        if only_stale and state is not None and self._is_fresh(state, policy, now):
             return MacroIngestionResult(
                 series_id=normalized,
                 attempted=False,

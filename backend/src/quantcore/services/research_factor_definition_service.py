@@ -1,8 +1,7 @@
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Iterable
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
-
 
 ResearchFeatureIdentity = tuple[str, str]
 
@@ -55,7 +54,9 @@ class ResearchFactorDefinition:
                     "Feature identities must be (observation_key, definition_version) tuples."
                 )
             observation_key, feature_version = identity
-            if not isinstance(observation_key, str) or not isinstance(feature_version, str):
+            if not isinstance(observation_key, str) or not isinstance(
+                feature_version, str
+            ):
                 raise InvalidInputError(
                     "Feature identities must contain string key and version values."
                 )

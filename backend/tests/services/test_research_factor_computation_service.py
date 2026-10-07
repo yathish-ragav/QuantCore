@@ -3,12 +3,14 @@ from datetime import datetime, timezone
 import pytest
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
-from quantcore.services.research_dataset_service import ResearchFeature, ResearchFeatureVector
+from quantcore.services.research_dataset_service import (
+    ResearchFeature,
+    ResearchFeatureVector,
+)
 from quantcore.services.research_factor_computation_service import (
     ResearchFactorComputationService,
     ResearchFactorValue,
 )
-
 
 AS_OF = datetime(2026, 8, 20, tzinfo=timezone.utc)
 
@@ -26,8 +28,7 @@ class QualityCalculator:
             security_id=feature_vector.security_id,
             as_of=feature_vector.as_of,
             value_numeric=(
-                float(net_margin.value_numeric)
-                + float(operating_margin.value_numeric)
+                float(net_margin.value_numeric) + float(operating_margin.value_numeric)
             )
             / 2,
             unit=definition.unit,
@@ -84,7 +85,9 @@ def service(definition=None, calculator=None):
         "output_kind": "numeric",
         "unit": "score",
     }
-    from quantcore.services.research_factor_definition_service import ResearchFactorDefinition
+    from quantcore.services.research_factor_definition_service import (
+        ResearchFactorDefinition,
+    )
 
     return ResearchFactorComputationService(
         (ResearchFactorDefinition(**definition),),
@@ -94,7 +97,10 @@ def service(definition=None, calculator=None):
 
 def test_compute_factor_uses_versioned_definition_and_preserves_pit_provenance():
     result = service().compute_factor(
-        vector(feature("net_margin", "1", numeric=0.2), feature("operating_margin", "1", numeric=0.4)),
+        vector(
+            feature("net_margin", "1", numeric=0.2),
+            feature("operating_margin", "1", numeric=0.4),
+        ),
         factor_key=" quality_score ",
         definition_version=" 1 ",
     )
@@ -165,7 +171,9 @@ def test_compute_factor_rejects_unknown_definition():
 
 
 def test_compute_factor_rejects_missing_calculator():
-    from quantcore.services.research_factor_definition_service import ResearchFactorDefinition
+    from quantcore.services.research_factor_definition_service import (
+        ResearchFactorDefinition,
+    )
 
     definition = ResearchFactorDefinition(
         factor_key="other_factor",
@@ -201,7 +209,9 @@ def test_compute_factor_validates_output_kind_and_unit():
 
 
 def test_compute_factor_supports_text_output_without_unit():
-    from quantcore.services.research_factor_definition_service import ResearchFactorDefinition
+    from quantcore.services.research_factor_definition_service import (
+        ResearchFactorDefinition,
+    )
 
     definition = ResearchFactorDefinition(
         factor_key="quality_label",

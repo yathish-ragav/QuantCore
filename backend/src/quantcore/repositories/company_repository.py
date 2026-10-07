@@ -14,9 +14,7 @@ class CompanyRepository:
         cik: str,
     ) -> Company | None:
 
-        stmt = select(Company).where(
-            Company.cik == cik
-        )
+        stmt = select(Company).where(Company.cik == cik)
 
         return self.db.scalar(stmt)
 
@@ -28,13 +26,9 @@ class CompanyRepository:
         if not ciks:
             return []
 
-        stmt = select(Company).where(
-            Company.cik.in_(ciks)
-        )
+        stmt = select(Company).where(Company.cik.in_(ciks))
 
-        return list(
-            self.db.scalars(stmt).all()
-        )
+        return list(self.db.scalars(stmt).all())
 
     def create(
         self,

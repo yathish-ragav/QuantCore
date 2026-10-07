@@ -21,7 +21,7 @@ def test_quote_factory_returns_fmp():
 
 
 def test_quote_factory_rejects_unknown_provider():
-    with patch(
+    with patch(  # noqa: SIM117
         "quantcore.ingestion.providers.quote_factory.settings.realtime_market_data_provider",
         "unknown",
     ):
@@ -30,12 +30,15 @@ def test_quote_factory_rejects_unknown_provider():
 
 
 def test_quote_factory_returns_massive():
-    with patch(
-        "quantcore.ingestion.providers.quote_factory.settings.realtime_market_data_provider",
-        "massive",
-    ), patch(
-        "quantcore.ingestion.providers.quote_factory.settings.MASSIVE_API_KEY",
-        "test-key",
+    with (
+        patch(
+            "quantcore.ingestion.providers.quote_factory.settings.realtime_market_data_provider",
+            "massive",
+        ),
+        patch(
+            "quantcore.ingestion.providers.quote_factory.settings.MASSIVE_API_KEY",
+            "test-key",
+        ),
     ):
         provider = QuoteProviderFactory.get_provider()
 

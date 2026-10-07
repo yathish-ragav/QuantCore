@@ -3,7 +3,12 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from quantcore.core.exceptions import DataValidationError, InvalidInputError, ResourceNotFoundError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
+from quantcore.core.production_data_policy import ProductionDataPolicy
 from quantcore.ingestion.providers.macro_factory import MacroProviderFactory
 from quantcore.models.provenance import DataSource
 from quantcore.repositories.macro_repository import MacroRepository
@@ -41,10 +46,12 @@ class MacroService:
         require_exact_vintage: bool = False,
     ):
         series = self.get_series(series_id)
-        requested_as_of = as_of or date.today()
-        if requested_as_of > date.today():
+        requested_as_of = as_of or datetime.now(timezone.utc).date()
+        if requested_as_of > datetime.now(timezone.utc).date():
             raise InvalidInputError("As-of date must not be in the future.")
-        if require_exact_vintage and not self.repo.has_vintage(series.id, requested_as_of):
+        if require_exact_vintage and not self.repo.has_vintage(
+            series.id, requested_as_of
+        ):
             raise ResourceNotFoundError(
                 f"Macro vintage not ingested for {series.series_id}: "
                 f"{requested_as_of.isoformat()}"
@@ -61,9 +68,11 @@ class MacroService:
         if not normalized:
             raise InvalidInputError("Series ID must not be empty.")
 
-        vintage = vintage_date or date.today()
-        if vintage > date.today():
+        vintage = vintage_date or datetime.now(timezone.utc).date()
+        if vintage > datetime.now(timezone.utc).date():
             raise InvalidInputError("Vintage date must not be in the future.")
+        ProductionDataPolicy.validate_macro_storage(self.provider.SOURCE)
+
         try:
             series_data = self.provider.get_series(normalized)
             observations = self.provider.get_observations(
@@ -71,11 +80,17 @@ class MacroService:
                 vintage_date=vintage,
             )
             if not isinstance(series_data, MacroSeriesData):
-                raise DataValidationError("Macro provider returned invalid series metadata.")
+                raise DataValidationError(
+                    "Macro provider returned invalid series metadata."
+                )
             if not isinstance(observations, list):
-                raise DataValidationError("Macro provider returned invalid observations.")
+                raise DataValidationError(
+                    "Macro provider returned invalid observations."
+                )
             if any(not isinstance(item, MacroObservationData) for item in observations):
-                raise DataValidationError("Macro provider returned an invalid observation object.")
+                raise DataValidationError(
+                    "Macro provider returned an invalid observation object."
+                )
 
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)

@@ -5,10 +5,10 @@ from quantcore.ingestion.datasets import (
     IngestionScope,
 )
 from quantcore.models.ingestion import (
+    IngestionOutcome,
     IngestionRun,
     IngestionRunStatus,
     IngestionState,
-    IngestionOutcome,
 )
 
 
@@ -25,14 +25,8 @@ def test_ingestion_state_has_explicit_entity_foreign_keys():
     assert columns.security_id.foreign_keys
 
     constraints = IngestionState.__table__.constraints
-    assert any(
-        c.name == "uq_ingestion_state_dataset_company"
-        for c in constraints
-    )
-    assert any(
-        c.name == "uq_ingestion_state_dataset_security"
-        for c in constraints
-    )
+    assert any(c.name == "uq_ingestion_state_dataset_company" for c in constraints)
+    assert any(c.name == "uq_ingestion_state_dataset_security" for c in constraints)
 
 
 def test_ingestion_state_tracks_last_outcome_and_recheck_time():
@@ -57,7 +51,4 @@ def test_ingestion_run_has_idempotency_metadata():
     assert columns.idempotency_key.nullable is True
     assert columns.request_fingerprint.nullable is True
     constraints = IngestionRun.__table__.constraints
-    assert any(
-        c.name == "uq_ingestion_run_dataset_idempotency"
-        for c in constraints
-    )
+    assert any(c.name == "uq_ingestion_run_dataset_idempotency" for c in constraints)

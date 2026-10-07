@@ -1,11 +1,11 @@
 from .company import CompanyData
-from .price import PriceData
-from .news import NewsData
 from .income_statement import IncomeStatementData
+from .news import NewsData
+from .price import PriceData
 
 __all__ = [
     "CompanyData",
-    "PriceData",
-    "NewsData",
     "IncomeStatementData",
+    "NewsData",
+    "PriceData",
 ]

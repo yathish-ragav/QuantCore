@@ -4,7 +4,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from quantcore.models.corporate_action_revision import CorporateActionRevision
-from quantcore.models.corporate_action import CorporateAction
 
 
 class CorporateActionRevisionRepository:
@@ -34,7 +33,9 @@ class CorporateActionRevisionRepository:
             .where(CorporateActionRevision.action_id.in_(action_ids))
             .group_by(CorporateActionRevision.action_id)
         ).all()
-        current = {int(action_id): int(max_revision or 0) for action_id, max_revision in rows}
+        current = {
+            int(action_id): int(max_revision or 0) for action_id, max_revision in rows
+        }
         return {action_id: current.get(action_id, 0) + 1 for action_id in action_ids}
 
     def create(self, **kwargs) -> CorporateActionRevision:
@@ -58,15 +59,15 @@ class CorporateActionRevisionRepository:
         ranked = (
             select(
                 CorporateActionRevision.id.label("revision_id"),
-                func.row_number().over(
-                    partition_by=(
-                        CorporateActionRevision.action_id,
-                    ),
+                func.row_number()
+                .over(
+                    partition_by=(CorporateActionRevision.action_id,),
                     order_by=(
                         CorporateActionRevision.known_at.desc(),
                         CorporateActionRevision.revision_number.desc(),
                     ),
-                ).label("revision_rank"),
+                )
+                .label("revision_rank"),
             )
             .where(
                 CorporateActionRevision.security_id == security_id,

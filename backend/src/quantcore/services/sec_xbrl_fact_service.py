@@ -1,19 +1,24 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
-from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from quantcore.core.exceptions import DataValidationError, InvalidInputError, ResourceNotFoundError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.ingestion.providers.regulatory_factory import RegulatoryProviderFactory
 from quantcore.models.provenance import DataSource
 from quantcore.models.sec_xbrl_fact import build_sec_xbrl_fact_identity_hash
-from quantcore.repositories.sec_xbrl_fact_repository import SECXBRLFactRepository
 from quantcore.repositories.sec_filing_repository import SECFilingRepository
+from quantcore.repositories.sec_xbrl_fact_repository import SECXBRLFactRepository
 from quantcore.repositories.security_repository import SecurityRepository
-from quantcore.services.sec_filing_service import SECFilingService
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 from quantcore.schemas.sec_xbrl_fact import SECXBRLFactObservationData
+from quantcore.services.sec_filing_service import SECFilingService
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
+)
 
 
 @dataclass(frozen=True)
@@ -77,9 +82,7 @@ class SECXBRLFactService:
             _, company = self.get_company_for_symbol(symbol)
             raw_observations = self.provider.get_sec_xbrl_fact_observations(company.cik)
             if not isinstance(raw_observations, list):
-                raise DataValidationError(
-                    f"Invalid SEC XBRL fact data for '{symbol}'."
-                )
+                raise DataValidationError(f"Invalid SEC XBRL fact data for '{symbol}'.")
 
             source = DataSource(self.provider.SOURCE)
             fetched_at = datetime.now(timezone.utc)

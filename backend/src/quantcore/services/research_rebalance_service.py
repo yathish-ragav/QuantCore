@@ -44,10 +44,17 @@ class ResearchRebalanceDefinition:
     def __post_init__(self) -> None:
         if not isinstance(self.rebalance_key, str) or not self.rebalance_key.strip():
             raise InvalidInputError("Rebalance key must be a non-empty string.")
-        if not isinstance(self.definition_version, str) or not self.definition_version.strip():
-            raise InvalidInputError("Rebalance definition version must be a non-empty string.")
+        if (
+            not isinstance(self.definition_version, str)
+            or not self.definition_version.strip()
+        ):
+            raise InvalidInputError(
+                "Rebalance definition version must be a non-empty string."
+            )
         if not isinstance(self.frequency, ResearchRebalanceFrequency):
-            raise InvalidInputError("Rebalance frequency must be a ResearchRebalanceFrequency.")
+            raise InvalidInputError(
+                "Rebalance frequency must be a ResearchRebalanceFrequency."
+            )
         if self.description is not None and not isinstance(self.description, str):
             raise InvalidInputError("Rebalance description must be a string or None.")
         object.__setattr__(self, "rebalance_key", self.rebalance_key.strip())
@@ -106,11 +113,19 @@ class ResearchRebalanceService:
     ) -> ResearchRebalance:
         self._validate_inputs(current_portfolio, target_portfolio, definition, as_of)
 
-        current = {position.security_id: position for position in current_portfolio.positions}
-        target = {position.security_id: position for position in target_portfolio.positions}
+        current = {
+            position.security_id: position for position in current_portfolio.positions
+        }
+        target = {
+            position.security_id: position for position in target_portfolio.positions
+        }
 
-        if len(current) != len(current_portfolio.positions) or len(target) != len(target_portfolio.positions):
-            raise InvalidInputError("Portfolio positions must not contain duplicate security IDs.")
+        if len(current) != len(current_portfolio.positions) or len(target) != len(
+            target_portfolio.positions
+        ):
+            raise InvalidInputError(
+                "Portfolio positions must not contain duplicate security IDs."
+            )
 
         actions: list[ResearchRebalanceAction] = []
         absolute_deltas = 0.0
@@ -118,10 +133,20 @@ class ResearchRebalanceService:
         for security_id in sorted(set(current) | set(target)):
             current_position = current.get(security_id)
             target_position = target.get(security_id)
-            current_weight = 0.0 if current_position is None else float(current_position.target_weight)
-            target_weight = 0.0 if target_position is None else float(target_position.target_weight)
+            current_weight = (
+                0.0
+                if current_position is None
+                else float(current_position.target_weight)
+            )
+            target_weight = (
+                0.0 if target_position is None else float(target_position.target_weight)
+            )
             delta = target_weight - current_weight
-            if not isfinite(current_weight) or not isfinite(target_weight) or not isfinite(delta):
+            if (
+                not isfinite(current_weight)
+                or not isfinite(target_weight)
+                or not isfinite(delta)
+            ):
                 raise InvalidInputError("Rebalance weights and deltas must be finite.")
 
             if delta == 0.0:
@@ -161,16 +186,24 @@ class ResearchRebalanceService:
             target_gross_exposure=float(target_portfolio.gross_exposure),
             target_net_exposure=float(target_portfolio.net_exposure),
             turnover=turnover,
-            status=(ResearchRebalanceStatus.REBALANCED if actions else ResearchRebalanceStatus.NO_CHANGES),
+            status=(
+                ResearchRebalanceStatus.REBALANCED
+                if actions
+                else ResearchRebalanceStatus.NO_CHANGES
+            ),
         )
 
     @staticmethod
-    def _classify(current_weight: float, target_weight: float) -> ResearchRebalanceActionType:
+    def _classify(
+        current_weight: float, target_weight: float
+    ) -> ResearchRebalanceActionType:
         if current_weight == 0.0:
             return ResearchRebalanceActionType.ADD
         if target_weight == 0.0:
             return ResearchRebalanceActionType.REMOVE
-        if (current_weight < 0.0 < target_weight) or (target_weight < 0.0 < current_weight):
+        if (current_weight < 0.0 < target_weight) or (
+            target_weight < 0.0 < current_weight
+        ):
             return ResearchRebalanceActionType.REVERSE
         if abs(target_weight) > abs(current_weight):
             return ResearchRebalanceActionType.INCREASE
@@ -184,32 +217,61 @@ class ResearchRebalanceService:
         as_of: datetime,
     ) -> None:
         if not isinstance(current_portfolio, ResearchPortfolio):
-            raise InvalidInputError("Rebalancing requires a ResearchPortfolio as current state.")
+            raise InvalidInputError(
+                "Rebalancing requires a ResearchPortfolio as current state."
+            )
         if not isinstance(target_portfolio, ResearchPortfolio):
-            raise InvalidInputError("Rebalancing requires a ResearchPortfolio as target state.")
+            raise InvalidInputError(
+                "Rebalancing requires a ResearchPortfolio as target state."
+            )
         if not isinstance(definition, ResearchRebalanceDefinition):
-            raise InvalidInputError("Rebalancing requires a ResearchRebalanceDefinition.")
+            raise InvalidInputError(
+                "Rebalancing requires a ResearchRebalanceDefinition."
+            )
         if not isinstance(as_of, datetime) or as_of.tzinfo is None:
             raise InvalidInputError("Rebalance as_of must be timezone-aware.")
-        if current_portfolio.as_of.tzinfo is None or target_portfolio.as_of.tzinfo is None:
+        if (
+            current_portfolio.as_of.tzinfo is None
+            or target_portfolio.as_of.tzinfo is None
+        ):
             raise InvalidInputError("Portfolio as_of values must be timezone-aware.")
         if current_portfolio.as_of >= as_of:
-            raise InvalidInputError("Current portfolio must precede the rebalance as_of.")
+            raise InvalidInputError(
+                "Current portfolio must precede the rebalance as_of."
+            )
         if target_portfolio.as_of != as_of:
-            raise InvalidInputError("Target portfolio as_of must equal the rebalance as_of.")
+            raise InvalidInputError(
+                "Target portfolio as_of must equal the rebalance as_of."
+            )
         if current_portfolio.status.name != "CONSTRUCTED":
-            raise InvalidInputError("Rebalancing requires a constructed current portfolio.")
+            raise InvalidInputError(
+                "Rebalancing requires a constructed current portfolio."
+            )
         if target_portfolio.status.name != "CONSTRUCTED":
-            raise InvalidInputError("Rebalancing requires a constructed target portfolio.")
-        if current_portfolio.strategy_key != target_portfolio.strategy_key or current_portfolio.strategy_definition_version != target_portfolio.strategy_definition_version:
-            raise InvalidInputError("Current and target portfolios must use the same strategy identity.")
+            raise InvalidInputError(
+                "Rebalancing requires a constructed target portfolio."
+            )
+        if (
+            current_portfolio.strategy_key != target_portfolio.strategy_key
+            or current_portfolio.strategy_definition_version
+            != target_portfolio.strategy_definition_version
+        ):
+            raise InvalidInputError(
+                "Current and target portfolios must use the same strategy identity."
+            )
         if current_portfolio.signal_identity != target_portfolio.signal_identity:
-            raise InvalidInputError("Current and target portfolios must use the same signal identity.")
+            raise InvalidInputError(
+                "Current and target portfolios must use the same signal identity."
+            )
         for portfolio in (current_portfolio, target_portfolio):
-            if not isfinite(float(portfolio.gross_exposure)) or not isfinite(float(portfolio.net_exposure)):
+            if not isfinite(float(portfolio.gross_exposure)) or not isfinite(
+                float(portfolio.net_exposure)
+            ):
                 raise InvalidInputError("Portfolio exposures must be finite.")
             for position in portfolio.positions:
                 if not isinstance(position.security_id, int):
                     raise InvalidInputError("Portfolio security IDs must be integers.")
                 if not isfinite(float(position.target_weight)):
-                    raise InvalidInputError("Portfolio position weights must be finite.")
+                    raise InvalidInputError(
+                        "Portfolio position weights must be finite."
+                    )

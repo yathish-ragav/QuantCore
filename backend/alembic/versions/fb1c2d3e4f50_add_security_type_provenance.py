@@ -5,13 +5,14 @@ Revises: fa1b2c3d4e5f
 Create Date: 2026-09-19
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
+
 revision: str = "fb1c2d3e4f50"
-down_revision: Union[str, Sequence[str], None] = "fa1b2c3d4e5f"
+down_revision: str | Sequence[str] | None = "fa1b2c3d4e5f"
 branch_labels = None
 depends_on = None
 

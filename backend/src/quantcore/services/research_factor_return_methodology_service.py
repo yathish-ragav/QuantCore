@@ -138,6 +138,10 @@ class ResearchFactorReturnMethodologyService:
                 spread = None
             else:
                 status = self.STATUS_AVAILABLE
+                if long_return is None or short_return is None:
+                    raise InvalidInputError(
+                        "Available factor-return buckets require finite returns."
+                    )
                 spread = long_return - short_return
 
             slices.append(
@@ -197,11 +201,19 @@ class ResearchFactorReturnMethodologyService:
             )
         if not panel.rows:
             raise InvalidInputError("Research factor return panel must not be empty.")
-        if not isinstance(bucket_count, int) or isinstance(bucket_count, bool) or bucket_count < 2:
-            raise InvalidInputError("bucket_count must be an integer greater than or equal to 2.")
-        if not isinstance(minimum_observations_per_leg, int) or isinstance(
-            minimum_observations_per_leg, bool
-        ) or minimum_observations_per_leg < 1:
+        if (
+            not isinstance(bucket_count, int)
+            or isinstance(bucket_count, bool)
+            or bucket_count < 2
+        ):
+            raise InvalidInputError(
+                "bucket_count must be an integer greater than or equal to 2."
+            )
+        if (
+            not isinstance(minimum_observations_per_leg, int)
+            or isinstance(minimum_observations_per_leg, bool)
+            or minimum_observations_per_leg < 1
+        ):
             raise InvalidInputError(
                 "minimum_observations_per_leg must be a positive integer."
             )
@@ -238,12 +250,15 @@ class ResearchFactorReturnMethodologyService:
                 raise InvalidInputError(
                     "Factor return row factor value timestamp does not match factor_as_of."
                 )
-            if not isinstance(row.factor_rank, (int, float)) or not isfinite(float(row.factor_rank)):
+            if not isinstance(row.factor_rank, (int, float)) or not isfinite(
+                float(row.factor_rank)
+            ):
                 raise InvalidInputError("Factor return ranks must be finite.")
             if float(row.factor_rank) < 1.0:
                 raise InvalidInputError("Factor return ranks must be positive.")
-            if row.status == "AVAILABLE":
-                if row.forward_return is None or not isfinite(float(row.forward_return)):
-                    raise InvalidInputError(
-                        "Available factor return rows require finite forward returns."
-                    )
+            if row.status == "AVAILABLE" and (
+                row.forward_return is None or not isfinite(float(row.forward_return))
+            ):
+                raise InvalidInputError(
+                    "Available factor return rows require finite forward returns."
+                )

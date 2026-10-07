@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from unittest.mock import Mock
 
 from quantcore.core.enums import FinancialStatementType
@@ -16,18 +16,14 @@ def test_get_next_revision_number_starts_at_one():
     repository, db = make_repository()
     db.scalar.return_value = None
 
-    assert repository.get_next_revision_number(
-        FinancialStatementType.INCOME, 10
-    ) == 1
+    assert repository.get_next_revision_number(FinancialStatementType.INCOME, 10) == 1
 
 
 def test_get_next_revision_number_increments_existing_revision():
     repository, db = make_repository()
     db.scalar.return_value = 2
 
-    assert repository.get_next_revision_number(
-        FinancialStatementType.INCOME, 10
-    ) == 3
+    assert repository.get_next_revision_number(FinancialStatementType.INCOME, 10) == 3
 
 
 def test_create_adds_revision_without_transaction_control():
@@ -37,7 +33,7 @@ def test_create_adds_revision_without_transaction_control():
         statement_id=10,
         company_id=1,
         revision_number=1,
-        fiscal_date=datetime(2024, 9, 28).date(),
+        fiscal_date=date(2024, 9, 28),
         period_type="ANNUAL",
         known_at=datetime(2026, 1, 5, tzinfo=timezone.utc),
     )
@@ -65,15 +61,14 @@ def test_get_latest_for_company_as_of_returns_ranked_revisions():
 
 def test_get_next_revision_numbers_batches_statement_ids():
     from unittest.mock import Mock
+
     from quantcore.core.enums import FinancialStatementType
 
     db = Mock()
     db.execute.return_value.all.return_value = [(1, 3), (3, 1)]
     repo = FinancialStatementRevisionRepository(db)
 
-    result = repo.get_next_revision_numbers(
-        FinancialStatementType.INCOME, [1, 2, 3]
-    )
+    result = repo.get_next_revision_numbers(FinancialStatementType.INCOME, [1, 2, 3])
 
     assert result == {1: 4, 2: 1, 3: 2}
     db.execute.assert_called_once()

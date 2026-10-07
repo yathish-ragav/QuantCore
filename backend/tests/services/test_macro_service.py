@@ -1,7 +1,8 @@
 from datetime import date
 from decimal import Decimal
-import pytest
 from unittest.mock import Mock
+
+import pytest
 
 from quantcore.core.exceptions import DataValidationError, ResourceNotFoundError
 from quantcore.models.provenance import DataSource

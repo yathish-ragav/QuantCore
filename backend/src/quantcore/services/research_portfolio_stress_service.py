@@ -1,8 +1,8 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from math import isfinite
 from types import MappingProxyType
-from typing import Mapping
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_portfolio_construction_service import ResearchPortfolio
@@ -26,22 +26,35 @@ class ResearchStressScenarioDefinition:
     def __post_init__(self) -> None:
         if not isinstance(self.scenario_key, str) or not self.scenario_key.strip():
             raise InvalidInputError("Stress scenario key must be a non-empty string.")
-        if not isinstance(self.definition_version, str) or not self.definition_version.strip():
-            raise InvalidInputError("Stress scenario definition version must be a non-empty string.")
+        if (
+            not isinstance(self.definition_version, str)
+            or not self.definition_version.strip()
+        ):
+            raise InvalidInputError(
+                "Stress scenario definition version must be a non-empty string."
+            )
         if not isinstance(self.shocks_by_security, Mapping):
-            raise InvalidInputError("Stress scenario shocks_by_security must be a mapping.")
+            raise InvalidInputError(
+                "Stress scenario shocks_by_security must be a mapping."
+            )
         for security_id, shock in self.shocks_by_security.items():
             if not isinstance(security_id, int) or isinstance(security_id, bool):
-                raise InvalidInputError("Stress scenario security IDs must be integers.")
+                raise InvalidInputError(
+                    "Stress scenario security IDs must be integers."
+                )
             self._validate_shock(shock, f"Stress shock for security {security_id}")
         if self.default_shock is not None:
             self._validate_shock(self.default_shock, "Stress scenario default_shock")
         if self.description is not None and not isinstance(self.description, str):
-            raise InvalidInputError("Stress scenario description must be a string or None.")
+            raise InvalidInputError(
+                "Stress scenario description must be a string or None."
+            )
 
         object.__setattr__(self, "scenario_key", self.scenario_key.strip())
         object.__setattr__(self, "definition_version", self.definition_version.strip())
-        object.__setattr__(self, "shocks_by_security", MappingProxyType(dict(self.shocks_by_security)))
+        object.__setattr__(
+            self, "shocks_by_security", MappingProxyType(dict(self.shocks_by_security))
+        )
         if self.description is not None:
             object.__setattr__(self, "description", self.description.strip() or None)
 
@@ -53,12 +66,13 @@ class ResearchStressScenarioDefinition:
     def _validate_shock(value: object, name: str) -> None:
         if isinstance(value, bool):
             raise InvalidInputError(f"{name} must be a finite numeric return shock.")
-        try:
-            shock = float(value)
-        except (TypeError, ValueError) as exc:
-            raise InvalidInputError(f"{name} must be numeric.") from exc
+        if not isinstance(value, (int, float)):
+            raise InvalidInputError(f"{name} must be numeric.")
+        shock = float(value)
         if not isfinite(shock) or shock < -1.0:
-            raise InvalidInputError(f"{name} must be finite and greater than or equal to -100%.")
+            raise InvalidInputError(
+                f"{name} must be finite and greater than or equal to -100%."
+            )
 
 
 @dataclass(frozen=True)
@@ -114,25 +128,32 @@ class ResearchPortfolioStressService:
             )
         if portfolio_value is not None:
             if isinstance(portfolio_value, bool):
-                raise InvalidInputError("Portfolio value must be a finite positive number.")
+                raise InvalidInputError(
+                    "Portfolio value must be a finite positive number."
+                )
             try:
                 value = float(portfolio_value)
             except (TypeError, ValueError) as exc:
                 raise InvalidInputError("Portfolio value must be numeric.") from exc
             if not isfinite(value) or value <= 0.0:
-                raise InvalidInputError("Portfolio value must be a finite positive number.")
+                raise InvalidInputError(
+                    "Portfolio value must be a finite positive number."
+                )
         else:
             value = None
 
         impacts: list[ResearchPortfolioStressImpact] = []
-        for position in sorted(portfolio.positions, key=lambda item: (item.security_id, item.symbol)):
+        for position in sorted(
+            portfolio.positions, key=lambda item: (item.security_id, item.symbol)
+        ):
             if position.security_id in scenario.shocks_by_security:
                 shock = float(scenario.shocks_by_security[position.security_id])
             elif scenario.default_shock is not None:
                 shock = float(scenario.default_shock)
             else:
                 raise InvalidInputError(
-                    f"Missing stress shock for portfolio security {position.security_id}."
+                    f"Missing stress shock for portfolio security "
+                    f"{position.security_id}."
                 )
             contribution = float(position.target_weight) * shock
             if not isfinite(contribution):
@@ -150,9 +171,17 @@ class ResearchPortfolioStressService:
         portfolio_return = sum(impact.contribution for impact in impacts)
         if not isfinite(portfolio_return):
             raise InvalidInputError("Portfolio stress return must be finite.")
-        pnl_amount = value * portfolio_return if value is not None else None
-        stressed_value = value + pnl_amount if value is not None else None
-        if pnl_amount is not None and (not isfinite(pnl_amount) or not isfinite(stressed_value)):
+        if value is not None:
+            pnl_amount = value * portfolio_return
+            stressed_value = value + pnl_amount
+        else:
+            pnl_amount = None
+            stressed_value = None
+        if (
+            pnl_amount is not None
+            and stressed_value is not None
+            and (not isfinite(pnl_amount) or not isfinite(stressed_value))
+        ):
             raise InvalidInputError("Portfolio stress value impact must be finite.")
 
         contributions = tuple(impact.contribution for impact in impacts)
@@ -176,17 +205,23 @@ class ResearchPortfolioStressService:
     @staticmethod
     def _validate_portfolio(portfolio: ResearchPortfolio) -> None:
         if not isinstance(portfolio, ResearchPortfolio):
-            raise InvalidInputError("Portfolio stress analysis requires a ResearchPortfolio.")
+            raise InvalidInputError(
+                "Portfolio stress analysis requires a ResearchPortfolio."
+            )
         if portfolio.status.name != "CONSTRUCTED":
             raise InvalidInputError(
                 "Portfolio stress analysis requires a constructed target portfolio."
             )
         if not isinstance(portfolio.as_of, datetime) or portfolio.as_of.tzinfo is None:
-            raise InvalidInputError("Portfolio stress analysis as_of must be timezone-aware.")
+            raise InvalidInputError(
+                "Portfolio stress analysis as_of must be timezone-aware."
+            )
         seen: set[int] = set()
         for position in portfolio.positions:
             if position.security_id in seen:
-                raise InvalidInputError("Portfolio stress analysis requires unique security IDs.")
+                raise InvalidInputError(
+                    "Portfolio stress analysis requires unique security IDs."
+                )
             seen.add(position.security_id)
             if position.as_of != portfolio.as_of:
                 raise InvalidInputError(

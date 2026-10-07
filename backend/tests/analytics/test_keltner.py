@@ -38,17 +38,11 @@ def test_keltner_basic():
         "lower": None,
     }
 
-    assert result[2]["middle"] == pytest.approx(
-        10.6666666667
-    )
+    assert result[2]["middle"] == pytest.approx(10.6666666667)
 
-    assert result[2]["upper"] == pytest.approx(
-        16.0
-    )
+    assert result[2]["upper"] == pytest.approx(16.0)
 
-    assert result[2]["lower"] == pytest.approx(
-        5.3333333333
-    )
+    assert result[2]["lower"] == pytest.approx(5.3333333333)
 
     # Next EMA:
     # EMA = (14 - 10.666666...) * 0.5
@@ -60,17 +54,11 @@ def test_keltner_basic():
     # Upper = 12.333333... + 6
     # Lower = 12.333333... - 6
 
-    assert result[3]["middle"] == pytest.approx(
-        12.3333333333
-    )
+    assert result[3]["middle"] == pytest.approx(12.3333333333)
 
-    assert result[3]["upper"] == pytest.approx(
-        18.3333333333
-    )
+    assert result[3]["upper"] == pytest.approx(18.3333333333)
 
-    assert result[3]["lower"] == pytest.approx(
-        6.3333333333
-    )
+    assert result[3]["lower"] == pytest.approx(6.3333333333)
 
 
 def test_keltner_period_larger_than_data():
@@ -106,7 +94,7 @@ def test_keltner_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         KeltnerChannels.calculate(
             highs,

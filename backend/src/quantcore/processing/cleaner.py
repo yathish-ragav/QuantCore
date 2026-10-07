@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import timezone
 
 from quantcore.schemas.balance_sheet import BalanceSheetData
 from quantcore.schemas.cash_flow_statement import CashFlowStatementData
@@ -32,9 +32,7 @@ class DataCleaner:
             return ""
 
         if not isinstance(value, str):
-            raise TypeError(
-                "Text value must be a string or None."
-            )
+            raise TypeError("Text value must be a string or None.")
 
         return re.sub(
             r"\s+",
@@ -51,26 +49,10 @@ class DataCleaner:
         return CompanyData(
             symbol=cls.clean_symbol(data.symbol),
             name=cls.clean_text(data.name),
-            sector=(
-                None
-                if data.sector is None
-                else cls.clean_text(data.sector)
-            ),
-            industry=(
-                None
-                if data.industry is None
-                else cls.clean_text(data.industry)
-            ),
-            country=(
-                None
-                if data.country is None
-                else cls.clean_text(data.country)
-            ),
-            website=(
-                None
-                if data.website is None
-                else cls.clean_text(data.website)
-            ),
+            sector=(None if data.sector is None else cls.clean_text(data.sector)),
+            industry=(None if data.industry is None else cls.clean_text(data.industry)),
+            country=(None if data.country is None else cls.clean_text(data.country)),
+            website=(None if data.website is None else cls.clean_text(data.website)),
             market_cap=data.market_cap,
             security_type=data.security_type,
         )
@@ -110,9 +92,7 @@ class DataCleaner:
             low=float(data.low),
             close=float(data.close),
             adjusted_close=(
-                None
-                if data.adjusted_close is None
-                else float(data.adjusted_close)
+                None if data.adjusted_close is None else float(data.adjusted_close)
             ),
             price_basis=data.price_basis,
             volume=int(data.volume),
@@ -135,14 +115,10 @@ class DataCleaner:
             accession_number=data.accession_number,
             fiscal_date=data.fiscal_date,
             total_revenue=(
-                float(data.total_revenue)
-                if data.total_revenue is not None
-                else None
+                float(data.total_revenue) if data.total_revenue is not None else None
             ),
             gross_profit=(
-                float(data.gross_profit)
-                if data.gross_profit is not None
-                else None
+                float(data.gross_profit) if data.gross_profit is not None else None
             ),
             operating_income=(
                 float(data.operating_income)
@@ -150,15 +126,9 @@ class DataCleaner:
                 else None
             ),
             net_income=(
-                float(data.net_income)
-                if data.net_income is not None
-                else None
+                float(data.net_income) if data.net_income is not None else None
             ),
-            eps=(
-                float(data.eps)
-                if data.eps is not None
-                else None
-            ),
+            eps=(float(data.eps) if data.eps is not None else None),
             shares_outstanding=(
                 int(data.shares_outstanding)
                 if data.shares_outstanding is not None
@@ -170,7 +140,6 @@ class DataCleaner:
                 else None
             ),
         )
-
 
     @staticmethod
     def clean_balance_sheet(
@@ -189,45 +158,25 @@ class DataCleaner:
             filing_form=data.filing_form,
             accession_number=data.accession_number,
             fiscal_date=data.fiscal_date,
-            cash_and_cash_equivalents=_to_float(
-                data.cash_and_cash_equivalents
-            ),
-            short_term_investments=_to_float(
-                data.short_term_investments
-            ),
-            accounts_receivable=_to_float(
-                data.accounts_receivable
-            ),
+            cash_and_cash_equivalents=_to_float(data.cash_and_cash_equivalents),
+            short_term_investments=_to_float(data.short_term_investments),
+            accounts_receivable=_to_float(data.accounts_receivable),
             inventory=_to_float(data.inventory),
-            total_current_assets=_to_float(
-                data.total_current_assets
-            ),
-            property_plant_equipment_net=_to_float(
-                data.property_plant_equipment_net
-            ),
+            total_current_assets=_to_float(data.total_current_assets),
+            property_plant_equipment_net=_to_float(data.property_plant_equipment_net),
             goodwill=_to_float(data.goodwill),
-            intangible_assets=_to_float(
-                data.intangible_assets
-            ),
+            intangible_assets=_to_float(data.intangible_assets),
             total_assets=_to_float(data.total_assets),
             accounts_payable=_to_float(data.accounts_payable),
             short_term_debt=_to_float(data.short_term_debt),
-            total_current_liabilities=_to_float(
-                data.total_current_liabilities
-            ),
+            total_current_liabilities=_to_float(data.total_current_liabilities),
             long_term_debt=_to_float(data.long_term_debt),
-            total_liabilities=_to_float(
-                data.total_liabilities
-            ),
+            total_liabilities=_to_float(data.total_liabilities),
             total_equity=_to_float(data.total_equity),
-            retained_earnings=_to_float(
-                data.retained_earnings
-            ),
+            retained_earnings=_to_float(data.retained_earnings),
             total_debt=_to_float(data.total_debt),
             net_debt=_to_float(data.net_debt),
-            working_capital=_to_float(
-                data.working_capital
-            ),
+            working_capital=_to_float(data.working_capital),
         )
 
     @staticmethod
@@ -236,11 +185,7 @@ class DataCleaner:
     ) -> CashFlowStatementData:
 
         def _to_float(value):
-            return (
-                float(value)
-                if value is not None
-                else None
-            )
+            return float(value) if value is not None else None
 
         return CashFlowStatementData(
             period_start=data.period_start,
@@ -251,34 +196,14 @@ class DataCleaner:
             filing_form=data.filing_form,
             accession_number=data.accession_number,
             fiscal_date=data.fiscal_date,
-            operating_cash_flow=_to_float(
-                data.operating_cash_flow
-            ),
-            capital_expenditure=_to_float(
-                data.capital_expenditure
-            ),
-            free_cash_flow=_to_float(
-                data.free_cash_flow
-            ),
-            investing_cash_flow=_to_float(
-                data.investing_cash_flow
-            ),
-            financing_cash_flow=_to_float(
-                data.financing_cash_flow
-            ),
-            depreciation_and_amortization=_to_float(
-                data.depreciation_and_amortization
-            ),
-            stock_based_compensation=_to_float(
-                data.stock_based_compensation
-            ),
-            dividends_paid=_to_float(
-                data.dividends_paid
-            ),
-            share_repurchases=_to_float(
-                data.share_repurchases
-            ),
-            net_change_in_cash=_to_float(
-                data.net_change_in_cash
-            ),
+            operating_cash_flow=_to_float(data.operating_cash_flow),
+            capital_expenditure=_to_float(data.capital_expenditure),
+            free_cash_flow=_to_float(data.free_cash_flow),
+            investing_cash_flow=_to_float(data.investing_cash_flow),
+            financing_cash_flow=_to_float(data.financing_cash_flow),
+            depreciation_and_amortization=_to_float(data.depreciation_and_amortization),
+            stock_based_compensation=_to_float(data.stock_based_compensation),
+            dividends_paid=_to_float(data.dividends_paid),
+            share_repurchases=_to_float(data.share_repurchases),
+            net_change_in_cash=_to_float(data.net_change_in_cash),
         )

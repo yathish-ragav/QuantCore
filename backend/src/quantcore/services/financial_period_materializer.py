@@ -1,20 +1,21 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone
+from itertools import pairwise
 
 from sqlalchemy.orm import Session
 
 from quantcore.core.enums import FinancialPeriodType, FinancialStatementType
-from quantcore.models.income_statement import IncomeStatement
-from quantcore.models.cash_flow_statement import CashFlowStatement
+from quantcore.models.financial_statement_revision import FinancialStatementRevision
 from quantcore.models.provenance import DataSource
-from quantcore.repositories.cash_flow_statement_repository import CashFlowStatementRepository
+from quantcore.repositories.cash_flow_statement_repository import (
+    CashFlowStatementRepository,
+)
 from quantcore.repositories.financial_statement_revision_repository import (
     FinancialStatementRevisionRepository,
 )
 from quantcore.repositories.income_statement_repository import IncomeStatementRepository
 from quantcore.services.financial_statement_revision import create_revision
-
 
 INCOME_ADDITIVE_FIELDS = (
     "total_revenue",
@@ -135,7 +136,7 @@ class FinancialPeriodMaterializer:
     def _quarters_contiguous(window) -> bool:
         if len(window) != 4:
             return False
-        for previous, current in zip(window, window[1:]):
+        for previous, current in pairwise(window):
             if previous.fiscal_date + timedelta(days=1) != current.period_start:
                 return False
         return True
@@ -144,7 +145,7 @@ class FinancialPeriodMaterializer:
         self,
         company_id: int,
         statement_type: FinancialStatementType,
-        annual,
+        annual: FinancialStatementRevision,
     ) -> bool:
         """Materialize an exact annual filing as a TTM observation.
 
@@ -154,17 +155,19 @@ class FinancialPeriodMaterializer:
         figures. The revision keeps the annual observation's known_at so a
         later backfill cannot move its PIT boundary forward.
         """
+        repo: IncomeStatementRepository | CashFlowStatementRepository
         if statement_type is FinancialStatementType.INCOME:
             repo = self.income_repo
             values = {
-                field: getattr(annual, field, None)
-                for field in INCOME_ADDITIVE_FIELDS
+                field: getattr(annual, field, None) for field in INCOME_ADDITIVE_FIELDS
             }
-            values.update({
-                "eps": None,
-                "shares_outstanding": None,
-                "weighted_average_shares_outstanding": None,
-            })
+            values.update(
+                {
+                    "eps": None,
+                    "shares_outstanding": None,
+                    "weighted_average_shares_outstanding": None,
+                }
+            )
         else:
             repo = self.cash_flow_repo
             values = {
@@ -173,9 +176,7 @@ class FinancialPeriodMaterializer:
             }
             values["free_cash_flow"] = getattr(annual, "free_cash_flow", None)
 
-        source_reference = (
-            f"TTM_FROM_ANNUAL:{statement_type.value}:{annual.id}"
-        )
+        source_reference = f"TTM_FROM_ANNUAL:{statement_type.value}:{annual.id}"
         payload = {
             "company_id": company_id,
             "fiscal_date": annual.fiscal_date,
@@ -211,9 +212,7 @@ class FinancialPeriodMaterializer:
 
         # A four-quarter TTM, if available, is more granular than the annual
         # normalization. Do not overwrite it with the annual representation.
-        existing_reference = str(
-            getattr(existing, "source_reference", "") or ""
-        )
+        existing_reference = str(getattr(existing, "source_reference", "") or "")
         if not existing_reference.startswith("TTM_FROM_ANNUAL:"):
             return False
 
@@ -241,43 +240,44 @@ class FinancialPeriodMaterializer:
         self,
         company_id: int,
         statement_type: FinancialStatementType,
-        window,
+        window: list[FinancialStatementRevision],
     ) -> bool:
         latest = window[-1]
         fiscal_date = latest.fiscal_date
         if statement_type is FinancialStatementType.INCOME:
-            repo = self.income_repo
             additive_fields = INCOME_ADDITIVE_FIELDS
             values = {
-                field: self._sum_field(window, field)
-                for field in additive_fields
+                field: self._sum_field(window, field) for field in additive_fields
             }
-            values.update({
-                "eps": None,
-                "shares_outstanding": None,
-                "weighted_average_shares_outstanding": None,
-            })
+            values.update(
+                {
+                    "eps": None,
+                    "shares_outstanding": None,
+                    "weighted_average_shares_outstanding": None,
+                }
+            )
         else:
-            repo = self.cash_flow_repo
             values = {
                 field: self._sum_field(window, field)
                 for field in CASH_FLOW_ADDITIVE_FIELDS
             }
-            if values["operating_cash_flow"] is not None and values["capital_expenditure"] is not None:
+            if (
+                values["operating_cash_flow"] is not None
+                and values["capital_expenditure"] is not None
+            ):
                 values["free_cash_flow"] = (
                     values["operating_cash_flow"] - values["capital_expenditure"]
                 )
             else:
                 values["free_cash_flow"] = None
 
-        source_reference = (
-            f"TTM:{statement_type.value}:" + ":".join(str(item.id) for item in window)
+        source_reference = f"TTM:{statement_type.value}:" + ":".join(
+            str(item.id) for item in window
         )
         known_at = max(item.known_at for item in window)
-        fetched_at = max(
-            (getattr(item, "fetched_at", None) for item in window),
-            default=None,
-        )
+        # Revision snapshots carry the authoritative PIT ``known_at`` timestamp;
+        # they do not expose provider fetch timestamps.
+        fetched_at = None
         payload = {
             "company_id": company_id,
             "fiscal_date": fiscal_date,
@@ -293,14 +293,18 @@ class FinancialPeriodMaterializer:
             "source_reference": source_reference,
             **values,
         }
-        repo = self.income_repo if statement_type is FinancialStatementType.INCOME else self.cash_flow_repo
-        existing = repo.get_by_company_and_date(
+        target_repo: IncomeStatementRepository | CashFlowStatementRepository = (
+            self.income_repo
+            if statement_type is FinancialStatementType.INCOME
+            else self.cash_flow_repo
+        )
+        existing = target_repo.get_by_company_and_date(
             company_id,
             fiscal_date,
             FinancialPeriodType.TTM,
         )
         if existing is None:
-            statement = repo.create(**payload)
+            statement = target_repo.create(**payload)
             self.db.flush()
             create_revision(
                 self.revision_repo,
@@ -331,11 +335,15 @@ class FinancialPeriodMaterializer:
         return False
 
     @staticmethod
-    def _sum_field(window, field: str):
-        values = [getattr(item, field, None) for item in window]
-        if any(value is None for value in values):
+    def _sum_field(
+        window: list[FinancialStatementRevision],
+        field: str,
+    ) -> float | None:
+        values: list[float | None] = [getattr(item, field, None) for item in window]
+        numeric_values = [value for value in values if value is not None]
+        if len(numeric_values) != len(values):
             return None
-        return float(sum(values))
+        return float(sum(numeric_values))
 
     @staticmethod
     def _residual(annual_value, quarter_values):

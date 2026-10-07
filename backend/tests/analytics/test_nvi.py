@@ -27,9 +27,7 @@ def test_nvi_basic():
     # Volume decreased: 1000 -> 800
     # Close change = (108 - 110) / 110
     # NVI = 1050 * (108 / 110)
-    assert result[3] == pytest.approx(
-        1050 * (108 / 110)
-    )
+    assert result[3] == pytest.approx(1050 * (108 / 110))
 
 
 def test_nvi_volume_increase_keeps_value_unchanged():
@@ -86,7 +84,7 @@ def test_nvi_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         NegativeVolumeIndex.calculate(
             closes,

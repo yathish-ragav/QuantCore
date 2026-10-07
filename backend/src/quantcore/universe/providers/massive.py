@@ -1,15 +1,20 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import time
+from contextlib import suppress
+from datetime import datetime, timezone
+from typing import ClassVar
 from urllib.parse import parse_qs, urlparse
 
 import requests
 
 from quantcore.core.config import settings
 from quantcore.core.enums import SecurityType
-from quantcore.core.exceptions import ConfigurationError, DataValidationError, ExternalDataError
+from quantcore.core.exceptions import (
+    ConfigurationError,
+    DataValidationError,
+    ExternalDataError,
+)
 from quantcore.universe.models import UniverseSecurityClassification
 
 
@@ -26,7 +31,7 @@ class MassiveUniverseProvider:
     # Massive's documented U.S. stock ticker-type codes are normalized into
     # QuantCore's smaller canonical instrument taxonomy. Codes that do not have
     # a safe one-to-one mapping remain OTHER rather than being guessed.
-    _TYPE_MAP = {
+    _TYPE_MAP: ClassVar[dict[str, SecurityType]] = {
         "CS": SecurityType.COMMON_STOCK,
         "OS": SecurityType.COMMON_STOCK,
         "P": SecurityType.PREFERRED_STOCK,
@@ -105,7 +110,7 @@ class MassiveUniverseProvider:
     def _mark_request_started(self) -> None:
         self._last_request_started_at = self._monotonic()
 
-    def _get(self, url: str, *, params: dict[str, object] | None = None) -> dict:
+    def _get(self, url: str, *, params: dict[str, str | int] | None = None) -> dict:
         query = dict(params or {})
         parsed = urlparse(url)
         if "apiKey" not in parse_qs(parsed.query):
@@ -134,10 +139,8 @@ class MassiveUniverseProvider:
                     )
 
                 retry_after = None
-                try:
+                with suppress(TypeError, ValueError):
                     retry_after = float(response.headers.get("Retry-After", ""))
-                except (TypeError, ValueError):
-                    pass
 
                 delay = (
                     max(retry_after, 0.0)
@@ -180,7 +183,7 @@ class MassiveUniverseProvider:
         """Fetch all currently active stock reference rows in bulk."""
         output: list[UniverseSecurityClassification] = []
         url = self.URL
-        params: dict[str, object] | None = {
+        params: dict[str, str | int] | None = {
             "market": "stocks",
             "active": "true",
             "order": "asc",
@@ -221,9 +224,7 @@ class MassiveUniverseProvider:
                         security_type=self._security_type(provider_type),
                         source=self.SOURCE,
                         observed_at=observed_at,
-                        source_reference=(
-                            f"MASSIVE:TICKER:{symbol}:{normalized_cik}"
-                        ),
+                        source_reference=(f"MASSIVE:TICKER:{symbol}:{normalized_cik}"),
                         provider_type=provider_type,
                     )
                 )

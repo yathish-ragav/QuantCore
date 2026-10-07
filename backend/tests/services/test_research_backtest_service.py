@@ -20,7 +20,10 @@ from quantcore.services.research_rebalance_service import (
     ResearchRebalanceDefinition,
     ResearchRebalanceFrequency,
 )
-from quantcore.services.research_signal_service import ResearchSignalPanel, ResearchSignalRow
+from quantcore.services.research_signal_service import (
+    ResearchSignalPanel,
+    ResearchSignalRow,
+)
 from quantcore.services.research_strategy_service import (
     ResearchStrategyDefinition,
     ResearchStrategyDirection,
@@ -28,7 +31,6 @@ from quantcore.services.research_strategy_service import (
 from quantcore.services.research_transaction_cost_service import (
     ResearchTransactionCostDefinition,
 )
-
 
 AS_OF_0 = datetime(2026, 1, 2, 15, 30, tzinfo=timezone.utc)
 AS_OF_1 = datetime(2026, 1, 5, 15, 30, tzinfo=timezone.utc)
@@ -127,7 +129,10 @@ def prices(*values):
         AS_OF_1 + timedelta(hours=1),
         AS_OF_2 + timedelta(hours=1),
     )
-    return [Price(date, close) for date, close in zip(dates, values)]
+    return [
+        Price(date, close)
+        for date, close in zip(dates[: len(values)], values, strict=True)
+    ]
 
 
 def run_backtest(targets, price_history):
@@ -139,7 +144,6 @@ def run_backtest(targets, price_history):
         rebalance_definition(),
         transaction_cost_definition(),
     )
-
 
 
 class RevisedPrice:
@@ -161,12 +165,8 @@ def test_pit_price_selection_uses_revision_known_at_valuation_boundary():
     old_known = RevisedPrice(
         first_price_date, 100, AS_OF_0 - timedelta(hours=1), revision_number=1
     )
-    later_revision = RevisedPrice(
-        first_price_date, 50, AS_OF_1, revision_number=2
-    )
-    end_price = RevisedPrice(
-        end_price_date, 120, AS_OF_2, revision_number=1
-    )
+    later_revision = RevisedPrice(first_price_date, 50, AS_OF_1, revision_number=2)
+    end_price = RevisedPrice(end_price_date, 120, AS_OF_2, revision_number=1)
 
     result = run_backtest(
         targets,
@@ -186,9 +186,7 @@ def test_pit_price_selection_uses_latest_revision_known_by_boundary():
     first_revision = RevisedPrice(
         price_date, 100, AS_OF_0 - timedelta(hours=1), revision_number=1
     )
-    second_revision = RevisedPrice(
-        price_date, 110, AS_OF_0, revision_number=2
-    )
+    second_revision = RevisedPrice(price_date, 110, AS_OF_0, revision_number=2)
     end_price = RevisedPrice(end_date, 120, AS_OF_2, revision_number=1)
 
     result = run_backtest(
@@ -208,9 +206,7 @@ def test_pit_price_selection_skips_future_known_revision_and_uses_next_available
     available_date = AS_OF_0 + timedelta(hours=2)
     end_date = AS_OF_2 + timedelta(hours=1)
     future_known = RevisedPrice(unavailable_date, 100, AS_OF_1, revision_number=1)
-    available = RevisedPrice(
-        available_date, 105, AS_OF_0, revision_number=1
-    )
+    available = RevisedPrice(available_date, 105, AS_OF_0, revision_number=1)
     end_price = RevisedPrice(end_date, 120, AS_OF_2, revision_number=1)
 
     result = run_backtest(
@@ -232,7 +228,7 @@ def test_duplicate_pit_revision_identity_is_rejected():
     end_price = RevisedPrice(
         AS_OF_2 + timedelta(hours=1), 120, AS_OF_2, revision_number=1
     )
-    with pytest.raises(InvalidInputError, match="duplicate revisions"):
+    with pytest.raises(InvalidInputError, match=r"duplicate\ revisions"):
         run_backtest(targets, {1: [revision, duplicate, end_price]})
 
 
@@ -244,11 +240,10 @@ def test_naive_pit_known_at_is_rejected():
     price = RevisedPrice(
         AS_OF_0 + timedelta(hours=1), 100, AS_OF_0.replace(tzinfo=None)
     )
-    end_price = RevisedPrice(
-        AS_OF_2 + timedelta(hours=1), 120, AS_OF_2
-    )
-    with pytest.raises(InvalidInputError, match="known_at"):
+    end_price = RevisedPrice(AS_OF_2 + timedelta(hours=1), 120, AS_OF_2)
+    with pytest.raises(InvalidInputError, match=r"known_at"):
         run_backtest(targets, {1: [price, end_price]})
+
 
 def test_definition_requires_positive_capital():
     with pytest.raises(InvalidInputError):
@@ -347,7 +342,7 @@ def test_missing_price_is_rejected():
         target(AS_OF_0, row(1, 0.9, AS_OF_0)),
         target(AS_OF_2, row(1, 0.95, AS_OF_2)),
     ]
-    with pytest.raises(InvalidInputError, match="Missing historical price"):
+    with pytest.raises(InvalidInputError, match=r"Missing\ historical\ price"):
         run_backtest(targets, {1: prices(100)})
 
 
@@ -357,7 +352,7 @@ def test_targets_must_be_ascending():
         target(AS_OF_0, row(1, 0.95, AS_OF_0)),
         target(AS_OF_2, row(1, 0.95, AS_OF_2)),
     ]
-    with pytest.raises(InvalidInputError, match="ascending"):
+    with pytest.raises(InvalidInputError, match=r"ascending"):
         run_backtest(targets, {1: prices(100, 110, 120)})
 
 
@@ -366,7 +361,7 @@ def test_targets_must_cover_definition_boundaries():
         target(AS_OF_0, row(1, 0.9, AS_OF_0)),
         target(AS_OF_1, row(1, 0.95, AS_OF_1)),
     ]
-    with pytest.raises(InvalidInputError, match="boundaries"):
+    with pytest.raises(InvalidInputError, match=r"boundaries"):
         run_backtest(targets, {1: prices(100, 110, 120)})
 
 
@@ -385,9 +380,11 @@ def test_target_strategy_identity_must_match_definition():
         rows=(row(1, 0.9, AS_OF_0),),
         construction="TEST",
     )
-    first = ResearchPortfolioConstructionService().construct(other_strategy, other_panel, AS_OF_0)
+    first = ResearchPortfolioConstructionService().construct(
+        other_strategy, other_panel, AS_OF_0
+    )
     second = target(AS_OF_2, row(1, 0.9, AS_OF_2))
-    with pytest.raises(InvalidInputError, match="strategy identity"):
+    with pytest.raises(InvalidInputError, match=r"strategy\ identity"):
         run_backtest([first, second], {1: prices(100, 110, 120)})
 
 
@@ -401,7 +398,7 @@ def test_constraint_identity_must_match_definition():
         definition_version="1",
         max_position_weight=1.0,
     )
-    with pytest.raises(InvalidInputError, match="constraint identity"):
+    with pytest.raises(InvalidInputError, match=r"constraint\ identity"):
         ResearchBacktestService().run(
             definition(),
             targets,
@@ -422,7 +419,7 @@ def test_rebalance_identity_must_match_definition():
         definition_version="1",
         frequency=ResearchRebalanceFrequency.WEEKLY,
     )
-    with pytest.raises(InvalidInputError, match="rebalance identity"):
+    with pytest.raises(InvalidInputError, match=r"rebalance\ identity"):
         ResearchBacktestService().run(
             definition(),
             targets,
@@ -443,7 +440,7 @@ def test_transaction_cost_identity_must_match_definition():
         definition_version="1",
         one_way_cost_bps=10,
     )
-    with pytest.raises(InvalidInputError, match="transaction-cost identity"):
+    with pytest.raises(InvalidInputError, match=r"transaction\-cost\ identity"):
         ResearchBacktestService().run(
             definition(),
             targets,
@@ -458,7 +455,7 @@ def test_duplicate_target_as_of_is_rejected():
     first = target(AS_OF_0, row(1, 0.9, AS_OF_0))
     duplicate = target(AS_OF_0, row(1, 0.95, AS_OF_0))
     last = target(AS_OF_2, row(1, 0.95, AS_OF_2))
-    with pytest.raises(InvalidInputError, match="duplicate as_of"):
+    with pytest.raises(InvalidInputError, match=r"duplicate\ as_of"):
         run_backtest([first, duplicate, last], {1: prices(100, 110, 120)})
 
 
@@ -469,7 +466,7 @@ def test_duplicate_price_dates_are_rejected():
     ]
     p = prices(100, 110, 120)
     p.append(p[-1])
-    with pytest.raises(InvalidInputError, match="duplicate dates"):
+    with pytest.raises(InvalidInputError, match=r"duplicate\ dates"):
         run_backtest(targets, {1: p})
 
 
@@ -525,7 +522,7 @@ def test_non_constructed_target_is_rejected():
         end_as_of=AS_OF_2,
         initial_capital=1_000_000,
     )
-    with pytest.raises(InvalidInputError, match="constructed target portfolios"):
+    with pytest.raises(InvalidInputError, match=r"constructed\ target\ portfolios"):
         ResearchBacktestService().run(
             backtest_definition,
             [empty, empty_later],
@@ -569,7 +566,7 @@ def test_empty_target_portfolio_is_rejected_by_constraint_layer():
     empty = ResearchPortfolioConstructionService().construct(
         empty_strategy, empty_panel, AS_OF_0
     )
-    with pytest.raises(InvalidInputError, match="strategy identity"):
+    with pytest.raises(InvalidInputError, match=r"strategy\ identity"):
         run_backtest(
             [empty, target(AS_OF_2, row(1, 0.95, AS_OF_2))],
             {1: prices(100, 110, 120)},

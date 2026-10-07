@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 import requests
 
 from quantcore.core.config import settings
@@ -9,15 +11,10 @@ class SECUniverseProvider:
     SOURCE = "SEC"
     """Load the SEC ticker / CIK / exchange company universe."""
 
-    URL = (
-        "https://www.sec.gov/files/"
-        "company_tickers_exchange.json"
-    )
+    URL = "https://www.sec.gov/files/" "company_tickers_exchange.json"
 
-    HEADERS = {
-        "User-Agent": (
-            settings.SEC_USER_AGENT
-        ),
+    HEADERS: ClassVar[dict[str, str]] = {
+        "User-Agent": (settings.SEC_USER_AGENT),
         "Accept-Encoding": "gzip, deflate",
     }
 
@@ -31,9 +28,7 @@ class SECUniverseProvider:
             response.raise_for_status()
             payload = response.json()
         except requests.RequestException as exc:
-            raise ExternalDataError(
-                "Failed to retrieve SEC company universe."
-            ) from exc
+            raise ExternalDataError("Failed to retrieve SEC company universe.") from exc
         except ValueError as exc:
             raise DataValidationError(
                 "SEC company universe response was not valid JSON."
@@ -55,14 +50,10 @@ class SECUniverseProvider:
         ]
 
         if fields != expected_fields:
-            raise DataValidationError(
-                "Unexpected SEC universe schema."
-            )
+            raise DataValidationError("Unexpected SEC universe schema.")
 
         if not isinstance(rows, list):
-            raise DataValidationError(
-                "SEC universe data is not a list."
-            )
+            raise DataValidationError("SEC universe data is not a list.")
 
         companies: list[UniverseCompany] = []
 
@@ -84,16 +75,10 @@ class SECUniverseProvider:
                         cik=f"{int(cik):010d}",
                         symbol=str(ticker).strip().upper(),
                         name=str(name).strip(),
-                        exchange=(
-                            str(exchange).strip()
-                            if exchange
-                            else ""
-                        ),
+                        exchange=(str(exchange).strip() if exchange else ""),
                     )
                 )
         except (TypeError, ValueError) as exc:
-            raise DataValidationError(
-                "Invalid SEC universe record."
-            ) from exc
+            raise DataValidationError("Invalid SEC universe record.") from exc
 
         return companies

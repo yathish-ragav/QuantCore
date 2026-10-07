@@ -17,19 +17,10 @@ class PriceRepository:
     ) -> list[Price]:
 
         stmt = (
-            select(Price)
-            .where(
-                Price.security_id == security_id
-            )
-            .order_by(
-                Price.date
-            )
+            select(Price).where(Price.security_id == security_id).order_by(Price.date)
         )
 
-        return list(
-            self.db.scalars(stmt).all()
-        )
-
+        return list(self.db.scalars(stmt).all())
 
     def get_for_security_and_dates(
         self,
@@ -58,12 +49,9 @@ class PriceRepository:
         date: datetime,
     ) -> Price | None:
 
-        stmt = (
-            select(Price)
-            .where(
-                Price.security_id == security_id,
-                Price.date == date,
-            )
+        stmt = select(Price).where(
+            Price.security_id == security_id,
+            Price.date == date,
         )
 
         return self.db.scalar(stmt)

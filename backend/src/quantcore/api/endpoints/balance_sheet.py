@@ -10,7 +10,6 @@ from quantcore.schemas.responses import (
 )
 from quantcore.services.balance_sheet_service import BalanceSheetService
 
-
 router = APIRouter(
     prefix="/balance-sheets",
     tags=["Balance Sheets"],
@@ -27,9 +26,7 @@ def get_balance_sheets(
         default=None,
         description="Return the latest statement revisions known at this timestamp.",
     ),
-    service: BalanceSheetService = Depends(
-        get_balance_sheet_service
-    ),
+    service: BalanceSheetService = Depends(get_balance_sheet_service),
 ):
     normalized_symbol = symbol.strip().upper()
     statements = service.get_balance_sheets(
@@ -47,26 +44,18 @@ def get_balance_sheets(
             filing_date=statement.filing_date,
             filing_form=statement.filing_form,
             accession_number=statement.accession_number,
-            cash_and_cash_equivalents=(
-                statement.cash_and_cash_equivalents
-            ),
-            short_term_investments=(
-                statement.short_term_investments
-            ),
+            cash_and_cash_equivalents=(statement.cash_and_cash_equivalents),
+            short_term_investments=(statement.short_term_investments),
             accounts_receivable=statement.accounts_receivable,
             inventory=statement.inventory,
             total_current_assets=statement.total_current_assets,
-            property_plant_equipment_net=(
-                statement.property_plant_equipment_net
-            ),
+            property_plant_equipment_net=(statement.property_plant_equipment_net),
             goodwill=statement.goodwill,
             intangible_assets=statement.intangible_assets,
             total_assets=statement.total_assets,
             accounts_payable=statement.accounts_payable,
             short_term_debt=statement.short_term_debt,
-            total_current_liabilities=(
-                statement.total_current_liabilities
-            ),
+            total_current_liabilities=(statement.total_current_liabilities),
             long_term_debt=statement.long_term_debt,
             total_liabilities=statement.total_liabilities,
             total_equity=statement.total_equity,
@@ -86,9 +75,7 @@ def get_balance_sheets(
 )
 def sync_balance_sheets(
     symbol: str,
-    service: BalanceSheetService = Depends(
-        get_balance_sheet_service
-    ),
+    service: BalanceSheetService = Depends(get_balance_sheet_service),
 ):
     normalized_symbol = symbol.strip().upper()
     result = service.sync_balance_sheets(normalized_symbol)

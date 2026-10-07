@@ -8,7 +8,8 @@ from quantcore.models.provenance import DataSource
 def test_macro_series_has_source_aware_identity():
     table = MacroSeries.__table__
     constraint = next(
-        item for item in table.constraints
+        item
+        for item in table.constraints
         if getattr(item, "name", None) == "uq_macro_series_source_series_id"
     )
     assert [column.name for column in constraint.columns] == ["source", "series_id"]

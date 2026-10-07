@@ -5,7 +5,7 @@ from quantcore.analytics.ichimoku import IchimokuCloud
 
 def test_ichimoku_basic():
     highs = list(range(1, 53))
-    lows = list(range(0, 52))
+    lows = list(range(52))
 
     result = IchimokuCloud.calculate(
         highs,
@@ -66,7 +66,7 @@ def test_ichimoku_basic():
 
 def test_ichimoku_insufficient_data():
     highs = list(range(1, 20))
-    lows = list(range(0, 19))
+    lows = list(range(19))
 
     result = IchimokuCloud.calculate(
         highs,
@@ -86,7 +86,7 @@ def test_ichimoku_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         IchimokuCloud.calculate(
             highs,

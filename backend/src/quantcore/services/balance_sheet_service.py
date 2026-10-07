@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from quantcore.core.enums import FinancialStatementType
 from quantcore.core.exceptions import (
     DataValidationError,
     InvalidInputError,
@@ -11,27 +12,28 @@ from quantcore.ingestion.providers.financial_factory import (
     FinancialProviderFactory,
 )
 from quantcore.models.provenance import DataSource
-from quantcore.core.enums import FinancialStatementType
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
 from quantcore.processing.validator import DataValidator
 from quantcore.repositories.balance_sheet_repository import (
     BalanceSheetRepository,
 )
-from quantcore.repositories.security_repository import SecurityRepository
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
-from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.financial_statement_revision_repository import (
     FinancialStatementRevisionRepository,
 )
+from quantcore.repositories.sec_filing_repository import SECFilingRepository
+from quantcore.repositories.security_repository import SecurityRepository
 from quantcore.services.financial_statement_revision import (
     FinancialStatementSyncResult,
     apply_statement_data,
-    create_revision,
-    cached_statement_known_at,
     build_statement_known_at_cache,
+    cached_statement_known_at,
+    create_revision,
     get_statements_as_of,
     statement_changed,
+)
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
 )
 
 
@@ -49,17 +51,13 @@ class BalanceSheetService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         security = self.security_repo.get_by_symbol(symbol)
         company = security.company if security is not None else None
 
         if company is None:
-            raise ResourceNotFoundError(
-                f"Company not found: {symbol}"
-            )
+            raise ResourceNotFoundError(f"Company not found: {symbol}")
 
         return security, company
 
@@ -96,9 +94,7 @@ class BalanceSheetService:
             symbol = DataCleaner.clean_symbol(symbol)
 
             if not symbol:
-                raise InvalidInputError(
-                    "Symbol must not be empty."
-                )
+                raise InvalidInputError("Symbol must not be empty.")
 
             _, company = self.get_company_for_symbol(symbol)
 
@@ -107,14 +103,11 @@ class BalanceSheetService:
             statements = DataTransformer.balance_sheets(raw_statements)
 
             statements = [
-                DataCleaner.clean_balance_sheet(statement)
-                for statement in statements
+                DataCleaner.clean_balance_sheet(statement) for statement in statements
             ]
 
             if not DataValidator.validate_balance_sheets(statements):
-                raise DataValidationError(
-                    f"Invalid balance sheet data for '{symbol}'."
-                )
+                raise DataValidationError(f"Invalid balance sheet data for '{symbol}'.")
 
             created = 0
             updated = 0
@@ -135,56 +128,57 @@ class BalanceSheetService:
             created_statements = []
             changed_statements = []
 
-
             for data in statements:
 
-                existing = existing_by_key.get(
-                    (data.fiscal_date, data.period_type)
-                )
+                existing = existing_by_key.get((data.fiscal_date, data.period_type))
 
                 if existing is None:
                     statement = self.statement_repo.create(
-                    company_id=company.id,
-                    fiscal_date=data.fiscal_date,
-                    period_start=data.period_start,
-                    fiscal_year=data.fiscal_year,
-                    fiscal_period=data.fiscal_period,
-                    period_type=data.period_type,
-                    filing_date=data.filing_date,
-                    filing_form=data.filing_form,
-                    accession_number=data.accession_number,
-                    cash_and_cash_equivalents=data.cash_and_cash_equivalents,
-                    short_term_investments=data.short_term_investments,
-                    accounts_receivable=data.accounts_receivable,
-                    inventory=data.inventory,
-                    total_current_assets=data.total_current_assets,
-                    property_plant_equipment_net=data.property_plant_equipment_net,
-                    goodwill=data.goodwill,
-                    intangible_assets=data.intangible_assets,
-                    total_assets=data.total_assets,
-                    accounts_payable=data.accounts_payable,
-                    short_term_debt=data.short_term_debt,
-                    total_current_liabilities=data.total_current_liabilities,
-                    long_term_debt=data.long_term_debt,
-                    total_liabilities=data.total_liabilities,
-                    total_equity=data.total_equity,
-                    retained_earnings=data.retained_earnings,
-                    total_debt=data.total_debt,
-                    net_debt=data.net_debt,
-                    working_capital=data.working_capital,
-                    source=source,
-                    fetched_at=fetched_at,
+                        company_id=company.id,
+                        fiscal_date=data.fiscal_date,
+                        period_start=data.period_start,
+                        fiscal_year=data.fiscal_year,
+                        fiscal_period=data.fiscal_period,
+                        period_type=data.period_type,
+                        filing_date=data.filing_date,
+                        filing_form=data.filing_form,
+                        accession_number=data.accession_number,
+                        cash_and_cash_equivalents=data.cash_and_cash_equivalents,
+                        short_term_investments=data.short_term_investments,
+                        accounts_receivable=data.accounts_receivable,
+                        inventory=data.inventory,
+                        total_current_assets=data.total_current_assets,
+                        property_plant_equipment_net=data.property_plant_equipment_net,
+                        goodwill=data.goodwill,
+                        intangible_assets=data.intangible_assets,
+                        total_assets=data.total_assets,
+                        accounts_payable=data.accounts_payable,
+                        short_term_debt=data.short_term_debt,
+                        total_current_liabilities=data.total_current_liabilities,
+                        long_term_debt=data.long_term_debt,
+                        total_liabilities=data.total_liabilities,
+                        total_equity=data.total_equity,
+                        retained_earnings=data.retained_earnings,
+                        total_debt=data.total_debt,
+                        net_debt=data.net_debt,
+                        working_capital=data.working_capital,
+                        source=source,
+                        fetched_at=fetched_at,
                     )
                     created_statements.append(statement)
                     existing_by_key[(data.fiscal_date, data.period_type)] = statement
                     created += 1
                     continue
 
-                if not statement_changed(existing, data, FinancialStatementType.BALANCE_SHEET):
+                if not statement_changed(
+                    existing, data, FinancialStatementType.BALANCE_SHEET
+                ):
                     unchanged += 1
                     continue
 
-                apply_statement_data(existing, data, FinancialStatementType.BALANCE_SHEET)
+                apply_statement_data(
+                    existing, data, FinancialStatementType.BALANCE_SHEET
+                )
                 existing.source = source
                 existing.fetched_at = fetched_at
                 changed_statements.append(existing)

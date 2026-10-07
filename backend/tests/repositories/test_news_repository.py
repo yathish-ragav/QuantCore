@@ -23,7 +23,7 @@ def make_news():
     article.publisher = "Example News"
     article.summary = "Apple reported strong quarterly results."
     article.url = "https://example.com/apple-earnings"
-    article.published_at = datetime(
+    article.published_at = datetime(  # noqa: DTZ001
         2026,
         1,
         2,
@@ -42,7 +42,7 @@ def test_create_adds_article_to_database():
         publisher="Example News",
         summary="Apple reported strong quarterly results.",
         url="https://example.com/apple-earnings",
-        published_at=datetime(
+        published_at=datetime(  # noqa: DTZ001
             2026,
             1,
             2,
@@ -52,9 +52,7 @@ def test_create_adds_article_to_database():
     assert article.company_id == 10
     assert article.title == "Apple reports strong earnings"
     assert article.publisher == "Example News"
-    assert article.url == (
-        "https://example.com/apple-earnings"
-    )
+    assert article.url == ("https://example.com/apple-earnings")
 
     db.add.assert_called_once_with(article)
 
@@ -71,9 +69,7 @@ def test_get_by_url_returns_existing_article():
 
     db.scalar.return_value = article
 
-    result = repository.get_by_url(
-        article.url
-    )
+    result = repository.get_by_url(article.url)
 
     assert result == article
 
@@ -89,9 +85,7 @@ def test_get_by_url_returns_none_when_article_not_found():
 
     db.scalar.return_value = None
 
-    result = repository.get_by_url(
-        "https://example.com/missing"
-    )
+    result = repository.get_by_url("https://example.com/missing")
 
     assert result is None
 
@@ -128,7 +122,7 @@ def test_get_by_company_and_date_returns_none_when_not_found():
 
     db.scalar.return_value = None
 
-    published_at = datetime(
+    published_at = datetime(  # noqa: DTZ001
         2026,
         1,
         2,
@@ -158,9 +152,7 @@ def test_get_for_company_returns_articles():
 
     db.scalars.return_value.all.return_value = articles
 
-    result = repository.get_for_company(
-        company_id=10
-    )
+    result = repository.get_for_company(company_id=10)
 
     assert result == articles
 
@@ -178,9 +170,7 @@ def test_get_for_company_returns_empty_list():
 
     db.scalars.return_value.all.return_value = []
 
-    result = repository.get_for_company(
-        company_id=999
-    )
+    result = repository.get_for_company(company_id=999)
 
     assert result == []
 

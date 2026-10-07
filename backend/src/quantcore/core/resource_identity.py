@@ -18,9 +18,13 @@ class ResourceOwner:
         if not subject:
             raise InvalidInputError("Resource owner subject must not be empty.")
         if len(issuer) > 500:
-            raise InvalidInputError("Resource owner issuer must be at most 500 characters.")
+            raise InvalidInputError(
+                "Resource owner issuer must be at most 500 characters."
+            )
         if len(subject) > 255:
-            raise InvalidInputError("Resource owner subject must be at most 255 characters.")
+            raise InvalidInputError(
+                "Resource owner subject must be at most 255 characters."
+            )
         object.__setattr__(self, "issuer", issuer)
         object.__setattr__(self, "subject", subject)
 

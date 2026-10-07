@@ -30,8 +30,13 @@ class ResearchPortfolioConstraintDefinition:
     def __post_init__(self) -> None:
         if not isinstance(self.constraint_key, str) or not self.constraint_key.strip():
             raise InvalidInputError("Constraint key must be a non-empty string.")
-        if not isinstance(self.definition_version, str) or not self.definition_version.strip():
-            raise InvalidInputError("Constraint definition version must be a non-empty string.")
+        if (
+            not isinstance(self.definition_version, str)
+            or not self.definition_version.strip()
+        ):
+            raise InvalidInputError(
+                "Constraint definition version must be a non-empty string."
+            )
 
         values = {
             "max_position_weight": self.max_position_weight,
@@ -42,16 +47,24 @@ class ResearchPortfolioConstraintDefinition:
             "max_short_exposure": self.max_short_exposure,
         }
         normalized = {
-            name: self._validate_limit(value, name, non_negative=name not in {"min_net_exposure", "max_net_exposure"})
+            name: self._validate_limit(
+                value,
+                name,
+                non_negative=name not in {"min_net_exposure", "max_net_exposure"},
+            )
             for name, value in values.items()
         }
         if all(value is None for value in normalized.values()):
-            raise InvalidInputError("At least one portfolio constraint must be configured.")
+            raise InvalidInputError(
+                "At least one portfolio constraint must be configured."
+            )
 
         min_net = normalized["min_net_exposure"]
         max_net = normalized["max_net_exposure"]
         if min_net is not None and max_net is not None and min_net > max_net:
-            raise InvalidInputError("min_net_exposure must not exceed max_net_exposure.")
+            raise InvalidInputError(
+                "min_net_exposure must not exceed max_net_exposure."
+            )
 
         if self.description is not None and not isinstance(self.description, str):
             raise InvalidInputError("Constraint description must be a string or None.")
@@ -64,7 +77,9 @@ class ResearchPortfolioConstraintDefinition:
             object.__setattr__(self, "description", self.description.strip() or None)
 
     @staticmethod
-    def _validate_limit(value: float | None, name: str, non_negative: bool) -> float | None:
+    def _validate_limit(
+        value: float | None, name: str, non_negative: bool
+    ) -> float | None:
         if value is None:
             return None
         if isinstance(value, bool):
@@ -134,10 +149,14 @@ class ResearchPortfolioConstraintService:
             (abs(position.target_weight) for position in portfolio.positions),
             default=0.0,
         )
-        gross_exposure = sum(abs(position.target_weight) for position in portfolio.positions)
+        gross_exposure = sum(
+            abs(position.target_weight) for position in portfolio.positions
+        )
         net_exposure = sum(position.target_weight for position in portfolio.positions)
         long_exposure = sum(
-            position.target_weight for position in portfolio.positions if position.target_weight > 0.0
+            position.target_weight
+            for position in portfolio.positions
+            if position.target_weight > 0.0
         )
         short_exposure = sum(
             abs(position.target_weight)
@@ -162,7 +181,9 @@ class ResearchPortfolioConstraintService:
         ):
             violations.append(
                 ResearchPortfolioConstraintViolation(
-                    "max_position_weight", max_position_weight, definition.max_position_weight
+                    "max_position_weight",
+                    max_position_weight,
+                    definition.max_position_weight,
                 )
             )
         if (
@@ -174,25 +195,37 @@ class ResearchPortfolioConstraintService:
                     "max_gross_exposure", gross_exposure, definition.max_gross_exposure
                 )
             )
-        if definition.min_net_exposure is not None and net_exposure < definition.min_net_exposure:
+        if (
+            definition.min_net_exposure is not None
+            and net_exposure < definition.min_net_exposure
+        ):
             violations.append(
                 ResearchPortfolioConstraintViolation(
                     "min_net_exposure", net_exposure, definition.min_net_exposure
                 )
             )
-        if definition.max_net_exposure is not None and net_exposure > definition.max_net_exposure:
+        if (
+            definition.max_net_exposure is not None
+            and net_exposure > definition.max_net_exposure
+        ):
             violations.append(
                 ResearchPortfolioConstraintViolation(
                     "max_net_exposure", net_exposure, definition.max_net_exposure
                 )
             )
-        if definition.max_long_exposure is not None and long_exposure > definition.max_long_exposure:
+        if (
+            definition.max_long_exposure is not None
+            and long_exposure > definition.max_long_exposure
+        ):
             violations.append(
                 ResearchPortfolioConstraintViolation(
                     "max_long_exposure", long_exposure, definition.max_long_exposure
                 )
             )
-        if definition.max_short_exposure is not None and short_exposure > definition.max_short_exposure:
+        if (
+            definition.max_short_exposure is not None
+            and short_exposure > definition.max_short_exposure
+        ):
             violations.append(
                 ResearchPortfolioConstraintViolation(
                     "max_short_exposure", short_exposure, definition.max_short_exposure
@@ -233,7 +266,9 @@ class ResearchPortfolioConstraintService:
                 "Portfolio constraint validation requires a ResearchPortfolioConstraintDefinition."
             )
         if not isinstance(portfolio.as_of, datetime) or portfolio.as_of.tzinfo is None:
-            raise InvalidInputError("Portfolio constraint as_of must be timezone-aware.")
+            raise InvalidInputError(
+                "Portfolio constraint as_of must be timezone-aware."
+            )
         if not isinstance(portfolio.positions, tuple):
             raise InvalidInputError("Portfolio positions must be an immutable tuple.")
         for position in portfolio.positions:

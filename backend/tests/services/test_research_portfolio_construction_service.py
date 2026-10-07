@@ -17,7 +17,6 @@ from quantcore.services.research_strategy_service import (
     ResearchStrategyDirection,
 )
 
-
 AS_OF = datetime(2026, 1, 2, 15, 30, tzinfo=timezone.utc)
 
 
@@ -27,8 +26,12 @@ def strategy(direction=ResearchStrategyDirection.LONG_ONLY, **overrides):
         "definition_version": "1",
         "signal_identity": ("quality_signal", "1"),
         "direction": direction,
-        "long_threshold": 0.8 if direction is not ResearchStrategyDirection.SHORT_ONLY else None,
-        "short_threshold": 0.2 if direction is ResearchStrategyDirection.SHORT_ONLY else None,
+        "long_threshold": (
+            0.8 if direction is not ResearchStrategyDirection.SHORT_ONLY else None
+        ),
+        "short_threshold": (
+            0.2 if direction is ResearchStrategyDirection.SHORT_ONLY else None
+        ),
     }
     if direction is ResearchStrategyDirection.LONG_SHORT:
         values.update(long_threshold=0.8, short_threshold=0.2)
@@ -154,7 +157,7 @@ def test_rejects_signal_identity_mismatch():
 def test_rejects_naive_as_of():
     with pytest.raises(InvalidInputError):
         ResearchPortfolioConstructionService().construct(
-            strategy(), panel(row(1, 0.9)), datetime(2026, 1, 2, 15, 30)
+            strategy(), panel(row(1, 0.9)), datetime(2026, 1, 2, 15, 30)  # noqa: DTZ001
         )
 
 

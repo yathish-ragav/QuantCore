@@ -15,17 +15,10 @@ def test_ingestion_lineage_has_execution_and_entity_identity():
     assert columns.recorded_at is not None
 
     constraints = IngestionLineage.__table__.constraints
+    assert any(c.name == "uq_ingestion_lineage_run_entity" for c in constraints)
+    assert any(c.name == "ck_ingestion_lineage_scope_entity" for c in constraints)
     assert any(
-        c.name == "uq_ingestion_lineage_run_entity"
-        for c in constraints
-    )
-    assert any(
-        c.name == "ck_ingestion_lineage_scope_entity"
-        for c in constraints
-    )
-    assert any(
-        c.name == "ck_ingestion_lineage_records_nonnegative"
-        for c in constraints
+        c.name == "ck_ingestion_lineage_records_nonnegative" for c in constraints
     )
 
 

@@ -5,8 +5,16 @@ from quantcore.analytics.macd import MACD
 
 def test_macd_basic():
     prices = [
-        10, 11, 12, 13, 14,
-        15, 16, 17, 18, 19,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
     ]
 
     result = MACD.macd(
@@ -93,8 +101,16 @@ def test_macd_insufficient_data():
 
 def test_macd_histogram_equals_macd_minus_signal():
     prices = [
-        10, 11, 12, 13, 14,
-        15, 16, 17, 18, 19,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15,
+        16,
+        17,
+        18,
+        19,
     ]
 
     result = MACD.macd(
@@ -105,10 +121,5 @@ def test_macd_histogram_equals_macd_minus_signal():
     )
 
     for value in result:
-        if (
-            value["macd"] is not None
-            and value["signal"] is not None
-        ):
-            assert value["histogram"] == pytest.approx(
-                value["macd"] - value["signal"]
-            )
+        if value["macd"] is not None and value["signal"] is not None:
+            assert value["histogram"] == pytest.approx(value["macd"] - value["signal"])

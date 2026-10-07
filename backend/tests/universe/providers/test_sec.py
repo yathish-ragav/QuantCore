@@ -1,5 +1,7 @@
 from unittest.mock import Mock, patch
 
+import pytest
+
 from quantcore.universe.providers.sec import (
     SECUniverseProvider,
 )
@@ -23,9 +25,7 @@ def make_response(data):
     return response
 
 
-@patch(
-    "quantcore.universe.providers.sec.requests.get"
-)
+@patch("quantcore.universe.providers.sec.requests.get")
 def test_sec_universe_fetch(mock_get):
 
     mock_get.return_value = make_response(
@@ -60,9 +60,7 @@ def test_sec_universe_fetch(mock_get):
     assert result[1].symbol == "MSFT"
 
 
-@patch(
-    "quantcore.universe.providers.sec.requests.get"
-)
+@patch("quantcore.universe.providers.sec.requests.get")
 def test_sec_universe_skips_invalid_records(
     mock_get,
 ):
@@ -105,31 +103,22 @@ def test_sec_universe_skips_invalid_records(
     assert result[0].symbol == "AAPL"
 
 
-@patch(
-    "quantcore.universe.providers.sec.requests.get"
-)
+@patch("quantcore.universe.providers.sec.requests.get")
 def test_sec_universe_http_error(mock_get):
 
     response = Mock()
 
-    response.raise_for_status.side_effect = (
-        RuntimeError("SEC request failed")
-    )
+    response.raise_for_status.side_effect = RuntimeError("SEC request failed")
 
     mock_get.return_value = response
 
     provider = SECUniverseProvider()
 
-    try:
+    with pytest.raises(RuntimeError, match=r"SEC request failed"):
         provider.fetch()
-        assert False
-    except RuntimeError as exc:
-        assert str(exc) == "SEC request failed"
 
 
-@patch(
-    "quantcore.universe.providers.sec.requests.get"
-)
+@patch("quantcore.universe.providers.sec.requests.get")
 def test_sec_universe_rejects_unexpected_schema(
     mock_get,
 ):
@@ -150,10 +139,5 @@ def test_sec_universe_rejects_unexpected_schema(
 
     provider = SECUniverseProvider()
 
-    try:
+    with pytest.raises(ValueError, match=r"Unexpected SEC universe schema\."):
         provider.fetch()
-        assert False
-    except ValueError as exc:
-        assert str(exc) == (
-            "Unexpected SEC universe schema."
-        )

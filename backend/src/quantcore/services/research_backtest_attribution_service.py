@@ -1,7 +1,7 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from math import isfinite
-from typing import Mapping
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_backtest_service import (
@@ -83,7 +83,9 @@ class ResearchBacktestAttributionService:
         self,
         backtest: ResearchBacktest,
         target_portfolios: tuple[ResearchPortfolio, ...],
-        price_history_by_security: Mapping[int, tuple[ResearchBacktestPriceObservation, ...]],
+        price_history_by_security: Mapping[
+            int, tuple[ResearchBacktestPriceObservation, ...]
+        ],
     ) -> ResearchBacktestAttribution:
         self._validate_inputs(backtest, target_portfolios, price_history_by_security)
 
@@ -93,14 +95,16 @@ class ResearchBacktestAttributionService:
         total_long = 0.0
         total_short = 0.0
 
-        for period, portfolio in zip(backtest.periods, target_portfolios):
+        for period, portfolio in zip(backtest.periods, target_portfolios, strict=True):
             contributions: list[ResearchBacktestPositionAttribution] = []
             long_contribution = 0.0
             short_contribution = 0.0
 
             capital_scale = period.starting_equity / backtest.initial_capital
             if not isfinite(capital_scale) or capital_scale <= 0.0:
-                raise InvalidInputError("Backtest attribution capital scale must be finite and positive.")
+                raise InvalidInputError(
+                    "Backtest attribution capital scale must be finite and positive."
+                )
 
             for position in portfolio.positions:
                 prices = self._normalize_prices(
@@ -126,12 +130,16 @@ class ResearchBacktestAttributionService:
                 start_price = self._select_price(start, backtest.price_basis)
                 end_price = self._select_price(end, backtest.price_basis)
                 if start_price <= 0.0 or end_price <= 0.0:
-                    raise InvalidInputError("Backtest attribution prices must be strictly positive.")
+                    raise InvalidInputError(
+                        "Backtest attribution prices must be strictly positive."
+                    )
 
                 security_return = end_price / start_price - 1.0
                 contribution = float(position.target_weight) * security_return
                 if not isfinite(security_return) or not isfinite(contribution):
-                    raise InvalidInputError("Backtest attribution values must be finite.")
+                    raise InvalidInputError(
+                        "Backtest attribution values must be finite."
+                    )
 
                 item = ResearchBacktestPositionAttribution(
                     period_start=period.period_start,
@@ -158,18 +166,25 @@ class ResearchBacktestAttributionService:
 
             cost_drag = period.net_return - period.gross_return
             if not isfinite(cost_drag):
-                raise InvalidInputError("Backtest transaction-cost drag must be finite.")
+                raise InvalidInputError(
+                    "Backtest transaction-cost drag must be finite."
+                )
 
             return_contribution = capital_scale * gross_return
             transaction_cost_return_contribution = capital_scale * cost_drag
-            if not isfinite(return_contribution) or not isfinite(transaction_cost_return_contribution):
+            if not isfinite(return_contribution) or not isfinite(
+                transaction_cost_return_contribution
+            ):
                 raise InvalidInputError("Backtest return attribution must be finite.")
             net_return_contribution = capital_scale * period.net_return
-            if abs(
-                return_contribution
-                + transaction_cost_return_contribution
-                - net_return_contribution
-            ) > 1e-12:
+            if (
+                abs(
+                    return_contribution
+                    + transaction_cost_return_contribution
+                    - net_return_contribution
+                )
+                > 1e-12
+            ):
                 raise InvalidInputError(
                     "Backtest period attribution does not reconcile to net return."
                 )
@@ -201,7 +216,9 @@ class ResearchBacktestAttributionService:
                 "Backtest attribution does not reconcile gross contributions."
             )
         if abs(total_long + total_short + total_cost_contribution - total_net) > 1e-12:
-            raise InvalidInputError("Backtest attribution does not reconcile to total return.")
+            raise InvalidInputError(
+                "Backtest attribution does not reconcile to total return."
+            )
         return ResearchBacktestAttribution(
             backtest_identity=(
                 backtest.backtest_key,
@@ -227,16 +244,18 @@ class ResearchBacktestAttributionService:
             if observation_date <= boundary:
                 continue
 
-            candidates = [
-                observation
-                for observation in prices
-                if observation.date == observation_date
-                and (
-                    knowledge_as_of is None
-                    or getattr(observation, "known_at", None) is None
-                    or observation.known_at <= knowledge_as_of
-                )
-            ]
+            candidates = []
+            for observation in prices:
+                if observation.date != observation_date:
+                    continue
+                known_at = getattr(observation, "known_at", None)
+                if (
+                    knowledge_as_of is not None
+                    and known_at is not None
+                    and known_at > knowledge_as_of
+                ):
+                    continue
+                candidates.append(observation)
             if not candidates:
                 continue
 
@@ -258,7 +277,11 @@ class ResearchBacktestAttributionService:
 
     @staticmethod
     def _select_price(observation, price_basis) -> float:
-        value = observation.close if price_basis.value == "UNADJUSTED" else observation.adjusted_close
+        value = (
+            observation.close
+            if price_basis.value == "UNADJUSTED"
+            else observation.adjusted_close
+        )
         if value is None:
             raise InvalidInputError(
                 "Adjusted-price attribution requires adjusted_close for every valuation observation."
@@ -266,7 +289,9 @@ class ResearchBacktestAttributionService:
         try:
             numeric = float(value)
         except (TypeError, ValueError) as exc:
-            raise InvalidInputError("Backtest attribution prices must be numeric.") from exc
+            raise InvalidInputError(
+                "Backtest attribution prices must be numeric."
+            ) from exc
         if not isfinite(numeric):
             raise InvalidInputError("Backtest attribution prices must be finite.")
         return numeric
@@ -276,19 +301,24 @@ class ResearchBacktestAttributionService:
         try:
             values = tuple(observations)
         except TypeError as exc:
-            raise InvalidInputError("Backtest attribution price history must be iterable.") from exc
+            raise InvalidInputError(
+                "Backtest attribution price history must be iterable."
+            ) from exc
         seen_dates: set[datetime] = set()
         normalized: list[ResearchBacktestPriceObservation] = []
         for observation in values:
             date = getattr(observation, "date", None)
             if not isinstance(date, datetime) or date.tzinfo is None:
-                raise InvalidInputError("Backtest attribution price dates must be timezone-aware.")
+                raise InvalidInputError(
+                    "Backtest attribution price dates must be timezone-aware."
+                )
             known_at = getattr(observation, "known_at", None)
-            if known_at is not None:
-                if not isinstance(known_at, datetime) or known_at.tzinfo is None:
-                    raise InvalidInputError(
-                        "Backtest attribution price known_at must be timezone-aware."
-                    )
+            if known_at is not None and (
+                not isinstance(known_at, datetime) or known_at.tzinfo is None
+            ):
+                raise InvalidInputError(
+                    "Backtest attribution price known_at must be timezone-aware."
+                )
             if date in seen_dates and known_at is None:
                 raise InvalidInputError(
                     "Backtest attribution price history contains duplicate dates."
@@ -317,23 +347,31 @@ class ResearchBacktestAttributionService:
         return tuple(sorted(normalized, key=lambda item: item.date))
 
     @staticmethod
-    def _validate_inputs(backtest, target_portfolios, price_history_by_security) -> None:
+    def _validate_inputs(
+        backtest, target_portfolios, price_history_by_security
+    ) -> None:
         if not isinstance(backtest, ResearchBacktest):
             raise InvalidInputError("Attribution requires a ResearchBacktest.")
         if backtest.status.value != "COMPLETED":
             raise InvalidInputError("Attribution requires a completed backtest.")
         if not isinstance(target_portfolios, tuple):
-            raise InvalidInputError("Attribution target portfolios must be supplied as a tuple.")
+            raise InvalidInputError(
+                "Attribution target portfolios must be supplied as a tuple."
+            )
         if len(target_portfolios) != len(backtest.periods):
             raise InvalidInputError(
                 "Attribution requires one target portfolio for each completed backtest period."
             )
         if not isinstance(price_history_by_security, Mapping):
-            raise InvalidInputError("Attribution price history must be keyed by security ID.")
+            raise InvalidInputError(
+                "Attribution price history must be keyed by security ID."
+            )
 
-        for portfolio, period in zip(target_portfolios, backtest.periods):
+        for portfolio, period in zip(target_portfolios, backtest.periods, strict=True):
             if not isinstance(portfolio, ResearchPortfolio):
-                raise InvalidInputError("Attribution targets must use ResearchPortfolio.")
+                raise InvalidInputError(
+                    "Attribution targets must use ResearchPortfolio."
+                )
             if portfolio.status is not ResearchPortfolioConstructionStatus.CONSTRUCTED:
                 raise InvalidInputError(
                     "Attribution targets must be constructed portfolios."
@@ -346,4 +384,6 @@ class ResearchBacktestAttributionService:
                 portfolio.strategy_key,
                 portfolio.strategy_definition_version,
             ) != backtest.strategy_identity:
-                raise InvalidInputError("Attribution strategy identity does not match the backtest.")
+                raise InvalidInputError(
+                    "Attribution strategy identity does not match the backtest."
+                )

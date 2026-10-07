@@ -2,13 +2,11 @@ from datetime import date
 from unittest.mock import Mock, patch
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
-
 
 client = TestClient(app)
 
@@ -58,12 +56,8 @@ def make_statement(
     statement.free_cash_flow = free_cash_flow
     statement.investing_cash_flow = investing_cash_flow
     statement.financing_cash_flow = financing_cash_flow
-    statement.depreciation_and_amortization = (
-        depreciation_and_amortization
-    )
-    statement.stock_based_compensation = (
-        stock_based_compensation
-    )
+    statement.depreciation_and_amortization = depreciation_and_amortization
+    statement.stock_based_compensation = stock_based_compensation
     statement.dividends_paid = dividends_paid
     statement.share_repurchases = share_repurchases
     statement.net_change_in_cash = net_change_in_cash
@@ -82,13 +76,9 @@ def test_get_cash_flow_statements_returns_statements():
 
         mock_service_class.return_value = service
 
-        service.get_cash_flow_statements.return_value = [
-            statement
-        ]
+        service.get_cash_flow_statements.return_value = [statement]
 
-        response = client.get(
-            "/cash-flow-statements/AAPL"
-        )
+        response = client.get("/cash-flow-statements/AAPL")
 
     assert response.status_code == 200
 
@@ -134,9 +124,7 @@ def test_get_cash_flow_statements_returns_empty_list():
 
         service.get_cash_flow_statements.return_value = []
 
-        response = client.get(
-            "/cash-flow-statements/AAPL"
-        )
+        response = client.get("/cash-flow-statements/AAPL")
 
     assert response.status_code == 200
 
@@ -154,9 +142,7 @@ def test_get_cash_flow_statements_normalizes_lowercase_symbol():
 
         service.get_cash_flow_statements.return_value = []
 
-        response = client.get(
-            "/cash-flow-statements/aapl"
-        )
+        response = client.get("/cash-flow-statements/aapl")
 
     assert response.status_code == 200
 
@@ -164,7 +150,6 @@ def test_get_cash_flow_statements_normalizes_lowercase_symbol():
         "AAPL",
         as_of=None,
     )
-
 
 
 def test_get_cash_flow_statements_supports_as_of_query():
@@ -176,13 +161,15 @@ def test_get_cash_flow_statements_supports_as_of_query():
         mock_service_class.return_value = service
         service.get_cash_flow_statements.return_value = []
 
-        response = client.get(
-            "/cash-flow-statements/AAPL?as_of=2026-01-05T12:00:00Z"
-        )
+        response = client.get("/cash-flow-statements/AAPL?as_of=2026-01-05T12:00:00Z")
 
     assert response.status_code == 200
     service.get_cash_flow_statements.assert_called_once()
-    assert service.get_cash_flow_statements.call_args.kwargs["as_of"].isoformat() == "2026-01-05T12:00:00+00:00"
+    assert (
+        service.get_cash_flow_statements.call_args.kwargs["as_of"].isoformat()
+        == "2026-01-05T12:00:00+00:00"
+    )
+
 
 def test_sync_cash_flow_statements_returns_statements_added():
     with patch(
@@ -197,9 +184,7 @@ def test_sync_cash_flow_statements_returns_statements_added():
             created=2, updated=1, unchanged=3, records_processed=6
         )
 
-        response = client.post(
-            "/cash-flow-statements/AAPL/sync"
-        )
+        response = client.post("/cash-flow-statements/AAPL/sync")
 
     assert response.status_code == 200
 
@@ -211,9 +196,7 @@ def test_sync_cash_flow_statements_returns_statements_added():
         "records_processed": 6,
     }
 
-    service.sync_cash_flow_statements.assert_called_once_with(
-        "AAPL"
-    )
+    service.sync_cash_flow_statements.assert_called_once_with("AAPL")
 
 
 def test_sync_cash_flow_statements_returns_zero_when_none_added():
@@ -229,9 +212,7 @@ def test_sync_cash_flow_statements_returns_zero_when_none_added():
             created=0, updated=0, unchanged=0, records_processed=0
         )
 
-        response = client.post(
-            "/cash-flow-statements/AAPL/sync"
-        )
+        response = client.post("/cash-flow-statements/AAPL/sync")
 
     assert response.status_code == 200
 

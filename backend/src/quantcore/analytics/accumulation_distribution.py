@@ -1,25 +1,17 @@
-from typing import List
-
-
 class AccumulationDistribution:
 
     @staticmethod
     def ad(
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
-        volumes: List[float],
-    ) -> List[float | None]:
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
+        volumes: list[float],
+    ) -> list[float | None]:
 
-        if not (
-            len(highs)
-            == len(lows)
-            == len(closes)
-            == len(volumes)
-        ):
+        if not (len(highs) == len(lows) == len(closes) == len(volumes)):
             raise ValueError("Input lengths must match.")
 
-        result = [None] * len(closes)
+        result: list[float | None] = [None] * len(closes)
 
         ad_value = 0.0
 
@@ -31,13 +23,10 @@ class AccumulationDistribution:
                 money_flow_multiplier = 0.0
             else:
                 money_flow_multiplier = (
-                    ((closes[i] - lows[i]) - (highs[i] - closes[i]))
-                    / price_range
-                )
+                    (closes[i] - lows[i]) - (highs[i] - closes[i])
+                ) / price_range
 
-            money_flow_volume = (
-                money_flow_multiplier * volumes[i]
-            )
+            money_flow_volume = money_flow_multiplier * volumes[i]
 
             ad_value += money_flow_volume
 

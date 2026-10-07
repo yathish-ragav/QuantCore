@@ -1,14 +1,11 @@
-from typing import List
-
-
 class PositiveVolumeIndex:
 
     @staticmethod
     def calculate(
-        closes: List[float],
-        volumes: List[float],
+        closes: list[float],
+        volumes: list[float],
         base_value: float = 1000.0,
-    ) -> List[float]:
+    ) -> list[float]:
 
         if len(closes) != len(volumes):
             raise ValueError("Input lengths must match.")
@@ -30,14 +27,9 @@ class PositiveVolumeIndex:
 
             if volumes[i] > volumes[i - 1]:
 
-                percentage_change = (
-                    (closes[i] - previous_close)
-                    / previous_close
-                )
+                percentage_change = (closes[i] - previous_close) / previous_close
 
-                pvi = pvi * (
-                    1 + percentage_change
-                )
+                pvi = pvi * (1 + percentage_change)
 
             result.append(pvi)
 

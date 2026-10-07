@@ -1,5 +1,6 @@
 import pytest
 
+from quantcore.core.exceptions import InvalidInputError
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.services.ingestion_orchestrator import IngestionResult
 from quantcore.services.ingestion_quality_service import (
@@ -75,5 +76,5 @@ def test_inconsistent_counts_are_rejected_as_quality_state():
     ],
 )
 def test_negative_counts_are_rejected(values):
-    with pytest.raises(Exception):
+    with pytest.raises(InvalidInputError):
         IngestionQualityService.assess(result(*values))

@@ -27,12 +27,7 @@ class NewsRepository:
         url: str,
     ) -> News | None:
 
-        stmt = (
-            select(News)
-            .where(
-                News.url == url
-            )
-        )
+        stmt = select(News).where(News.url == url)
 
         return self.db.scalar(stmt)
 
@@ -42,12 +37,9 @@ class NewsRepository:
         published_at: datetime | None,
     ) -> News | None:
 
-        stmt = (
-            select(News)
-            .where(
-                News.company_id == company_id,
-                News.published_at == published_at,
-            )
+        stmt = select(News).where(
+            News.company_id == company_id,
+            News.published_at == published_at,
         )
 
         return self.db.scalar(stmt)
@@ -59,14 +51,8 @@ class NewsRepository:
 
         stmt = (
             select(News)
-            .where(
-                News.company_id == company_id
-            )
-            .order_by(
-                News.published_at.desc()
-            )
+            .where(News.company_id == company_id)
+            .order_by(News.published_at.desc())
         )
 
-        return list(
-            self.db.scalars(stmt).all()
-        )
+        return list(self.db.scalars(stmt).all())

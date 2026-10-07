@@ -5,7 +5,11 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-from quantcore.core.exceptions import DataValidationError, ExternalDataError, InvalidInputError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    ExternalDataError,
+    InvalidInputError,
+)
 from quantcore.ingestion.providers.sec import SECProvider
 from quantcore.schemas.sec_xbrl_fact import SECXBRLFactObservationData
 
@@ -89,8 +93,8 @@ def test_get_sec_xbrl_fact_observations_preserves_revisions_and_taxonomies():
         "0000320193-24-000123",
         "0000320193-25-000010",
     ]
-    assert result[0].value == Decimal("391000000000")
-    assert result[1].value == Decimal("392000000000")
+    assert result[0].value == Decimal(391000000000)
+    assert result[1].value == Decimal(392000000000)
     assert result[1].form == "10-K/A"
     assert result[2].taxonomy == "dei"
     assert result[2].period_start is None
@@ -151,13 +155,14 @@ def test_get_sec_xbrl_fact_observations_rejects_invalid_value():
         }
     }
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=make_response(payload),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=make_response(payload),
+        ),
+        pytest.raises(DataValidationError, match="XBRL fact observation"),
     ):
-        with pytest.raises(DataValidationError, match="XBRL fact observation"):
-            SECProvider().get_sec_xbrl_fact_observations("0000320193")
-
+        SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
 def test_invalid_xbrl_observation_error_includes_safe_source_identity():
@@ -181,12 +186,14 @@ def test_invalid_xbrl_observation_error_includes_safe_source_identity():
         }
     }
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=make_response(payload),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=make_response(payload),
+        ),
+        pytest.raises(DataValidationError) as exc_info,
     ):
-        with pytest.raises(DataValidationError) as exc_info:
-            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+        SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
     message = str(exc_info.value)
     assert "taxonomy='us-gaap'" in message
@@ -217,12 +224,15 @@ def test_get_sec_xbrl_fact_observations_rejects_non_finite_values():
         }
     }
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=make_response(payload),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=make_response(payload),
+        ),
+        pytest.raises(DataValidationError, match="value must be finite"),
     ):
-        with pytest.raises(DataValidationError, match="value must be finite"):
-            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+        SECProvider().get_sec_xbrl_fact_observations("0000320193")
+
 
 def test_get_sec_xbrl_fact_observations_empty_cik():
     with pytest.raises(InvalidInputError, match="CIK must not be empty"):
@@ -230,30 +240,34 @@ def test_get_sec_xbrl_fact_observations_empty_cik():
 
 
 def test_get_sec_xbrl_fact_observations_transport_error_is_diagnostic():
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        side_effect=requests.Timeout("boom"),
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            side_effect=requests.Timeout("boom"),
+        ),
+        pytest.raises(
             ExternalDataError,
             match=r"XBRL fact observations \(transport: Timeout\)",
-        ):
-            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+        ),
+    ):
+        SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
 def test_companyfacts_http_404_is_terminal_data_availability_failure():
     response = Mock()
     response.status_code = 404
     error = requests.HTTPError("404 Client Error", response=response)
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        side_effect=error,
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            side_effect=error,
+        ),
+        pytest.raises(
             DataValidationError,
             match="SEC CompanyFacts is not available for this CIK",
-        ):
-            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+        ),
+    ):
+        SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
 def test_companyfacts_404_is_cached_as_unavailable_for_shared_issuer_cache():
@@ -276,15 +290,17 @@ def test_companyfacts_non_404_http_error_remains_retryable():
     response = Mock()
     response.status_code = 503
     error = requests.HTTPError("503 Server Error", response=response)
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        side_effect=error,
-    ):
-        with pytest.raises(
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            side_effect=error,
+        ),
+        pytest.raises(
             ExternalDataError,
             match=r"XBRL fact observations \(HTTP 503\)",
-        ):
-            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+        ),
+    ):
+        SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
 
 def test_companyfacts_cache_is_instance_scoped_and_reused():
@@ -294,12 +310,12 @@ def test_companyfacts_cache_is_instance_scoped_and_reused():
         return_value=make_response(payload),
     ) as mock_get:
         provider = SECProvider()
-        assert provider._get_company_facts(
-            "0000320193", error_message="boom"
-        ) == payload
-        assert provider._get_company_facts(
-            "0000320193", error_message="boom"
-        ) == payload
+        assert (
+            provider._get_company_facts("0000320193", error_message="boom") == payload
+        )
+        assert (
+            provider._get_company_facts("0000320193", error_message="boom") == payload
+        )
         assert mock_get.call_count == 1
 
     with patch(
@@ -307,9 +323,10 @@ def test_companyfacts_cache_is_instance_scoped_and_reused():
         return_value=make_response(payload),
     ) as mock_get:
         other_provider = SECProvider()
-        assert other_provider._get_company_facts(
-            "0000320193", error_message="boom"
-        ) == payload
+        assert (
+            other_provider._get_company_facts("0000320193", error_message="boom")
+            == payload
+        )
         mock_get.assert_called_once()
 
 
@@ -325,13 +342,16 @@ def test_companyfacts_cache_can_be_shared_by_financial_and_regulatory_providers(
         financial_provider = SECProvider(company_facts_cache=cache)
         regulatory_provider = SECProvider(company_facts_cache=cache)
 
-        assert financial_provider._get_company_facts(
-            "0000320193", error_message="boom"
-        ) == payload
-        assert regulatory_provider._get_company_facts(
-            "0000320193", error_message="boom"
-        ) == payload
+        assert (
+            financial_provider._get_company_facts("0000320193", error_message="boom")
+            == payload
+        )
+        assert (
+            regulatory_provider._get_company_facts("0000320193", error_message="boom")
+            == payload
+        )
         mock_get.assert_called_once()
+
 
 def test_get_sec_xbrl_fact_observations_normalizes_zero_fiscal_year_to_none():
     payload = {
@@ -399,6 +419,7 @@ def test_get_sec_xbrl_fact_observations_normalizes_malformed_optional_metadata()
     assert result[0].fiscal_year is None
     assert result[0].qtrs == 0
 
+
 def test_invalid_xbrl_schema_error_includes_field_and_validator_without_raw_value():
     payload = {
         "facts": {
@@ -421,17 +442,20 @@ def test_invalid_xbrl_schema_error_includes_field_and_validator_without_raw_valu
         }
     }
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=make_response(payload),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=make_response(payload),
+        ),
+        pytest.raises(DataValidationError) as exc_info,
     ):
-        with pytest.raises(DataValidationError) as exc_info:
-            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+        SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
     message = str(exc_info.value)
     assert "form" in message
     assert "string_too_long" in message
     assert ("X" * 21) not in message
+
 
 def test_invalid_xbrl_date_error_identifies_field_without_raw_value():
     payload = {
@@ -454,14 +478,15 @@ def test_invalid_xbrl_date_error_identifies_field_without_raw_value():
         }
     }
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=make_response(payload),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=make_response(payload),
+        ),
+        pytest.raises(DataValidationError) as exc_info,
     ):
-        with pytest.raises(DataValidationError) as exc_info:
-            SECProvider().get_sec_xbrl_fact_observations("0000320193")
+        SECProvider().get_sec_xbrl_fact_observations("0000320193")
 
     message = str(exc_info.value)
     assert "invalid period_end (ValueError)" in message
     assert "not-a-date" not in message
-

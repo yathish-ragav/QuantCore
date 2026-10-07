@@ -3,7 +3,6 @@ from datetime import datetime
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from quantcore.models.company import Company
 from quantcore.models.security import Security, SecurityStatus
 from quantcore.models.universe_sync import UniverseSyncRun, UniverseSyncRunStatus
 
@@ -26,19 +25,28 @@ class UniverseSyncRepository:
         return self.db.scalar(stmt)
 
     def get_counts(self) -> tuple[int, int, int]:
-        active_companies = self.db.scalar(
-            select(func.count(func.distinct(Security.company_id))).where(
-                Security.status == SecurityStatus.ACTIVE
+        active_companies = (
+            self.db.scalar(
+                select(func.count(func.distinct(Security.company_id))).where(
+                    Security.status == SecurityStatus.ACTIVE
+                )
             )
-        ) or 0
-        active_securities = self.db.scalar(
-            select(func.count(Security.id)).where(
-                Security.status == SecurityStatus.ACTIVE
+            or 0
+        )
+        active_securities = (
+            self.db.scalar(
+                select(func.count(Security.id)).where(
+                    Security.status == SecurityStatus.ACTIVE
+                )
             )
-        ) or 0
-        inactive_securities = self.db.scalar(
-            select(func.count(Security.id)).where(
-                Security.status == SecurityStatus.INACTIVE
+            or 0
+        )
+        inactive_securities = (
+            self.db.scalar(
+                select(func.count(Security.id)).where(
+                    Security.status == SecurityStatus.INACTIVE
+                )
             )
-        ) or 0
+            or 0
+        )
         return active_companies, active_securities, inactive_securities

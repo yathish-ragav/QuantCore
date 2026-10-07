@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 
-
 client = TestClient(app)
 
 

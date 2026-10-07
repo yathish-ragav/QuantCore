@@ -3,7 +3,10 @@ from datetime import date
 from fastapi import APIRouter, Depends, Query
 
 from quantcore.api.authorization import INGESTION_WRITE_SCOPE, require_scopes
-from quantcore.api.dependencies import get_macro_service, get_macro_ingestion_orchestrator
+from quantcore.api.dependencies import (
+    get_macro_ingestion_orchestrator,
+    get_macro_service,
+)
 from quantcore.schemas.responses import (
     MacroIngestionFreshnessResponse,
     MacroIngestionSyncResponse,
@@ -11,9 +14,8 @@ from quantcore.schemas.responses import (
     MacroSeriesResponse,
     MacroSyncResponse,
 )
-from quantcore.services.macro_service import MacroService
 from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrchestrator
-
+from quantcore.services.macro_service import MacroService
 
 router = APIRouter(
     prefix="/macro",
@@ -118,9 +120,12 @@ def sync_macro_ingestion(
     vintage_date: date | None = Query(default=None),
     service: MacroIngestionOrchestrator = Depends(get_macro_ingestion_orchestrator),
 ):
-    return [MacroIngestionSyncResponse(**result.__dict__) for result in service.sync_managed(
-        series_ids=series_id,
-        only_stale=only_stale,
-        limit=limit,
-        vintage_date=vintage_date,
-    )]
+    return [
+        MacroIngestionSyncResponse(**result.__dict__)
+        for result in service.sync_managed(
+            series_ids=series_id,
+            only_stale=only_stale,
+            limit=limit,
+            vintage_date=vintage_date,
+        )
+    ]

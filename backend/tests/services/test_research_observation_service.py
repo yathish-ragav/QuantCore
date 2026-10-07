@@ -19,11 +19,11 @@ def make_service():
 def test_create_observation_normalizes_identity_and_fingerprints_manifest():
     service = make_service()
     service.observation_repo.get_by_identity.return_value = None
-    service.observation_repo.create.side_effect = lambda **kwargs: Mock(**kwargs)
+    service.observation_repo.create.side_effect = Mock
 
     result = service.create_observation(
         security_id=10,
-        as_of=datetime(2026, 8, 20, 15, 30),
+        as_of=datetime(2026, 8, 20, 15, 30),  # noqa: DTZ001
         observation_key="  roe ",
         definition_version=" 1 ",
         value_numeric=0.18,
@@ -52,19 +52,23 @@ def test_create_observation_is_idempotent_for_same_identity_and_manifest():
     manifest = {"source": "pit-snapshot"}
     import hashlib
     import json
+
     fingerprint = hashlib.sha256(
         json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
     existing.input_fingerprint = fingerprint
 
-    assert service.create_observation(
-        security_id=10,
-        as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
-        observation_key="roe",
-        definition_version="1",
-        value_numeric=0.18,
-        input_manifest=manifest,
-    ) is existing
+    assert (
+        service.create_observation(
+            security_id=10,
+            as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
+            observation_key="roe",
+            definition_version="1",
+            value_numeric=0.18,
+            input_manifest=manifest,
+        )
+        is existing
+    )
     service.observation_repo.create.assert_not_called()
 
 
@@ -73,6 +77,7 @@ def test_create_observation_rejects_same_identity_with_different_value():
     manifest = {"source": "pit-snapshot"}
     import hashlib
     import json
+
     fingerprint = hashlib.sha256(
         json.dumps(manifest, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()
@@ -170,9 +175,11 @@ def test_create_observation_requires_nonempty_identity():
 
 def test_get_latest_for_security_as_of_normalizes_naive_timestamp():
     service = make_service()
-    service.observation_repo.get_latest_for_security_as_of.return_value = ["observation"]
+    service.observation_repo.get_latest_for_security_as_of.return_value = [
+        "observation"
+    ]
 
-    as_of = datetime(2026, 8, 20, 15, 30)
+    as_of = datetime(2026, 8, 20, 15, 30)  # noqa: DTZ001
     assert service.get_latest_for_security_as_of(
         security_id=10,
         as_of=as_of,
@@ -202,7 +209,7 @@ def test_get_for_symbol_as_of_normalizes_symbol():
     service.listing_identity_service.resolve_security_as_of.return_value = security
     service.observation_repo.get_for_security_as_of.return_value = ["observation"]
 
-    as_of = datetime(2026, 8, 20, 15, 30)
+    as_of = datetime(2026, 8, 20, 15, 30)  # noqa: DTZ001
     assert service.get_for_symbol_as_of(" aapl ", as_of=as_of) == ["observation"]
 
     service.listing_identity_service.resolve_security_as_of.assert_called_once_with(
@@ -219,7 +226,9 @@ def test_get_latest_for_symbol_as_of_resolves_security():
     service = make_service()
     security = Mock(id=10)
     service.listing_identity_service.resolve_security_as_of.return_value = security
-    service.observation_repo.get_latest_for_security_as_of.return_value = ["observation"]
+    service.observation_repo.get_latest_for_security_as_of.return_value = [
+        "observation"
+    ]
 
     as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)
     assert service.get_latest_for_symbol_as_of("aapl", as_of=as_of) == ["observation"]
@@ -236,7 +245,9 @@ def test_get_latest_for_symbol_as_of_resolves_security():
 
 def test_get_for_symbol_as_of_requires_existing_security():
     service = make_service()
-    service.listing_identity_service.resolve_security_as_of.side_effect = ResourceNotFoundError("missing")
+    service.listing_identity_service.resolve_security_as_of.side_effect = (
+        ResourceNotFoundError("missing")
+    )
 
     with pytest.raises(ResourceNotFoundError):
         service.get_for_symbol_as_of(

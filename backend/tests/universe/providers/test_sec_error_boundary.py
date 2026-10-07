@@ -11,21 +11,25 @@ def test_sec_universe_http_error_is_external_data_error():
     response = Mock()
     response.raise_for_status.side_effect = requests.HTTPError("500")
 
-    with patch(
-        "quantcore.universe.providers.sec.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.universe.providers.sec.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            SECUniverseProvider().fetch()
+        SECUniverseProvider().fetch()
 
 
 def test_sec_universe_invalid_shape_is_data_validation_error():
     response = Mock()
     response.json.return_value = []
 
-    with patch(
-        "quantcore.universe.providers.sec.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.universe.providers.sec.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(DataValidationError),
     ):
-        with pytest.raises(DataValidationError):
-            SECUniverseProvider().fetch()
+        SECUniverseProvider().fetch()

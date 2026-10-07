@@ -7,7 +7,6 @@ from fastapi.testclient import TestClient
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 
-
 client = TestClient(app)
 
 
@@ -30,9 +29,7 @@ def make_dataset():
     feature = Mock()
     feature.observation_key = "roe"
     feature.definition_version = "1"
-    feature.observation_as_of = datetime(
-        2026, 8, 20, 15, 30, tzinfo=timezone.utc
-    )
+    feature.observation_as_of = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
     feature.value_numeric = 0.18
     feature.value_text = None
     feature.unit = "ratio"
@@ -42,9 +39,7 @@ def make_dataset():
     vector = Mock()
     vector.symbol = "AAPL"
     vector.security_id = 42
-    vector.as_of = datetime(
-        2026, 8, 20, 15, 30, tzinfo=timezone.utc
-    )
+    vector.as_of = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
     vector.input_fingerprint = "b" * 64
     vector.features = (feature,)
 
@@ -90,9 +85,7 @@ def test_build_research_historical_dataset_returns_stable_contract():
     )
     service.build_historical_dataset.assert_called_once_with(
         ["aapl"],
-        as_ofs=[
-            datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
-        ],
+        as_ofs=[datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)],
         definition_identities=[("roe", "1")],
         dataset_identity=("quality-dataset", "1"),
     )
@@ -107,10 +100,7 @@ def test_historical_dataset_rejects_oversized_row_request():
             "/api/v1/research/datasets/historical",
             json={
                 "symbols": [f"SYM{i}" for i in range(100)],
-                "as_ofs": [
-                    f"2026-08-{day:02d}T15:30:00Z"
-                    for day in range(1, 12)
-                ],
+                "as_ofs": [f"2026-08-{day:02d}T15:30:00Z" for day in range(1, 12)],
             },
         )
 

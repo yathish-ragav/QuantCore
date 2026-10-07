@@ -6,7 +6,6 @@ from fastapi.testclient import TestClient
 
 from quantcore.api.main import app
 
-
 client = TestClient(app)
 
 
@@ -40,7 +39,7 @@ def make_member():
 def test_list_indexes_returns_active_index_metadata():
     with patch("quantcore.api.dependencies.MarketIndexService") as mock_service:
         service = Mock()
-        service.list_active.return_value = [make_index()]
+        service.list_active_public.return_value = [make_index()]
         mock_service.return_value = service
 
         response = client.get("/indexes")
@@ -48,20 +47,20 @@ def test_list_indexes_returns_active_index_metadata():
     assert response.status_code == 200
     assert response.json()["indexes"][0]["key"] == "SP500"
     assert response.json()["indexes"][0]["provider"] == "licensed-provider"
-    service.list_active.assert_called_once_with()
+    service.list_active_public.assert_called_once_with()
 
 
 def test_get_index_normalizes_key():
     with patch("quantcore.api.dependencies.MarketIndexService") as mock_service:
         service = Mock()
-        service.get.return_value = make_index()
+        service.get_public.return_value = make_index()
         mock_service.return_value = service
 
         response = client.get("/indexes/sp500")
 
     assert response.status_code == 200
     assert response.json()["key"] == "SP500"
-    service.get.assert_called_once_with("sp500")
+    service.get_public.assert_called_once_with("sp500")
 
 
 def test_get_index_constituents_is_point_in_time():
@@ -102,4 +101,9 @@ def test_resolve_index_universe_returns_fingerprint_and_members():
         "fingerprint": "a" * 64,
         "size": 2,
     }
-    service.resolve.assert_called_once_with("SP500", as_of=__import__("datetime").datetime(2020, 6, 1, tzinfo=__import__("datetime").timezone.utc))
+    service.resolve.assert_called_once_with(
+        "SP500",
+        as_of=__import__("datetime").datetime(
+            2020, 6, 1, tzinfo=__import__("datetime").timezone.utc
+        ),
+    )

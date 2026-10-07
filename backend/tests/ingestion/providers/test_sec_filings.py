@@ -40,7 +40,6 @@ def test_get_sec_filings_normalizes_recent_metadata():
                 "primaryDocDescription": ["10-K"],
                 "isXBRL": [1],
                 "isInlineXBRL": [1],
-                "isXBRL": [1],
                 "fiscalYear": [2024],
                 "fiscalPeriod": ["FY"],
             },
@@ -108,21 +107,25 @@ def test_get_sec_filings_follows_historical_submission_files():
     assert len(result) == 1
     assert result[0].is_amendment is True
     assert mock_get.call_count == 2
-    assert mock_get.call_args_list[1].args[0].endswith(
-        "CIK0000320193-submissions-001.json"
+    assert (
+        mock_get.call_args_list[1]
+        .args[0]
+        .endswith("CIK0000320193-submissions-001.json")
     )
 
 
 def test_get_sec_filings_empty_cik():
-    with pytest.raises(InvalidInputError, match="CIK must not be empty"):
+    with pytest.raises(InvalidInputError, match=r"CIK\ must\ not\ be\ empty"):
         SECProvider().get_sec_filings("   ")
 
 
 def test_get_sec_filings_http_error():
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        side_effect=requests.RequestException("boom"),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            side_effect=requests.RequestException("boom"),
+        ),
+        pytest.raises(ExternalDataError, match=r"SEC\ filing\ metadata"),
     ):
-        with pytest.raises(ExternalDataError, match="SEC filing metadata"):
-            SECProvider().get_sec_filings("0000320193")
+        SECProvider().get_sec_filings("0000320193")

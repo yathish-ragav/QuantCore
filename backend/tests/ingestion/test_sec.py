@@ -1,12 +1,11 @@
 from datetime import date
+from unittest.mock import Mock, patch
 
 import pytest
 import requests
-from unittest.mock import Mock, patch
 
 from quantcore.core.enums import FinancialPeriodType
 from quantcore.core.exceptions import (
-    DataValidationError,
     ExternalDataError,
     InvalidInputError,
     RateLimitError,
@@ -27,7 +26,6 @@ def reset_sec_ticker_cache():
     yield
 
     SECProvider._ticker_to_cik = None
-
 
 
 def test_sec_uses_injected_http_session():
@@ -58,6 +56,7 @@ def test_sec_http_session_is_shared_by_sqlalchemy_session():
 
     assert first is second
     assert isinstance(first, requests.Session)
+
 
 # ---------------------------------------------------------------------------
 # Ticker map
@@ -108,9 +107,7 @@ def test_sec_load_ticker_map_is_cached():
         "AAPL": "0000320193",
     }
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get"
-    ) as mock_get:
+    with patch("quantcore.ingestion.providers.sec.requests.get") as mock_get:
 
         result = SECProvider()._load_ticker_map()
 
@@ -141,30 +138,25 @@ def test_sec_get_cik_missing_ticker():
     with pytest.raises(ValueError) as exc_info:
         SECProvider()._get_cik("MSFT")
 
-    assert str(exc_info.value) == (
-        "SEC CIK not found for ticker: MSFT"
-    )
+    assert str(exc_info.value) == ("SEC CIK not found for ticker: MSFT")
 
 
 def test_sec_ticker_map_http_error():
 
     fake_response = Mock()
 
-    fake_response.raise_for_status.side_effect = requests.HTTPError(
-        "500 Server Error"
-    )
+    fake_response.raise_for_status.side_effect = requests.HTTPError("500 Server Error")
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=fake_response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=fake_response,
+        ),
+        pytest.raises(ExternalDataError) as exc_info,
     ):
+        SECProvider()._load_ticker_map()
 
-        with pytest.raises(ExternalDataError) as exc_info:
-            SECProvider()._load_ticker_map()
-
-    assert str(exc_info.value) == (
-        "Failed to retrieve SEC ticker mapping."
-    )
+    assert str(exc_info.value) == ("Failed to retrieve SEC ticker mapping.")
 
 
 # ---------------------------------------------------------------------------
@@ -290,11 +282,7 @@ def test_sec_get_income_statements_success():
         result = SECProvider().get_income_statements("AAPL")
 
     mock_get.assert_called_once_with(
-        (
-            "https://data.sec.gov/"
-            "api/xbrl/companyfacts/"
-            "CIK0000320193.json"
-        ),
+        ("https://data.sec.gov/" "api/xbrl/companyfacts/" "CIK0000320193.json"),
         headers=SECProvider.HEADERS,
         timeout=30,
     )
@@ -405,9 +393,7 @@ def test_sec_get_income_statements_empty_symbol():
     with pytest.raises(InvalidInputError) as exc_info:
         SECProvider().get_income_statements("   ")
 
-    assert str(exc_info.value) == (
-        "Symbol must not be empty."
-    )
+    assert str(exc_info.value) == ("Symbol must not be empty.")
 
 
 def test_sec_http_error():
@@ -418,17 +404,16 @@ def test_sec_http_error():
 
     fake_response = Mock()
 
-    fake_response.raise_for_status.side_effect = requests.HTTPError(
-        "500 Server Error"
-    )
+    fake_response.raise_for_status.side_effect = requests.HTTPError("500 Server Error")
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=fake_response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=fake_response,
+        ),
+        pytest.raises(ExternalDataError) as exc_info,
     ):
-
-        with pytest.raises(ExternalDataError) as exc_info:
-            SECProvider().get_income_statements("AAPL")
+        SECProvider().get_income_statements("AAPL")
 
     assert str(exc_info.value) == (
         "Failed to retrieve income statement data from SEC (HTTP error without status)."
@@ -441,12 +426,14 @@ def test_sec_company_facts_http_429_honors_retry_after():
     }
     response = Mock(status_code=429, headers={"Retry-After": "17"})
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(RateLimitError) as exc_info,
     ):
-        with pytest.raises(RateLimitError) as exc_info:
-            SECProvider().get_income_statements("AAPL")
+        SECProvider().get_income_statements("AAPL")
 
     assert exc_info.value.retry_after_seconds == 17.0
     assert str(exc_info.value) == "SEC CompanyFacts rate limit exceeded (HTTP 429)."
@@ -458,12 +445,14 @@ def test_sec_company_facts_http_429_uses_safe_retry_after_fallback():
     }
     response = Mock(status_code=429, headers={})
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(RateLimitError) as exc_info,
     ):
-        with pytest.raises(RateLimitError) as exc_info:
-            SECProvider().get_income_statements("AAPL")
+        SECProvider().get_income_statements("AAPL")
 
     assert exc_info.value.retry_after_seconds == 60.0
 
@@ -481,12 +470,14 @@ def test_sec_company_facts_http_429_parses_http_date_or_falls_back(
     SECProvider._ticker_to_cik = {"AAPL": "0000320193"}
     response = Mock(status_code=429, headers={"Retry-After": retry_after})
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(RateLimitError) as exc_info,
     ):
-        with pytest.raises(RateLimitError) as exc_info:
-            SECProvider().get_income_statements("AAPL")
+        SECProvider().get_income_statements("AAPL")
 
     assert exc_info.value.retry_after_seconds == expected
 
@@ -497,13 +488,14 @@ def test_sec_timeout():
         "AAPL": "0000320193",
     }
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        side_effect=requests.Timeout("Request timed out"),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            side_effect=requests.Timeout("Request timed out"),
+        ),
+        pytest.raises(ExternalDataError) as exc_info,
     ):
-
-        with pytest.raises(ExternalDataError) as exc_info:
-            SECProvider().get_income_statements("AAPL")
+        SECProvider().get_income_statements("AAPL")
 
     assert str(exc_info.value) == (
         "Failed to retrieve income statement data from SEC (transport: Timeout)."
@@ -613,17 +605,11 @@ def test_sec_is_annual_fact():
         "fp": "Q1",
     }
 
-    assert SECProvider._is_annual_fact(
-        annual_fact
-    ) is True
+    assert SECProvider._is_annual_fact(annual_fact) is True
 
-    assert SECProvider._is_annual_fact(
-        amended_annual_fact
-    ) is True
+    assert SECProvider._is_annual_fact(amended_annual_fact) is True
 
-    assert SECProvider._is_annual_fact(
-        quarterly_fact
-    ) is False
+    assert SECProvider._is_annual_fact(quarterly_fact) is False
 
 
 def test_sec_quarterly_fact_requires_standalone_qtrs_one():
@@ -690,9 +676,7 @@ def test_sec_get_fiscal_dates():
         },
     ]
 
-    result = SECProvider._get_fiscal_dates(
-        facts
-    )
+    result = SECProvider._get_fiscal_dates(facts)
 
     assert result == [
         date(2023, 9, 30),
@@ -781,6 +765,7 @@ def test_sec_integer_value_on_date_returns_none_when_missing():
 
     assert result is None
 
+
 def test_sec_get_quarterly_income_statements_selects_standalone_fact():
     SECProvider._ticker_to_cik = {"TEST": "0001234567"}
     fake_response = Mock()
@@ -791,19 +776,37 @@ def test_sec_get_quarterly_income_statements_selects_standalone_fact():
                     "units": {
                         "USD": [
                             {
-                                "start": "2026-01-01", "end": "2026-03-31", "val": 100,
-                                "form": "10-Q", "fp": "Q1", "qtrs": 1, "fy": 2026,
-                                "filed": "2026-05-01", "accn": "0001234567-26-000001",
+                                "start": "2026-01-01",
+                                "end": "2026-03-31",
+                                "val": 100,
+                                "form": "10-Q",
+                                "fp": "Q1",
+                                "qtrs": 1,
+                                "fy": 2026,
+                                "filed": "2026-05-01",
+                                "accn": "0001234567-26-000001",
                             },
                             {
-                                "start": "2026-01-01", "end": "2026-06-30", "val": 230,
-                                "form": "10-Q", "fp": "Q2", "qtrs": 2, "fy": 2026,
-                                "filed": "2026-08-01", "accn": "0001234567-26-000002",
+                                "start": "2026-01-01",
+                                "end": "2026-06-30",
+                                "val": 230,
+                                "form": "10-Q",
+                                "fp": "Q2",
+                                "qtrs": 2,
+                                "fy": 2026,
+                                "filed": "2026-08-01",
+                                "accn": "0001234567-26-000002",
                             },
                             {
-                                "start": "2026-04-01", "end": "2026-06-30", "val": 130,
-                                "form": "10-Q", "fp": "Q2", "qtrs": 1, "fy": 2026,
-                                "filed": "2026-08-01", "accn": "0001234567-26-000002",
+                                "start": "2026-04-01",
+                                "end": "2026-06-30",
+                                "val": 130,
+                                "form": "10-Q",
+                                "fp": "Q2",
+                                "qtrs": 1,
+                                "fy": 2026,
+                                "filed": "2026-08-01",
+                                "accn": "0001234567-26-000002",
                             },
                         ]
                     }
@@ -812,14 +815,26 @@ def test_sec_get_quarterly_income_statements_selects_standalone_fact():
                     "units": {
                         "USD": [
                             {
-                                "start": "2026-01-01", "end": "2026-03-31", "val": 20,
-                                "form": "10-Q", "fp": "Q1", "qtrs": 1, "fy": 2026,
-                                "filed": "2026-05-01", "accn": "0001234567-26-000001",
+                                "start": "2026-01-01",
+                                "end": "2026-03-31",
+                                "val": 20,
+                                "form": "10-Q",
+                                "fp": "Q1",
+                                "qtrs": 1,
+                                "fy": 2026,
+                                "filed": "2026-05-01",
+                                "accn": "0001234567-26-000001",
                             },
                             {
-                                "start": "2026-04-01", "end": "2026-06-30", "val": 25,
-                                "form": "10-Q", "fp": "Q2", "qtrs": 1, "fy": 2026,
-                                "filed": "2026-08-01", "accn": "0001234567-26-000002",
+                                "start": "2026-04-01",
+                                "end": "2026-06-30",
+                                "val": 25,
+                                "form": "10-Q",
+                                "fp": "Q2",
+                                "qtrs": 1,
+                                "fy": 2026,
+                                "filed": "2026-08-01",
+                                "accn": "0001234567-26-000002",
                             },
                         ]
                     }
@@ -829,7 +844,15 @@ def test_sec_get_quarterly_income_statements_selects_standalone_fact():
                 "EntityCommonStockSharesOutstanding": {
                     "units": {
                         "shares": [
-                            {"end": "2026-06-30", "val": 1000, "form": "10-Q", "fp": "Q2", "qtrs": 0, "filed": "2026-08-01", "accn": "0001234567-26-000002"}
+                            {
+                                "end": "2026-06-30",
+                                "val": 1000,
+                                "form": "10-Q",
+                                "fp": "Q2",
+                                "qtrs": 0,
+                                "filed": "2026-08-01",
+                                "accn": "0001234567-26-000002",
+                            }
                         ]
                     }
                 }
@@ -837,7 +860,9 @@ def test_sec_get_quarterly_income_statements_selects_standalone_fact():
         }
     }
 
-    with patch("quantcore.ingestion.providers.sec.requests.get", return_value=fake_response):
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get", return_value=fake_response
+    ):
         result = SECProvider().get_quarterly_income_statements("TEST")
 
     assert [(row.fiscal_date, row.total_revenue, row.net_income) for row in result] == [
@@ -857,15 +882,36 @@ def test_sec_get_balance_sheets_includes_quarter_end_instant_facts():
                 "Assets": {
                     "units": {
                         "USD": [
-                            {"end": "2025-12-31", "val": 1000, "form": "10-K", "fp": "FY", "qtrs": 0, "filed": "2026-03-01"},
-                            {"end": "2026-06-30", "val": 1100, "form": "10-Q", "fp": "Q2", "qtrs": 0, "filed": "2026-08-01"},
+                            {
+                                "end": "2025-12-31",
+                                "val": 1000,
+                                "form": "10-K",
+                                "fp": "FY",
+                                "qtrs": 0,
+                                "filed": "2026-03-01",
+                            },
+                            {
+                                "end": "2026-06-30",
+                                "val": 1100,
+                                "form": "10-Q",
+                                "fp": "Q2",
+                                "qtrs": 0,
+                                "filed": "2026-08-01",
+                            },
                         ]
                     }
                 },
                 "CashAndCashEquivalentsAtCarryingValue": {
                     "units": {
                         "USD": [
-                            {"end": "2026-06-30", "val": 300, "form": "10-Q", "fp": "Q2", "qtrs": 0, "filed": "2026-08-01"},
+                            {
+                                "end": "2026-06-30",
+                                "val": 300,
+                                "form": "10-Q",
+                                "fp": "Q2",
+                                "qtrs": 0,
+                                "filed": "2026-08-01",
+                            },
                         ]
                     }
                 },
@@ -873,10 +919,15 @@ def test_sec_get_balance_sheets_includes_quarter_end_instant_facts():
         }
     }
 
-    with patch("quantcore.ingestion.providers.sec.requests.get", return_value=fake_response):
+    with patch(
+        "quantcore.ingestion.providers.sec.requests.get", return_value=fake_response
+    ):
         result = SECProvider().get_balance_sheets("TEST")
 
-    assert [row.fiscal_date for row in result] == [date(2025, 12, 31), date(2026, 6, 30)]
+    assert [row.fiscal_date for row in result] == [
+        date(2025, 12, 31),
+        date(2026, 6, 30),
+    ]
     assert result[-1].period_type is FinancialPeriodType.INSTANT
     assert result[-1].total_assets == 1100.0
 
@@ -918,27 +969,15 @@ def test_sec_get_cash_flow_statements_success():
                 "NetCashProvidedByUsedInOperatingActivities": (
                     annual_fact(118254000000)
                 ),
-                "PaymentsToAcquirePropertyPlantAndEquipment": (
-                    annual_fact(9500000000)
-                ),
-                "NetCashProvidedByUsedInInvestingActivities": (
-                    annual_fact(3700000000)
-                ),
+                "PaymentsToAcquirePropertyPlantAndEquipment": (annual_fact(9500000000)),
+                "NetCashProvidedByUsedInInvestingActivities": (annual_fact(3700000000)),
                 "NetCashProvidedByUsedInFinancingActivities": (
                     annual_fact(-121000000000)
                 ),
-                "DepreciationDepletionAndAmortization": (
-                    annual_fact(11400000000)
-                ),
-                "ShareBasedCompensation": (
-                    annual_fact(11700000000)
-                ),
-                "PaymentsOfDividends": (
-                    annual_fact(15200000000)
-                ),
-                "PaymentsForRepurchaseOfCommonStock": (
-                    annual_fact(95000000000)
-                ),
+                "DepreciationDepletionAndAmortization": (annual_fact(11400000000)),
+                "ShareBasedCompensation": (annual_fact(11700000000)),
+                "PaymentsOfDividends": (annual_fact(15200000000)),
+                "PaymentsForRepurchaseOfCommonStock": (annual_fact(95000000000)),
                 "CashAndCashEquivalentsPeriodIncreaseDecrease": (
                     annual_fact(700000000)
                 ),
@@ -954,11 +993,7 @@ def test_sec_get_cash_flow_statements_success():
         result = SECProvider().get_cash_flow_statements("AAPL")
 
     mock_get.assert_called_once_with(
-        (
-            "https://data.sec.gov/"
-            "api/xbrl/companyfacts/"
-            "CIK0000320193.json"
-        ),
+        ("https://data.sec.gov/" "api/xbrl/companyfacts/" "CIK0000320193.json"),
         headers=SECProvider.HEADERS,
         timeout=30,
     )
@@ -978,9 +1013,7 @@ def test_sec_get_cash_flow_statements_success():
 
     # Free cash flow is derived as operating cash flow minus
     # capital expenditure, using SEC's positive-outflow convention.
-    assert result[0].free_cash_flow == (
-        118254000000 - 9500000000
-    )
+    assert result[0].free_cash_flow == (118254000000 - 9500000000)
 
     assert result[0].investing_cash_flow == 3700000000
     assert result[0].financing_cash_flow == -121000000000
@@ -1048,12 +1081,14 @@ def test_sec_cash_flow_http_error():
         "AAPL": "0000320193",
     }
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        side_effect=requests.exceptions.HTTPError(),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            side_effect=requests.exceptions.HTTPError(),
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            SECProvider().get_cash_flow_statements("AAPL")
+        SECProvider().get_cash_flow_statements("AAPL")
 
 
 def test_sec_get_income_statements_does_not_require_revenue_anchor():
@@ -1210,7 +1245,9 @@ def test_sec_xbrl_preserves_period_ending_after_filing_date():
     assert observations[0].filed_at == date(2026, 7, 23)
 
 
-@pytest.mark.parametrize("annual_form", ["20-F", "20-F/A", "40-F", "40-F/A", "10-KT", "10-KT/A"])
+@pytest.mark.parametrize(
+    "annual_form", ["20-F", "20-F/A", "40-F", "40-F/A", "10-KT", "10-KT/A"]
+)
 def test_sec_annual_financial_facts_support_non_10k_annual_forms(annual_form):
     """Annual US-listed foreign/transition filers must not be dropped by form filtering."""
     SECProvider._ticker_to_cik = {"TEST": "0001234567"}
@@ -1449,6 +1486,7 @@ def test_sec_get_balance_sheets_falls_back_to_ifrs_full_for_40f():
     assert result[0].total_assets == 2500000000
     assert result[0].total_liabilities == 1500000000
     assert result[0].total_equity == 1000000000
+
 
 @pytest.mark.parametrize(
     ("period_type", "fact"),

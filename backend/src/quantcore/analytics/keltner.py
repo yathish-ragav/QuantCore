@@ -1,28 +1,20 @@
-from typing import List
-
-from .ema import ExponentialMovingAverage
 from .atr import AverageTrueRange
+from .ema import ExponentialMovingAverage
 
 
 class KeltnerChannels:
 
     @staticmethod
     def calculate(
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
         period: int = 20,
         multiplier: float = 2.0,
-    ) -> List[dict]:
+    ) -> list[dict[str, float | None]]:
 
-        if not (
-            len(highs)
-            == len(lows)
-            == len(closes)
-        ):
-            raise ValueError(
-                "Input lengths must match."
-            )
+        if not (len(highs) == len(lows) == len(closes)):
+            raise ValueError("Input lengths must match.")
 
         ema = ExponentialMovingAverage.ema(
             closes,
@@ -36,17 +28,11 @@ class KeltnerChannels:
             period,
         )
 
-        results = []
+        results: list[dict[str, float | None]] = []
 
-        for ema_value, atr_value in zip(
-            ema,
-            atr,
-        ):
+        for ema_value, atr_value in zip(ema, atr, strict=True):
 
-            if (
-                ema_value is None
-                or atr_value is None
-            ):
+            if ema_value is None or atr_value is None:
 
                 results.append(
                     {

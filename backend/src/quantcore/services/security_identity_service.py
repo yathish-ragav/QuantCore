@@ -3,10 +3,16 @@ from datetime import date, datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from quantcore.core.exceptions import DataValidationError, InvalidInputError, ResourceNotFoundError
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
 from quantcore.core.security_identity import SecurityIdentifierType
 from quantcore.models.security_identifier import SecurityIdentifier
-from quantcore.repositories.security_identifier_repository import SecurityIdentifierRepository
+from quantcore.repositories.security_identifier_repository import (
+    SecurityIdentifierRepository,
+)
 
 
 @dataclass(frozen=True)
@@ -42,7 +48,9 @@ class SecurityIdentityService:
                 return value
             return SecurityIdentifierType(str(value).upper())
         except ValueError as exc:
-            raise InvalidInputError(f"Unsupported security identifier type: {value}") from exc
+            raise InvalidInputError(
+                f"Unsupported security identifier type: {value}"
+            ) from exc
 
     def record_identifier(self, item: SecurityIdentifierInput) -> SecurityIdentifier:
         if item.security_id <= 0:
@@ -60,6 +68,7 @@ class SecurityIdentityService:
         # through the session so this service does not assume the security is
         # active; historical securities are valid identifier targets.
         from quantcore.models.security import Security
+
         security = self.db.get(Security, item.security_id)
         if security is None:
             raise ResourceNotFoundError(f"Security {item.security_id} not found.")

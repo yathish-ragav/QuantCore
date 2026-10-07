@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from quantcore.schemas.company import CompanyData
 from quantcore.schemas.corporate_action import CorporateActionData
@@ -7,6 +8,7 @@ from quantcore.schemas.price import PriceData
 
 
 class MarketDataProvider(ABC):
+    SOURCE: ClassVar[str]
     """
     Base interface for all market data providers.
     """
@@ -19,7 +21,7 @@ class MarketDataProvider(ABC):
         """
         Return company profile.
         """
-        pass
+        ...
 
     @abstractmethod
     def get_price_history(
@@ -30,7 +32,7 @@ class MarketDataProvider(ABC):
         """
         Return historical price data.
         """
-        pass
+        ...
 
     @abstractmethod
     def get_corporate_actions(
@@ -41,7 +43,7 @@ class MarketDataProvider(ABC):
         """
         Return normalized historical corporate actions.
         """
-        pass
+        ...
 
     @abstractmethod
     def get_news(
@@ -51,4 +53,3 @@ class MarketDataProvider(ABC):
         """
         Return latest news articles.
         """
-        pass

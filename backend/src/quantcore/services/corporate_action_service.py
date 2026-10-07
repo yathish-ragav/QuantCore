@@ -9,6 +9,7 @@ from quantcore.core.exceptions import (
     ResourceNotFoundError,
 )
 from quantcore.ingestion.providers.factory import ProviderFactory
+from quantcore.models.corporate_action import CorporateAction
 from quantcore.models.provenance import DataSource
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.repositories.corporate_action_repository import (
@@ -18,8 +19,10 @@ from quantcore.repositories.corporate_action_revision_repository import (
     CorporateActionRevisionRepository,
 )
 from quantcore.repositories.security_repository import SecurityRepository
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
 from quantcore.schemas.corporate_action import CorporateActionData
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
+)
 
 
 @dataclass(frozen=True)
@@ -188,31 +191,31 @@ class CorporateActionService:
                 normalized_actions.append(action)
 
             fetched_at = datetime.now(timezone.utc)
-            existing_actions: dict[tuple[object, ...], object] = {}
-            legacy_candidates: dict[tuple[object, object], list[object]] = {}
-            for existing in self.action_repo.get_for_security(security.id):
+            existing_actions: dict[tuple[object, ...], CorporateAction] = {}
+            legacy_candidates: dict[tuple[object, object], list[CorporateAction]] = {}
+            for stored_action in self.action_repo.get_for_security(security.id):
                 existing_source = (
-                    existing.source
-                    if isinstance(existing.source, DataSource)
+                    stored_action.source
+                    if isinstance(stored_action.source, DataSource)
                     else source
                 )
                 identity = self._event_identity(
-                    existing.effective_date,
-                    existing.action_type,
+                    stored_action.effective_date,
+                    stored_action.action_type,
                     existing_source,
-                    existing.source_reference,
+                    stored_action.source_reference,
                 )
-                existing_actions[identity] = existing
+                existing_actions[identity] = stored_action
                 legacy_candidates.setdefault(
-                    (existing.effective_date, existing.action_type),
+                    (stored_action.effective_date, stored_action.action_type),
                     [],
-                ).append(existing)
+                ).append(stored_action)
 
             created = 0
             updated = 0
             unchanged = 0
-            revisions: list[tuple[object, int]] = []
-            new_actions: list[tuple[CorporateActionData, object]] = []
+            revisions: list[tuple[CorporateAction, int]] = []
+            new_actions: list[tuple[CorporateActionData, CorporateAction]] = []
 
             for action in normalized_actions:
                 identity = self._event_identity(
@@ -283,7 +286,7 @@ class CorporateActionService:
             if new_actions:
                 self.db.flush()
 
-            for action, created_action in new_actions:
+            for _, created_action in new_actions:
                 self._create_revision(
                     created_action,
                     source=source,
@@ -292,16 +295,16 @@ class CorporateActionService:
                 )
 
             # Resolve all changed-action revision numbers with one grouped query.
-            changed_actions = [action for action, _ in revisions]
+            changed_actions = [changed_action for changed_action, _ in revisions]
             next_revision_numbers = self.revision_repo.get_next_revision_numbers(
                 [action.id for action in changed_actions]
             )
-            for action, _ in revisions:
+            for changed_action, _ in revisions:
                 self._create_revision(
-                    action,
+                    changed_action,
                     source=source,
                     known_at=fetched_at,
-                    revision_number=next_revision_numbers[action.id],
+                    revision_number=next_revision_numbers[changed_action.id],
                 )
 
             self.db.commit()

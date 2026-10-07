@@ -52,10 +52,7 @@ class DataValidator:
         if not isinstance(period_type, FinancialPeriodType):
             return False
 
-        if period_start is not None and period_start > fiscal_date:
-            return False
-
-        return True
+        return period_start is None or period_start <= fiscal_date
 
     @staticmethod
     def validate_company(data) -> bool:
@@ -195,10 +192,7 @@ class DataValidator:
         if low_price > open_price:
             return False
 
-        if low_price > close_price:
-            return False
-
-        return True
+        return not low_price > close_price
 
     @staticmethod
     def validate_news(data) -> bool:
@@ -227,14 +221,7 @@ class DataValidator:
             None,
         )
 
-        if published_at is not None:
-            if not isinstance(
-                published_at,
-                datetime,
-            ):
-                return False
-
-        return True
+        return published_at is None or isinstance(published_at, datetime)
 
     @staticmethod
     def validate_income_statement(data) -> bool:
@@ -301,10 +288,7 @@ class DataValidator:
         if not isinstance(data, list):
             return False
 
-        if not all(
-            DataValidator.validate_price(price)
-            for price in data
-        ):
+        if not all(DataValidator.validate_price(price) for price in data):
             return False
 
         # A canonical price row is uniquely identified by security + date.
@@ -321,10 +305,7 @@ class DataValidator:
         if not isinstance(data, list):
             return False
 
-        return all(
-            DataValidator.validate_news(article)
-            for article in data
-        )
+        return all(DataValidator.validate_news(article) for article in data)
 
     @staticmethod
     def validate_balance_sheet(data) -> bool:
@@ -384,8 +365,7 @@ class DataValidator:
             return False
 
         return all(
-            DataValidator.validate_balance_sheet(statement)
-            for statement in data
+            DataValidator.validate_balance_sheet(statement) for statement in data
         )
 
     @staticmethod
@@ -448,10 +428,7 @@ class DataValidator:
             return False
 
         return all(
-            DataValidator.validate_cash_flow_statement(
-                statement
-            )
-            for statement in data
+            DataValidator.validate_cash_flow_statement(statement) for statement in data
         )
 
     @staticmethod
@@ -463,10 +440,7 @@ class DataValidator:
             return False
 
         return all(
-            DataValidator.validate_income_statement(
-                statement
-            )
-            for statement in data
+            DataValidator.validate_income_statement(statement) for statement in data
         )
 
     @staticmethod
@@ -477,7 +451,4 @@ class DataValidator:
         if not isinstance(data, list):
             return False
 
-        return all(
-            DataValidator.validate_company(company)
-            for company in data
-        )
+        return all(DataValidator.validate_company(company) for company in data)

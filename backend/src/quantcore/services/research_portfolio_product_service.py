@@ -10,6 +10,11 @@ from quantcore.services.research_factor_panel_service import ResearchFactorPanel
 from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalAnalysisService,
 )
+from quantcore.services.research_portfolio_constraint_service import (
+    ResearchPortfolioConstraintDefinition,
+    ResearchPortfolioConstraintResult,
+    ResearchPortfolioConstraintService,
+)
 from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolio,
     ResearchPortfolioConstructionService,
@@ -32,16 +37,6 @@ from quantcore.services.research_rebalance_service import (
     ResearchRebalanceDefinition,
     ResearchRebalanceService,
 )
-from quantcore.services.research_transaction_cost_service import (
-    ResearchTransactionCostDefinition,
-    ResearchTransactionCostResult,
-    ResearchTransactionCostService,
-)
-from quantcore.services.research_portfolio_constraint_service import (
-    ResearchPortfolioConstraintDefinition,
-    ResearchPortfolioConstraintResult,
-    ResearchPortfolioConstraintService,
-)
 from quantcore.services.research_signal_service import (
     ResearchSignalDefinition,
     ResearchSignalService,
@@ -49,6 +44,11 @@ from quantcore.services.research_signal_service import (
 from quantcore.services.research_strategy_service import (
     ResearchStrategyDefinition,
     ResearchStrategyService,
+)
+from quantcore.services.research_transaction_cost_service import (
+    ResearchTransactionCostDefinition,
+    ResearchTransactionCostResult,
+    ResearchTransactionCostService,
 )
 
 
@@ -143,10 +143,16 @@ class ResearchPortfolioProductService:
         self._strategy_service = strategy_service
         self._portfolio_service = portfolio_service
         self._risk_service = risk_service or ResearchPortfolioRiskService()
-        self._factor_risk_service = factor_risk_service or ResearchPortfolioFactorRiskService()
-        self._constraint_service = constraint_service or ResearchPortfolioConstraintService()
+        self._factor_risk_service = (
+            factor_risk_service or ResearchPortfolioFactorRiskService()
+        )
+        self._constraint_service = (
+            constraint_service or ResearchPortfolioConstraintService()
+        )
         self._rebalance_service = rebalance_service or ResearchRebalanceService()
-        self._transaction_cost_service = transaction_cost_service or ResearchTransactionCostService()
+        self._transaction_cost_service = (
+            transaction_cost_service or ResearchTransactionCostService()
+        )
         self._stress_service = stress_service or ResearchPortfolioStressService()
 
     def _construct_with_ranked_panels(
@@ -155,19 +161,29 @@ class ResearchPortfolioProductService:
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
         target_as_of: datetime,
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
-    ) -> tuple[ResearchPortfolioProductResult, dict[tuple[str, str], ResearchFactorRankedPanel]]:
+    ) -> tuple[
+        ResearchPortfolioProductResult, dict[tuple[str, str], ResearchFactorRankedPanel]
+    ]:
         if not isinstance(target_as_of, datetime) or target_as_of.tzinfo is None:
             raise InvalidInputError("Portfolio target_as_of must be timezone-aware.")
-        if any(not isinstance(value, datetime) or value.tzinfo is None for value in as_ofs):
+        if any(
+            not isinstance(value, datetime) or value.tzinfo is None for value in as_ofs
+        ):
             raise InvalidInputError("Portfolio signal as_ofs must be timezone-aware.")
         if target_as_of not in as_ofs:
-            raise InvalidInputError("Portfolio target_as_of must be one of the requested signal as_ofs.")
+            raise InvalidInputError(
+                "Portfolio target_as_of must be one of the requested signal as_ofs."
+            )
         if len(factors) != len(signal.factor_identities):
             raise InvalidInputError(
                 "Portfolio signal factors must match the signal definition factor identities."
@@ -198,12 +214,16 @@ class ResearchPortfolioProductService:
                 factor_key=identity[0],
                 definition_version=identity[1],
             )
-            panels_by_factor[identity] = self._cross_sectional_service.rank_factor_panel(
-                panel,
-                higher_is_better=higher_is_better,
+            panels_by_factor[identity] = (
+                self._cross_sectional_service.rank_factor_panel(
+                    panel,
+                    higher_is_better=higher_is_better,
+                )
             )
 
-        composite_signal = self._signal_service.construct_signal(signal, panels_by_factor)
+        composite_signal = self._signal_service.construct_signal(
+            signal, panels_by_factor
+        )
         portfolio = self._portfolio_service.construct(
             validated_strategy,
             composite_signal,
@@ -224,22 +244,32 @@ class ResearchPortfolioProductService:
         *,
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
     ) -> tuple[ResearchPortfolioProductResult, ...]:
         """Construct multiple target portfolios from one shared deterministic signal build."""
         if not as_ofs:
             raise InvalidInputError("Portfolio as_ofs must not be empty.")
-        if any(not isinstance(value, datetime) or value.tzinfo is None for value in as_ofs):
+        if any(
+            not isinstance(value, datetime) or value.tzinfo is None for value in as_ofs
+        ):
             raise InvalidInputError("Portfolio signal as_ofs must be timezone-aware.")
         if tuple(as_ofs) != tuple(sorted(as_ofs)):
-            raise InvalidInputError("Portfolio signal as_ofs must be supplied in ascending order.")
+            raise InvalidInputError(
+                "Portfolio signal as_ofs must be supplied in ascending order."
+            )
         if len(set(as_ofs)) != len(as_ofs):
-            raise InvalidInputError("Portfolio signal as_ofs must not contain duplicates.")
+            raise InvalidInputError(
+                "Portfolio signal as_ofs must not contain duplicates."
+            )
 
         validated_strategy = self._strategy_service.validate_definition(strategy)
         if validated_strategy.signal_identity != signal.identity:
@@ -266,12 +296,16 @@ class ResearchPortfolioProductService:
                 factor_key=identity[0],
                 definition_version=identity[1],
             )
-            panels_by_factor[identity] = self._cross_sectional_service.rank_factor_panel(
-                panel,
-                higher_is_better=higher_is_better,
+            panels_by_factor[identity] = (
+                self._cross_sectional_service.rank_factor_panel(
+                    panel,
+                    higher_is_better=higher_is_better,
+                )
             )
 
-        composite_signal = self._signal_service.construct_signal(signal, panels_by_factor)
+        composite_signal = self._signal_service.construct_signal(
+            signal, panels_by_factor
+        )
         results: list[ResearchPortfolioProductResult] = []
         for target_as_of in as_ofs:
             portfolio = self._portfolio_service.construct(
@@ -295,11 +329,15 @@ class ResearchPortfolioProductService:
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
         target_as_of: datetime,
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
     ) -> ResearchPortfolioProductResult:
         result, _panels_by_factor = self._construct_with_ranked_panels(
@@ -320,11 +358,15 @@ class ResearchPortfolioProductService:
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
         target_as_of: datetime,
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
     ) -> ResearchPortfolioRiskProductResult:
         portfolio_result = self.construct(
@@ -349,11 +391,15 @@ class ResearchPortfolioProductService:
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
         target_as_of: datetime,
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
         constraint_definition: ResearchPortfolioConstraintDefinition,
     ) -> ResearchPortfolioConstraintProductResult:
@@ -382,11 +428,15 @@ class ResearchPortfolioProductService:
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
         target_as_of: datetime,
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
     ) -> ResearchPortfolioFactorRiskProductResult:
         portfolio_result, panels_by_factor = self._construct_with_ranked_panels(
@@ -414,11 +464,15 @@ class ResearchPortfolioProductService:
         symbols: list[str] | tuple[str, ...],
         as_ofs: list[datetime] | tuple[datetime, ...],
         target_as_of: datetime,
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
         scenario: ResearchStressScenarioDefinition,
         portfolio_value: float | None = None,
@@ -455,11 +509,15 @@ class ResearchPortfolioProductService:
         as_ofs: list[datetime] | tuple[datetime, ...],
         current_as_of: datetime,
         target_as_of: datetime,
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
         rebalance_definition: ResearchRebalanceDefinition,
     ) -> ResearchPortfolioRebalanceProductResult:
@@ -469,9 +527,13 @@ class ResearchPortfolioProductService:
         if not isinstance(target_as_of, datetime) or target_as_of.tzinfo is None:
             raise InvalidInputError("Portfolio target_as_of must be timezone-aware.")
         if current_as_of >= target_as_of:
-            raise InvalidInputError("Portfolio current_as_of must precede target_as_of.")
+            raise InvalidInputError(
+                "Portfolio current_as_of must precede target_as_of."
+            )
         if not isinstance(rebalance_definition, ResearchRebalanceDefinition):
-            raise InvalidInputError("Portfolio rebalance requires a ResearchRebalanceDefinition.")
+            raise InvalidInputError(
+                "Portfolio rebalance requires a ResearchRebalanceDefinition."
+            )
 
         current = self.construct(
             symbols=symbols,
@@ -513,17 +575,23 @@ class ResearchPortfolioProductService:
         as_ofs: list[datetime] | tuple[datetime, ...],
         current_as_of: datetime,
         target_as_of: datetime,
-        definition_identities: list[tuple[str, str]] | tuple[tuple[str, str], ...] | None,
+        definition_identities: (
+            list[tuple[str, str]] | tuple[tuple[str, str], ...] | None
+        ),
         dataset_identity: tuple[str, str] | None,
         signal: ResearchSignalDefinition,
-        factors: list[tuple[str, str, float, bool]]
-        | tuple[tuple[str, str, float, bool], ...],
+        factors: (
+            list[tuple[str, str, float, bool]]
+            | tuple[tuple[str, str, float, bool], ...]
+        ),
         strategy: ResearchStrategyDefinition,
         rebalance_definition: ResearchRebalanceDefinition,
         transaction_cost_definition: ResearchTransactionCostDefinition,
     ) -> ResearchPortfolioTransactionCostProductResult:
         """Construct two portfolio states, calculate their transition, then cost it."""
-        if not isinstance(transaction_cost_definition, ResearchTransactionCostDefinition):
+        if not isinstance(
+            transaction_cost_definition, ResearchTransactionCostDefinition
+        ):
             raise InvalidInputError(
                 "Portfolio transaction cost analysis requires a ResearchTransactionCostDefinition."
             )

@@ -3,10 +3,10 @@ from unittest.mock import Mock, patch
 
 import pytest
 
+from quantcore.core.exceptions import InvalidInputError
 from quantcore.ingestion.macro_datasets import MACRO_SERIES_POLICIES
 from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrchestrator
 from quantcore.services.macro_service import MacroSyncResult
-from quantcore.core.exceptions import InvalidInputError
 
 
 def make_service():
@@ -32,9 +32,12 @@ def test_freshness_requires_successful_ingestion():
     policy = MACRO_SERIES_POLICIES["GDP"]
 
     assert service._is_fresh(None, policy, now) is False
-    assert service._is_fresh(
-        make_state(now - policy.max_age - timedelta(seconds=1)), policy, now
-    ) is False
+    assert (
+        service._is_fresh(
+            make_state(now - policy.max_age - timedelta(seconds=1)), policy, now
+        )
+        is False
+    )
 
 
 def test_freshness_is_true_inside_policy_window():
@@ -42,9 +45,9 @@ def test_freshness_is_true_inside_policy_window():
     now = datetime.now(timezone.utc)
     policy = MACRO_SERIES_POLICIES["GDP"]
 
-    assert service._is_fresh(
-        make_state(now - timedelta(minutes=30)), policy, now
-    ) is True
+    assert (
+        service._is_fresh(make_state(now - timedelta(minutes=30)), policy, now) is True
+    )
 
 
 def test_sync_series_skips_fresh_series_without_provider_call():

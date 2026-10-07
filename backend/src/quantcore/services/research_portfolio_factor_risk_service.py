@@ -1,7 +1,7 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from math import isfinite
-from typing import Mapping
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_factor_computation_service import ResearchFactorValue
@@ -9,8 +9,10 @@ from quantcore.services.research_factor_cross_sectional_service import (
     ResearchFactorRankedPanel,
     ResearchFactorRankRow,
 )
-from quantcore.services.research_portfolio_construction_service import ResearchPortfolio
-
+from quantcore.services.research_portfolio_construction_service import (
+    ResearchPortfolio,
+    ResearchPortfolioPosition,
+)
 
 ResearchFactorIdentity = tuple[str, str]
 
@@ -67,11 +69,10 @@ class ResearchPortfolioFactorRiskService:
         factors: list[ResearchPortfolioFactorExposure] = []
         for identity in sorted(panels_by_factor):
             panel = panels_by_factor[identity]
-            indexed = {
-                (row.security_id, row.as_of): row
-                for row in panel.rows
-            }
-            selected_rows: list[tuple[object, ResearchFactorRankRow]] = []
+            indexed = {(row.security_id, row.as_of): row for row in panel.rows}
+            selected_rows: list[
+                tuple[ResearchPortfolioPosition, ResearchFactorRankRow]
+            ] = []
             for position in portfolio.positions:
                 key = (position.security_id, portfolio.as_of)
                 row = indexed.get(key)
@@ -102,9 +103,7 @@ class ResearchPortfolioFactorRiskService:
 
             gross_exposure = float(portfolio.gross_exposure)
             gross_normalized = (
-                weighted_exposure / gross_exposure
-                if gross_exposure > 0.0
-                else 0.0
+                weighted_exposure / gross_exposure if gross_exposure > 0.0 else 0.0
             )
 
             values = (
@@ -115,7 +114,9 @@ class ResearchPortfolioFactorRiskService:
                 gross_normalized,
             )
             if not all(isfinite(value) for value in values):
-                raise InvalidInputError("Portfolio factor exposure metrics must be finite.")
+                raise InvalidInputError(
+                    "Portfolio factor exposure metrics must be finite."
+                )
 
             factors.append(
                 ResearchPortfolioFactorExposure(
@@ -154,7 +155,9 @@ class ResearchPortfolioFactorRiskService:
                 "Portfolio factor risk requires a constructed target portfolio."
             )
         if not isinstance(portfolio.as_of, datetime) or portfolio.as_of.tzinfo is None:
-            raise InvalidInputError("Portfolio factor risk as_of must be timezone-aware.")
+            raise InvalidInputError(
+                "Portfolio factor risk as_of must be timezone-aware."
+            )
         if not isinstance(panels_by_factor, Mapping) or not panels_by_factor:
             raise InvalidInputError(
                 "Portfolio factor risk requires at least one factor panel."
@@ -178,7 +181,9 @@ class ResearchPortfolioFactorRiskService:
             if (
                 not isinstance(identity, tuple)
                 or len(identity) != 2
-                or not all(isinstance(value, str) and value.strip() for value in identity)
+                or not all(
+                    isinstance(value, str) and value.strip() for value in identity
+                )
             ):
                 raise InvalidInputError(
                     "Portfolio factor identities must be (factor_key, definition_version) tuples."
@@ -207,7 +212,9 @@ class ResearchPortfolioFactorRiskService:
                     raise InvalidInputError(
                         "Portfolio factor row as_of must be timezone-aware."
                     )
-                if not isinstance(row.security_id, int) or isinstance(row.security_id, bool):
+                if not isinstance(row.security_id, int) or isinstance(
+                    row.security_id, bool
+                ):
                     raise InvalidInputError(
                         "Portfolio factor row security_id must be an integer."
                     )
@@ -221,7 +228,10 @@ class ResearchPortfolioFactorRiskService:
                     raise InvalidInputError(
                         "Portfolio factor rows must contain ResearchFactorValue values."
                     )
-                if (row.factor_value.factor_key, row.factor_value.definition_version) != (
+                if (
+                    row.factor_value.factor_key,
+                    row.factor_value.definition_version,
+                ) != (
                     identity[0].strip(),
                     identity[1].strip(),
                 ):
@@ -236,7 +246,10 @@ class ResearchPortfolioFactorRiskService:
                     raise InvalidInputError(
                         "Portfolio factor row as_of must match its factor value."
                     )
-                if row.factor_value.symbol.strip().upper() != row.symbol.strip().upper():
+                if (
+                    row.factor_value.symbol.strip().upper()
+                    != row.symbol.strip().upper()
+                ):
                     raise InvalidInputError(
                         "Portfolio factor row symbol must match its factor value."
                     )

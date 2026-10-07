@@ -1,12 +1,11 @@
 from datetime import date, datetime, timezone
 from unittest.mock import Mock
 
-from quantcore.core.enums import FinancialStatementType
 from quantcore.models.provenance import DataSource
 from quantcore.schemas.income_statement import IncomeStatementData
 from quantcore.services.financial_statement_revision import (
-    cached_statement_known_at,
     build_statement_known_at_cache,
+    cached_statement_known_at,
     resolve_statement_known_at,
 )
 
@@ -22,9 +21,15 @@ def test_sec_statement_known_at_uses_filing_acceptance_timestamp():
     filing_repo.get_by_accession.return_value = filing
     fetched_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
-    assert resolve_statement_known_at(
-        statement, source=DataSource.SEC, fetched_at=fetched_at, filing_repo=filing_repo
-    ) == accepted
+    assert (
+        resolve_statement_known_at(
+            statement,
+            source=DataSource.SEC,
+            fetched_at=fetched_at,
+            filing_repo=filing_repo,
+        )
+        == accepted
+    )
 
 
 def test_sec_statement_known_at_falls_back_to_fetch_time_without_filing_metadata():
@@ -36,9 +41,15 @@ def test_sec_statement_known_at_falls_back_to_fetch_time_without_filing_metadata
     filing_repo.get_by_accession.return_value = None
     fetched_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
-    assert resolve_statement_known_at(
-        statement, source=DataSource.SEC, fetched_at=fetched_at, filing_repo=filing_repo
-    ) == fetched_at
+    assert (
+        resolve_statement_known_at(
+            statement,
+            source=DataSource.SEC,
+            fetched_at=fetched_at,
+            filing_repo=filing_repo,
+        )
+        == fetched_at
+    )
 
 
 def test_cached_statement_known_at_reuses_accession_lookup():
@@ -53,10 +64,18 @@ def test_cached_statement_known_at_reuses_accession_lookup():
     fetched_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     first = cached_statement_known_at(
-        statement, source=DataSource.SEC, fetched_at=fetched_at, filing_repo=filing_repo, cache=cache
+        statement,
+        source=DataSource.SEC,
+        fetched_at=fetched_at,
+        filing_repo=filing_repo,
+        cache=cache,
     )
     second = cached_statement_known_at(
-        statement, source=DataSource.SEC, fetched_at=fetched_at, filing_repo=filing_repo, cache=cache
+        statement,
+        source=DataSource.SEC,
+        fetched_at=fetched_at,
+        filing_repo=filing_repo,
+        cache=cache,
     )
 
     assert first == second == accepted
@@ -65,6 +84,7 @@ def test_cached_statement_known_at_reuses_accession_lookup():
 
 def test_build_statement_known_at_cache_preloads_accessions_once():
     from datetime import date
+
     from quantcore.schemas.income_statement import IncomeStatementData
 
     statements = [

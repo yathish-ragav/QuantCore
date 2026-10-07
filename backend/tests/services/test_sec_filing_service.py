@@ -140,18 +140,33 @@ def test_sync_filings_is_idempotent_for_existing_filing_and_event():
     incoming = make_filing()
     for field in (
         "filing_date",
-        "report_date", "acceptance_datetime", "form", "act",
-        "file_number", "film_number", "items", "primary_document",
-        "primary_doc_description", "is_xbrl", "is_inline_xbrl",
-        "fiscal_year", "fiscal_period", "is_amendment", "filing_url",
+        "report_date",
+        "acceptance_datetime",
+        "form",
+        "act",
+        "file_number",
+        "film_number",
+        "items",
+        "primary_document",
+        "primary_doc_description",
+        "is_xbrl",
+        "is_inline_xbrl",
+        "fiscal_year",
+        "fiscal_period",
+        "is_amendment",
+        "filing_url",
     ):
         setattr(existing, field, getattr(incoming, field))
     existing.source = DataSource.SEC
     existing.source_reference = incoming.accession_number
     service.security_repo.get_by_symbol.return_value = make_security(company)
     service.provider.get_sec_filings.return_value = [incoming]
-    service.filing_repo.get_by_accessions.return_value = {incoming.accession_number: existing}
-    service.filing_repo.get_events_by_identity.return_value = {(100, FilingEventType.FILED, incoming.acceptance_datetime)}
+    service.filing_repo.get_by_accessions.return_value = {
+        incoming.accession_number: existing
+    }
+    service.filing_repo.get_events_by_identity.return_value = {
+        (100, FilingEventType.FILED, incoming.acceptance_datetime)
+    }
 
     result = service.sync_filings("AAPL")
 
@@ -173,10 +188,21 @@ def test_sync_filings_counts_updated_metadata_and_new_event():
     existing = Mock()
     existing.id = 100
     for field in (
-        "report_date", "acceptance_datetime", "form", "act",
-        "file_number", "film_number", "items", "primary_document",
-        "primary_doc_description", "is_xbrl", "is_inline_xbrl",
-        "fiscal_year", "fiscal_period", "is_amendment", "filing_url",
+        "report_date",
+        "acceptance_datetime",
+        "form",
+        "act",
+        "file_number",
+        "film_number",
+        "items",
+        "primary_document",
+        "primary_doc_description",
+        "is_xbrl",
+        "is_inline_xbrl",
+        "fiscal_year",
+        "fiscal_period",
+        "is_amendment",
+        "filing_url",
     ):
         setattr(existing, field, None)
     existing.source = DataSource.SEC

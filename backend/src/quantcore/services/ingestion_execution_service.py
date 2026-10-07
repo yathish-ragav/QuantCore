@@ -54,7 +54,9 @@ class IngestionExecutionService:
     submit -> claim -> execute -> finish, with recovery and retryable jobs.
     """
 
-    def __init__(self, db: Session, *, orchestrator: IngestionOrchestrator | None = None):
+    def __init__(
+        self, db: Session, *, orchestrator: IngestionOrchestrator | None = None
+    ):
         self.db = db
         self.repository = IngestionStateRepository(db)
         self.orchestrator = orchestrator or IngestionOrchestrator(db)
@@ -63,11 +65,13 @@ class IngestionExecutionService:
     def _normalize_symbols(symbols: list[str] | None) -> list[str] | None:
         if symbols is None:
             return None
-        normalized = list(dict.fromkeys(
-            symbol.strip().upper()
-            for symbol in symbols
-            if symbol and symbol.strip()
-        ))
+        normalized = list(
+            dict.fromkeys(
+                symbol.strip().upper()
+                for symbol in symbols
+                if symbol and symbol.strip()
+            )
+        )
         if not normalized:
             raise InvalidInputError("At least one valid symbol is required.")
         return normalized
@@ -133,7 +137,7 @@ class IngestionExecutionService:
             if existing.request_fingerprint != fingerprint:
                 raise InvalidInputError(
                     "Idempotency key was already used for a different ingestion request."
-                )
+                ) from None
             return self._view(existing)
 
         try:
@@ -155,7 +159,7 @@ class IngestionExecutionService:
             if existing.request_fingerprint != fingerprint:
                 raise InvalidInputError(
                     "Idempotency key was already used for a different ingestion request."
-                )
+                ) from None
             return self._view(existing)
 
     def get(self, job_id: int) -> IngestionJobView | None:
@@ -216,11 +220,15 @@ class IngestionExecutionService:
             raise InvalidInputError(f"Ingestion job {job_id} was not found.")
         if job.status is not IngestionJobStatus.RUNNING or job.worker_id != worker_id:
             raise InvalidInputError("Only the owning worker may execute a running job.")
-        expected_attempt = job.attempt_count if attempt_number is None else attempt_number
+        expected_attempt = (
+            job.attempt_count if attempt_number is None else attempt_number
+        )
         if expected_attempt < 1:
             raise InvalidInputError("Attempt number must be at least one.")
         if job.attempt_count != expected_attempt:
-            raise InvalidInputError("Only the owning worker may execute this job attempt.")
+            raise InvalidInputError(
+                "Only the owning worker may execute this job attempt."
+            )
 
         try:
             if not self.repository.heartbeat_job(
@@ -243,7 +251,9 @@ class IngestionExecutionService:
                 worker_id=worker_id,
             )
             if len(results) != 1:
-                raise RuntimeError("Ingestion execution returned an invalid result count.")
+                raise RuntimeError(
+                    "Ingestion execution returned an invalid result count."
+                )
 
             result = results[0]
             status = (
@@ -269,7 +279,7 @@ class IngestionExecutionService:
             self.db.rollback()
             raise InvalidInputError(
                 "Ingestion job lease was lost before completion."
-            )
+            ) from None
         except Exception as exc:
             self.db.rollback()
             job = self.repository.get_job(job_id)
@@ -309,12 +319,18 @@ class IngestionExecutionService:
         if job is None:
             raise InvalidInputError(f"Ingestion job {job_id} was not found.")
         if job.status is not IngestionJobStatus.RUNNING or job.worker_id != worker_id:
-            raise InvalidInputError("Only the owning worker may heartbeat a running job.")
-        expected_attempt = job.attempt_count if attempt_number is None else attempt_number
+            raise InvalidInputError(
+                "Only the owning worker may heartbeat a running job."
+            )
+        expected_attempt = (
+            job.attempt_count if attempt_number is None else attempt_number
+        )
         if expected_attempt < 1:
             raise InvalidInputError("Attempt number must be at least one.")
         if job.attempt_count != expected_attempt:
-            raise InvalidInputError("Only the owning worker may heartbeat this job attempt.")
+            raise InvalidInputError(
+                "Only the owning worker may heartbeat this job attempt."
+            )
         if not self.repository.heartbeat_job(
             job,
             worker_id=worker_id,
@@ -322,7 +338,9 @@ class IngestionExecutionService:
             at=datetime.now(timezone.utc),
         ):
             self.db.rollback()
-            raise InvalidInputError("Only the owning worker may heartbeat this job attempt.")
+            raise InvalidInputError(
+                "Only the owning worker may heartbeat this job attempt."
+            )
         self.db.commit()
         return self._view(job)
 

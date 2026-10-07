@@ -7,9 +7,8 @@ from quantcore.api.authorization import (
     get_current_resource_owner,
     require_scopes,
 )
-from quantcore.core.resource_identity import ResourceOwner
-
 from quantcore.api.dependencies import get_research_experiment_service
+from quantcore.core.resource_identity import ResourceOwner
 from quantcore.models.research_experiment import ResearchExperimentRunStatus
 from quantcore.schemas.research_experiments import (
     ResearchExperimentArtifactProvenanceResponse,
@@ -22,7 +21,6 @@ from quantcore.services.research_experiment_service import (
     ResearchExperimentRunQuery,
     ResearchExperimentService,
 )
-
 
 router = APIRouter(
     prefix="/api/v1/research/experiments",
@@ -120,10 +118,7 @@ def list_research_experiment_runs(
         submitted_before=submitted_before,
         limit=limit,
     )
-    return [
-        _to_run_response(view)
-        for view in service.list_runs(query, owner=owner)
-    ]
+    return [_to_run_response(view) for view in service.list_runs(query, owner=owner)]
 
 
 @router.get(

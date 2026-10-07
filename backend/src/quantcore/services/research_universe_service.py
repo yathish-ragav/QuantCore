@@ -1,12 +1,14 @@
-from dataclasses import dataclass
 import hashlib
 import json
+from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
-from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.core.enums import FinancialPeriodType, FinancialStatementType
+from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.ingestion.datasets import IngestionDataset
-from quantcore.repositories.research_universe_repository import ResearchUniverseRepository
+from quantcore.repositories.research_universe_repository import (
+    ResearchUniverseRepository,
+)
 from quantcore.services.security_listing_identity_service import (
     SecurityListingIdentityService,
 )
@@ -67,8 +69,7 @@ class ResearchUniverseService:
             )
 
         members = tuple(
-            (security.id, security.symbol, security.exchange)
-            for security in securities
+            (security.id, security.symbol, security.exchange) for security in securities
         )
         fingerprint = hashlib.sha256(
             json.dumps(
@@ -87,7 +88,9 @@ class ResearchUniverseService:
     def current_ready(
         self,
         *,
-        required_datasets: tuple[IngestionDataset, ...] = (IngestionDataset.PRICE_HISTORY,),
+        required_datasets: tuple[IngestionDataset, ...] = (
+            IngestionDataset.PRICE_HISTORY,
+        ),
         as_of: datetime | None = None,
     ) -> ResearchUniverse:
         if as_of is None:
@@ -104,13 +107,14 @@ class ResearchUniverseService:
             selection="CURRENT_RESEARCH_READY",
         )
 
-
     def historical_pit_eligible(
         self,
         *,
         effective_on: date,
         known_at: datetime,
-        financial_requirements: tuple[tuple[FinancialStatementType, FinancialPeriodType], ...] = (
+        financial_requirements: tuple[
+            tuple[FinancialStatementType, FinancialPeriodType], ...
+        ] = (
             (FinancialStatementType.INCOME, FinancialPeriodType.TTM),
             (FinancialStatementType.CASH_FLOW, FinancialPeriodType.TTM),
             (FinancialStatementType.BALANCE_SHEET, FinancialPeriodType.INSTANT),
@@ -125,7 +129,9 @@ class ResearchUniverseService:
         actual revision-store coverage for the requested research capability.
         """
         if known_at.tzinfo is None:
-            raise InvalidInputError("Research universe known_at must be timezone-aware.")
+            raise InvalidInputError(
+                "Research universe known_at must be timezone-aware."
+            )
         if not isinstance(effective_on, date):
             raise InvalidInputError("Research universe effective_on must be a date.")
         securities = self.repository.get_historical_pit_eligible(
@@ -173,7 +179,9 @@ class ResearchUniverseService:
 
         normalized_as_ofs = tuple(as_ofs)
         if not normalized_as_ofs:
-            raise InvalidInputError("At least one historical as-of timestamp is required.")
+            raise InvalidInputError(
+                "At least one historical as-of timestamp is required."
+            )
 
         for as_of in normalized_as_ofs:
             if as_of.tzinfo is None:
@@ -223,9 +231,7 @@ class ResearchUniverseService:
             if missing:
                 raise InvalidInputError(
                     "Historical PIT eligibility failed at "
-                    f"{as_of.isoformat()} for: "
-                    + ", ".join(sorted(missing))
-                    + "."
+                    f"{as_of.isoformat()} for: " + ", ".join(sorted(missing)) + "."
                 )
 
     def listings_as_of(
@@ -235,7 +241,9 @@ class ResearchUniverseService:
         known_at: datetime,
     ) -> ResearchUniverse:
         if known_at.tzinfo is None:
-            raise InvalidInputError("Research universe known_at must be timezone-aware.")
+            raise InvalidInputError(
+                "Research universe known_at must be timezone-aware."
+            )
         securities = self.repository.get_listing_universe_as_of(
             effective_on=effective_on,
             known_at=known_at,

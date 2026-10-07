@@ -95,24 +95,28 @@ def test_fmp_balance_sheet_empty_response():
 
 
 def test_fmp_balance_sheet_http_error():
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        side_effect=requests.HTTPError(),
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            side_effect=requests.HTTPError(),
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            FMPClient().get_balance_sheets("AAPL")
+        FMPClient().get_balance_sheets("AAPL")
 
 
 def test_fmp_balance_sheet_invalid_shape():
     response = Mock()
     response.json.return_value = {"error": "invalid"}
 
-    with patch(
-        "quantcore.ingestion.providers.fmp.requests.get",
-        return_value=response,
+    with (
+        patch(
+            "quantcore.ingestion.providers.fmp.requests.get",
+            return_value=response,
+        ),
+        pytest.raises(ValueError, match="must be a list"),
     ):
-        with pytest.raises(ValueError, match="must be a list"):
-            FMPClient().get_balance_sheets("AAPL")
+        FMPClient().get_balance_sheets("AAPL")
 
 
 def test_fmp_balance_sheet_empty_symbol():
@@ -123,6 +127,7 @@ def test_fmp_balance_sheet_empty_symbol():
 def test_fmp_balance_sheet_invalid_limit():
     with pytest.raises(ValueError, match="Limit must be greater than zero"):
         FMPClient().get_balance_sheets("AAPL", limit=0)
+
 
 def test_fmp_balance_sheet_accepts_provider_field_aliases():
     response = Mock()

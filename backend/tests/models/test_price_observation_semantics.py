@@ -6,7 +6,7 @@ from quantcore.schemas.price import PriceData
 
 def test_price_data_defaults_to_explicit_unadjusted_basis():
     data = PriceData(
-        date=datetime(2026, 1, 2),
+        date=datetime(2026, 1, 2),  # noqa: DTZ001
         open=100.0,
         high=110.0,
         low=95.0,

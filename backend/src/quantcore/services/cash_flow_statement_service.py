@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from quantcore.core.enums import FinancialStatementType
 from quantcore.core.exceptions import (
     DataValidationError,
     InvalidInputError,
@@ -10,31 +11,32 @@ from quantcore.core.exceptions import (
 from quantcore.ingestion.providers.financial_factory import (
     FinancialProviderFactory,
 )
+from quantcore.models.provenance import DataSource
 from quantcore.processing.cleaner import DataCleaner
 from quantcore.processing.transformer import DataTransformer
-from quantcore.models.provenance import DataSource
-from quantcore.core.enums import FinancialStatementType
 from quantcore.processing.validator import DataValidator
 from quantcore.repositories.cash_flow_statement_repository import (
     CashFlowStatementRepository,
+)
+from quantcore.repositories.financial_statement_revision_repository import (
+    FinancialStatementRevisionRepository,
 )
 from quantcore.repositories.sec_filing_repository import SECFilingRepository
 from quantcore.repositories.security_repository import (
     SecurityRepository,
 )
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
-from quantcore.repositories.financial_statement_revision_repository import (
-    FinancialStatementRevisionRepository,
-)
 from quantcore.services.financial_period_materializer import FinancialPeriodMaterializer
 from quantcore.services.financial_statement_revision import (
     FinancialStatementSyncResult,
     apply_statement_data,
-    create_revision,
-    cached_statement_known_at,
     build_statement_known_at_cache,
+    cached_statement_known_at,
+    create_revision,
     get_statements_as_of,
     statement_changed,
+)
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
 )
 
 
@@ -43,16 +45,12 @@ class CashFlowStatementService:
     def __init__(self, db: Session):
         self.db = db
 
-        self.provider = (
-            FinancialProviderFactory.get_provider(db)
-        )
+        self.provider = FinancialProviderFactory.get_provider(db)
 
         self.security_repo = SecurityRepository(db)
         self.listing_identity_service = SecurityListingIdentityService(db)
 
-        self.statement_repo = (
-            CashFlowStatementRepository(db)
-        )
+        self.statement_repo = CashFlowStatementRepository(db)
         self.revision_repo = FinancialStatementRevisionRepository(db)
         self.filing_repo = SECFilingRepository(db)
 
@@ -63,24 +61,14 @@ class CashFlowStatementService:
         symbol = DataCleaner.clean_symbol(symbol)
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
-        security = self.security_repo.get_by_symbol(
-            symbol
-        )
+        security = self.security_repo.get_by_symbol(symbol)
 
-        company = (
-            security.company
-            if security is not None
-            else None
-        )
+        company = security.company if security is not None else None
 
         if company is None:
-            raise ResourceNotFoundError(
-                f"Company not found: {symbol}"
-            )
+            raise ResourceNotFoundError(f"Company not found: {symbol}")
 
         return security, company
 
@@ -98,9 +86,7 @@ class CashFlowStatementService:
             )
 
         if as_of is None:
-            return self.statement_repo.get_for_company(
-                company.id
-            )
+            return self.statement_repo.get_for_company(company.id)
 
         return get_statements_as_of(
             self.revision_repo,
@@ -120,21 +106,15 @@ class CashFlowStatementService:
             # -------------------------------------------------
             # 1. Clean and validate symbol.
             # -------------------------------------------------
-            symbol = DataCleaner.clean_symbol(
-                symbol
-            )
+            symbol = DataCleaner.clean_symbol(symbol)
 
             if not symbol:
-                raise InvalidInputError(
-                    "Symbol must not be empty."
-                )
+                raise InvalidInputError("Symbol must not be empty.")
 
             # -------------------------------------------------
             # 2. Resolve Company identity.
             # -------------------------------------------------
-            _, company = (
-                self.get_company_for_symbol(symbol)
-            )
+            _, company = self.get_company_for_symbol(symbol)
 
             # -------------------------------------------------
             # 3. Fetch external financial data.
@@ -142,37 +122,30 @@ class CashFlowStatementService:
             raw_statements = self.provider.get_cash_flow_statements(symbol)
             quarterly_statements = []
             if getattr(self.provider, "SOURCE", None) == DataSource.SEC.value:
-                quarterly_statements = self.provider.get_quarterly_cash_flow_statements(symbol)
+                quarterly_statements = self.provider.get_quarterly_cash_flow_statements(
+                    symbol
+                )
             raw_statements = [*raw_statements, *quarterly_statements]
 
             # -------------------------------------------------
             # 4. Transform.
             # -------------------------------------------------
-            statements = (
-                DataTransformer.cash_flow_statements(
-                    raw_statements
-                )
-            )
+            statements = DataTransformer.cash_flow_statements(raw_statements)
 
             # -------------------------------------------------
             # 5. Clean.
             # -------------------------------------------------
             statements = [
-                DataCleaner.clean_cash_flow_statement(
-                    statement
-                )
+                DataCleaner.clean_cash_flow_statement(statement)
                 for statement in statements
             ]
 
             # -------------------------------------------------
             # 6. Validate complete dataset before mutation.
             # -------------------------------------------------
-            if not DataValidator.validate_cash_flow_statements(
-                statements
-            ):
+            if not DataValidator.validate_cash_flow_statements(statements):
                 raise DataValidationError(
-                    f"Invalid cash flow statement data "
-                    f"for '{symbol}'."
+                    f"Invalid cash flow statement data " f"for '{symbol}'."
                 )
 
             created = 0
@@ -199,9 +172,7 @@ class CashFlowStatementService:
             # -------------------------------------------------
             for data in statements:
 
-                existing = existing_by_key.get(
-                    (data.fiscal_date, data.period_type)
-                )
+                existing = existing_by_key.get((data.fiscal_date, data.period_type))
 
                 if existing is None:
                     statement = self.statement_repo.create(
@@ -232,7 +203,9 @@ class CashFlowStatementService:
                     created += 1
                     continue
 
-                if not statement_changed(existing, data, FinancialStatementType.CASH_FLOW):
+                if not statement_changed(
+                    existing, data, FinancialStatementType.CASH_FLOW
+                ):
                     unchanged += 1
                     continue
 

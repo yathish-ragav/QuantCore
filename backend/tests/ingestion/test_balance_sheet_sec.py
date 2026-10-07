@@ -115,9 +115,11 @@ def test_sec_balance_sheet_empty_symbol():
 def test_sec_balance_sheet_http_error():
     SECProvider._ticker_to_cik = {"AAPL": "0000320193"}
 
-    with patch(
-        "quantcore.ingestion.providers.sec.requests.get",
-        side_effect=requests.HTTPError(),
+    with (
+        patch(
+            "quantcore.ingestion.providers.sec.requests.get",
+            side_effect=requests.HTTPError(),
+        ),
+        pytest.raises(ExternalDataError),
     ):
-        with pytest.raises(ExternalDataError):
-            SECProvider().get_balance_sheets("AAPL")
+        SECProvider().get_balance_sheets("AAPL")

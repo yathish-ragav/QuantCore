@@ -11,7 +11,6 @@ from quantcore.services.research_strategy_service import (
     ResearchStrategyService,
 )
 
-
 router = APIRouter(
     prefix="/api/v1/research/strategies",
     tags=["Research Strategies"],

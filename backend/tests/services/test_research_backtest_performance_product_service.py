@@ -10,7 +10,6 @@ from quantcore.services.research_backtest_performance_product_service import (
 )
 from quantcore.services.research_backtest_service import ResearchBacktestDefinition
 
-
 AS_OF_0 = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
 AS_OF_1 = datetime(2026, 8, 21, 15, 30, tzinfo=timezone.utc)
 
@@ -25,7 +24,9 @@ def test_analyze_delegates_to_backtest_and_performance_services():
     performance_service = Mock()
     performance = Mock()
     performance_service.analyze.return_value = performance
-    service = ResearchBacktestPerformanceProductService(backtest_product, performance_service)
+    service = ResearchBacktestPerformanceProductService(
+        backtest_product, performance_service
+    )
 
     definition = Mock(spec=ResearchBacktestDefinition)
     result = service.analyze(

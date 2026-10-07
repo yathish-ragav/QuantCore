@@ -7,7 +7,6 @@ from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.services.research_strategy_service import ResearchStrategyDirection
 
-
 client = TestClient(app)
 
 
@@ -32,7 +31,9 @@ def test_validate_research_strategy_returns_canonical_contract():
         "quantcore.api.dependencies.ResearchStrategyService",
         return_value=strategy_service,
     ):
-        from quantcore.services.research_strategy_service import ResearchStrategyDefinition
+        from quantcore.services.research_strategy_service import (
+            ResearchStrategyDefinition,
+        )
 
         definition = ResearchStrategyDefinition(
             strategy_key="quality_long",

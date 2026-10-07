@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import json
+import math
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from hashlib import sha256
-import json
-import math
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -16,11 +17,14 @@ from quantcore.models.research_experiment import (
     ResearchExperimentArtifact,
     ResearchExperimentComparisonResultRecord,
     ResearchExperimentRun,
-    ResearchExperimentRunResult,
     ResearchExperimentRunStatus,
 )
-from quantcore.repositories.research_experiment_repository import ResearchExperimentRepository
-from quantcore.services.research_historical_analysis_service import ResearchHistoricalDataset
+from quantcore.repositories.research_experiment_repository import (
+    ResearchExperimentRepository,
+)
+from quantcore.services.research_historical_analysis_service import (
+    ResearchHistoricalDataset,
+)
 
 
 def _validate_identifier(value: str, name: str) -> str:
@@ -46,7 +50,7 @@ ResearchSignalIdentity = DefinitionIdentity
 ResearchStrategyIdentity = DefinitionIdentity
 
 
-class _FrozenDict(dict):
+class _FrozenDict(dict[str, Any]):
     """JSON-compatible mapping that rejects mutation after construction."""
 
     def __setitem__(self, key, value):
@@ -70,11 +74,11 @@ class _FrozenDict(dict):
     def update(self, *args, **kwargs):
         raise TypeError("Frozen mapping cannot be modified.")
 
-    def __ior__(self, other):
+    def __ior__(self, other: object) -> _FrozenDict:  # type: ignore[override,misc]
         raise TypeError("Frozen mapping cannot be modified.")
 
 
-class _FrozenList(list):
+class _FrozenList(list[Any]):
     """JSON-compatible sequence that rejects mutation after construction."""
 
     def __setitem__(self, index, value):
@@ -107,10 +111,10 @@ class _FrozenList(list):
     def sort(self, *args, **kwargs):
         raise TypeError("Frozen sequence cannot be modified.")
 
-    def __iadd__(self, values):
+    def __iadd__(self, values: Iterable[Any]) -> _FrozenList:  # type: ignore[misc]
         raise TypeError("Frozen sequence cannot be modified.")
 
-    def __imul__(self, value):
+    def __imul__(self, value: int) -> _FrozenList:  # type: ignore[override,misc]
         raise TypeError("Frozen sequence cannot be modified.")
 
 
@@ -165,7 +169,9 @@ class ResearchExperimentDefinition:
             strategy_identity = None
 
         parameters = self._normalize_parameters(self.parameters)
-        code_version = self.code_version.strip() if isinstance(self.code_version, str) else None
+        code_version = (
+            self.code_version.strip() if isinstance(self.code_version, str) else None
+        )
         if code_version is None:
             raise InvalidInputError("Code version must be a string.")
         if not code_version:
@@ -240,9 +246,7 @@ class ResearchExperimentDefinition:
             )
         key, version = identity
         if not isinstance(key, str) or not isinstance(version, str):
-            raise InvalidInputError(
-                f"{name} values must both be strings."
-            )
+            raise InvalidInputError(f"{name} values must both be strings.")
         normalized = (key.strip(), version.strip())
         if not normalized[0] or not normalized[1]:
             raise InvalidInputError(f"{name} values must not be empty.")
@@ -269,9 +273,7 @@ class ResearchExperimentDefinition:
         if not isinstance(value, datetime):
             raise InvalidInputError("Observation as-of must be a datetime.")
         if value.tzinfo is None or value.utcoffset() is None:
-            raise InvalidInputError(
-                "Observation as-of must be timezone-aware."
-            )
+            raise InvalidInputError("Observation as-of must be timezone-aware.")
         normalized = value.astimezone(timezone.utc)
         if normalized > datetime.now(timezone.utc):
             raise InvalidInputError("Observation as-of must not be in the future.")
@@ -317,9 +319,7 @@ class ResearchExperimentDefinition:
                 if not isinstance(key, str):
                     raise TypeError("Parameter mapping keys must be strings.")
                 dict.__setitem__(normalized, key, cls._canonicalize(item))
-            return _FrozenDict(
-                (key, normalized[key]) for key in sorted(normalized)
-            )
+            return _FrozenDict((key, normalized[key]) for key in sorted(normalized))
         if isinstance(value, (list, tuple)):
             return _FrozenList(cls._canonicalize(item) for item in value)
         raise TypeError(f"Unsupported parameter type: {type(value).__name__}")
@@ -328,7 +328,7 @@ class ResearchExperimentDefinition:
     def from_canonical_payload(
         cls,
         payload: Mapping[str, Any],
-    ) -> "ResearchExperimentDefinition":
+    ) -> ResearchExperimentDefinition:
         """Reconstruct and validate a persisted canonical definition snapshot."""
         if not isinstance(payload, Mapping):
             raise InvalidInputError(
@@ -348,8 +348,7 @@ class ResearchExperimentDefinition:
             universe = payload["universe"]
             observation_as_of = datetime.fromisoformat(payload["observation_as_of"])
             factors = tuple(
-                identity(item, "factor identity")
-                for item in payload["factors"]
+                identity(item, "factor identity") for item in payload["factors"]
             )
             signal = (
                 None
@@ -404,9 +403,7 @@ class ResearchExperimentDefinitionRegistry:
         self,
         definitions: Iterable[ResearchExperimentDefinition] = (),
     ):
-        self._definitions: dict[
-            DefinitionIdentity, ResearchExperimentDefinition
-        ] = {}
+        self._definitions: dict[DefinitionIdentity, ResearchExperimentDefinition] = {}
         for definition in definitions:
             self.register(definition)
 
@@ -557,7 +554,9 @@ class ResearchExperimentArtifactDefinition:
         if not isinstance(value, str):
             raise InvalidInputError(f"{name} must be a SHA-256 hexadecimal string.")
         normalized = value.strip().lower()
-        if len(normalized) != 64 or any(char not in "0123456789abcdef" for char in normalized):
+        if len(normalized) != 64 or any(
+            char not in "0123456789abcdef" for char in normalized
+        ):
             raise InvalidInputError(f"{name} must be a SHA-256 hexadecimal string.")
         return normalized
 
@@ -683,8 +682,7 @@ class ResearchExperimentRunQuery:
         )
         statuses = tuple(self.statuses)
         if any(
-            not isinstance(status, ResearchExperimentRunStatus)
-            for status in statuses
+            not isinstance(status, ResearchExperimentRunStatus) for status in statuses
         ):
             raise InvalidInputError(
                 "Experiment run statuses must contain "
@@ -728,14 +726,10 @@ class ResearchExperimentRunQuery:
         if value is None:
             return None
         if not isinstance(value, str) or not value.strip():
-            raise InvalidInputError(
-                f"{name} must be a non-empty string when provided."
-            )
+            raise InvalidInputError(f"{name} must be a non-empty string when provided.")
         normalized = value.strip()
         if len(normalized) > max_length:
-            raise InvalidInputError(
-                f"{name} must be at most {max_length} characters."
-            )
+            raise InvalidInputError(f"{name} must be at most {max_length} characters.")
         return normalized
 
     @staticmethod
@@ -766,9 +760,13 @@ class ResearchExperimentRunSelection:
             for run_id in tuple(self.run_ids)
         )
         if not normalized_ids:
-            raise InvalidInputError("Experiment run selection must contain at least one run id.")
+            raise InvalidInputError(
+                "Experiment run selection must contain at least one run id."
+            )
         if len(normalized_ids) != len(set(normalized_ids)):
-            raise InvalidInputError("Experiment run selection must not contain duplicates.")
+            raise InvalidInputError(
+                "Experiment run selection must not contain duplicates."
+            )
 
         experiment_key = self._normalize_optional_text(
             self.experiment_key, "Experiment key", max_length=200
@@ -777,7 +775,9 @@ class ResearchExperimentRunSelection:
             self.definition_version, "Experiment definition version", max_length=50
         )
         if not isinstance(self.max_runs, int) or isinstance(self.max_runs, bool):
-            raise InvalidInputError("Experiment run selection max_runs must be an integer.")
+            raise InvalidInputError(
+                "Experiment run selection max_runs must be an integer."
+            )
         if self.max_runs < 1 or self.max_runs > 100:
             raise InvalidInputError(
                 "Experiment run selection max_runs must be between 1 and 100."
@@ -818,14 +818,10 @@ class ResearchExperimentRunSelection:
         if value is None:
             return None
         if not isinstance(value, str) or not value.strip():
-            raise InvalidInputError(
-                f"{name} must be a non-empty string when provided."
-            )
+            raise InvalidInputError(f"{name} must be a non-empty string when provided.")
         normalized = value.strip()
         if len(normalized) > max_length:
-            raise InvalidInputError(
-                f"{name} must be at most {max_length} characters."
-            )
+            raise InvalidInputError(f"{name} must be at most {max_length} characters.")
         return normalized
 
 
@@ -899,14 +895,18 @@ class ResearchExperimentComparison:
             raise InvalidInputError("Comparison experiment identity must be complete.")
         runs = tuple(self.runs)
         if len(runs) < 2:
-            raise InvalidInputError("Experiment comparison must contain at least two runs.")
+            raise InvalidInputError(
+                "Experiment comparison must contain at least two runs."
+            )
         if any(not isinstance(run, ResearchExperimentComparisonRun) for run in runs):
             raise InvalidInputError(
                 "Experiment comparison runs must contain ResearchExperimentComparisonRun values."
             )
         run_ids = tuple(run.run_id for run in runs)
         if len(run_ids) != len(set(run_ids)):
-            raise InvalidInputError("Experiment comparison runs must not contain duplicates.")
+            raise InvalidInputError(
+                "Experiment comparison runs must not contain duplicates."
+            )
         if any(
             run.experiment_key != experiment_key
             or run.definition_version != definition_version
@@ -918,7 +918,9 @@ class ResearchExperimentComparison:
         object.__setattr__(self, "selection_fingerprint", selection_fingerprint)
         object.__setattr__(self, "experiment_key", experiment_key)
         object.__setattr__(self, "definition_version", definition_version)
-        object.__setattr__(self, "runs", tuple(sorted(runs, key=lambda run: run.run_id)))
+        object.__setattr__(
+            self, "runs", tuple(sorted(runs, key=lambda run: run.run_id))
+        )
 
     @property
     def canonical_payload(self) -> dict[str, Any]:
@@ -940,7 +942,6 @@ class ResearchExperimentComparison:
             ensure_ascii=True,
         )
         return sha256(canonical.encode("utf-8")).hexdigest()
-
 
 
 @dataclass(frozen=True)
@@ -1001,8 +1002,7 @@ class ResearchExperimentComparisonMetric:
         return {
             "metric_name": self.metric_name,
             "values": tuple(
-                {"run_id": run_id, "value": value}
-                for run_id, value in self.values
+                {"run_id": run_id, "value": value} for run_id, value in self.values
             ),
         }
 
@@ -1020,7 +1020,9 @@ class ResearchExperimentComparisonResult:
         )
         metrics = tuple(self.metrics)
         if not metrics:
-            raise InvalidInputError("Comparison result must contain at least one metric.")
+            raise InvalidInputError(
+                "Comparison result must contain at least one metric."
+            )
         if any(
             not isinstance(metric, ResearchExperimentComparisonMetric)
             for metric in metrics
@@ -1240,17 +1242,24 @@ class ResearchExperimentService:
             raise InvalidInputError(
                 "Persisted comparison result has an invalid experiment identity."
             )
-        if comparison_payload.get("selection_fingerprint") != record.selection_fingerprint:
+        if (
+            comparison_payload.get("selection_fingerprint")
+            != record.selection_fingerprint
+        ):
             raise InvalidInputError(
                 "Persisted comparison result has an inconsistent selection fingerprint."
             )
-        if experiment.get("key") != record.experiment_key or experiment.get(
-            "definition_version"
-        ) != record.definition_version:
+        if (
+            experiment.get("key") != record.experiment_key
+            or experiment.get("definition_version") != record.definition_version
+        ):
             raise InvalidInputError(
                 "Persisted comparison result has an inconsistent experiment identity."
             )
-        if result_payload.get("comparison_fingerprint") != record.comparison_fingerprint:
+        if (
+            result_payload.get("comparison_fingerprint")
+            != record.comparison_fingerprint
+        ):
             raise InvalidInputError(
                 "Persisted comparison result is linked to a different comparison."
             )
@@ -1418,7 +1427,9 @@ class ResearchExperimentService:
 
         runs = self.repository.get_by_run_ids(selection.run_ids, owner=owner)
         found_ids = {run.run_id for run in runs}
-        missing_ids = [run_id for run_id in selection.run_ids if run_id not in found_ids]
+        missing_ids = [
+            run_id for run_id in selection.run_ids if run_id not in found_ids
+        ]
         if missing_ids:
             raise ResourceNotFoundError(
                 "Experiment runs not found: " + ", ".join(missing_ids)
@@ -1467,7 +1478,9 @@ class ResearchExperimentService:
                 "Experiment comparison must contain at least two runs."
             )
 
-        experiment_identity = {(run.experiment_key, run.definition_version) for run in runs}
+        experiment_identity = {
+            (run.experiment_key, run.definition_version) for run in runs
+        }
         if len(experiment_identity) != 1:
             raise InvalidInputError(
                 "Experiment comparison runs must share the same experiment identity."
@@ -1514,7 +1527,9 @@ class ResearchExperimentService:
         comparison = self.compare_runs(selection, owner=owner)
 
         if isinstance(metric_names, (str, bytes)):
-            raise InvalidInputError("Comparison metric names must be an iterable of names.")
+            raise InvalidInputError(
+                "Comparison metric names must be an iterable of names."
+            )
 
         normalized_metric_names: list[str] = []
         seen_names: set[str] = set()
@@ -1553,11 +1568,11 @@ class ResearchExperimentService:
             values: list[tuple[str, int | float]] = []
             missing_runs: list[str] = []
             for run in comparison.runs:
-                result = results_by_run_id[run.run_id]
-                if metric_name not in result.metrics:
+                run_result = results_by_run_id[run.run_id]
+                if metric_name not in run_result.metrics:
                     missing_runs.append(run.run_id)
                     continue
-                values.append((run.run_id, result.metrics[metric_name]))
+                values.append((run.run_id, run_result.metrics[metric_name]))
 
             if missing_runs:
                 raise InvalidInputError(
@@ -1573,11 +1588,11 @@ class ResearchExperimentService:
                 )
             )
 
-        result = ResearchExperimentComparisonResult(
+        comparison_result = ResearchExperimentComparisonResult(
             comparison_fingerprint=comparison.comparison_fingerprint,
             metrics=tuple(metrics),
         )
-        return self.validate_comparison_result(comparison, result)
+        return self.validate_comparison_result(comparison, comparison_result)
 
     def record_comparison_result(
         self,
@@ -1653,7 +1668,7 @@ class ResearchExperimentService:
 
     def start_run(
         self, run_id: str, *, owner: ResourceOwner | None = None
-    ) -> dict[str, object]:
+    ) -> ResearchExperimentRunView:
         return self._transition(
             run_id,
             owner=owner,
@@ -1663,7 +1678,7 @@ class ResearchExperimentService:
 
     def complete_run(
         self, run_id: str, *, owner: ResourceOwner | None = None
-    ) -> dict[str, object]:
+    ) -> ResearchExperimentRunView:
         return self._transition(
             run_id,
             owner=owner,
@@ -1677,9 +1692,11 @@ class ResearchExperimentService:
         *,
         error_summary: str,
         owner: ResourceOwner | None = None,
-    ) -> dict[str, object]:
+    ) -> ResearchExperimentRunView:
         if not isinstance(error_summary, str) or not error_summary.strip():
-            raise InvalidInputError("Experiment run error summary must be a non-empty string.")
+            raise InvalidInputError(
+                "Experiment run error summary must be a non-empty string."
+            )
         return self._transition(
             run_id,
             owner=owner,
@@ -1690,7 +1707,7 @@ class ResearchExperimentService:
 
     def cancel_run(
         self, run_id: str, *, owner: ResourceOwner | None = None
-    ) -> dict[str, object]:
+    ) -> ResearchExperimentRunView:
         return self._transition(
             run_id,
             owner=owner,
@@ -1747,9 +1764,12 @@ class ResearchExperimentService:
             raise InvalidInputError(
                 f"Experiment artifact id '{normalized_artifact_id}' already exists."
             )
-        if self.repository.get_artifact_by_fingerprint(
-            run_id, artifact.artifact_fingerprint
-        ) is not None:
+        if (
+            self.repository.get_artifact_by_fingerprint(
+                run_id, artifact.artifact_fingerprint
+            )
+            is not None
+        ):
             raise InvalidInputError(
                 "An artifact with the same identity is already registered for this run."
             )
@@ -1762,17 +1782,20 @@ class ResearchExperimentService:
                 artifact_type=artifact.artifact_type,
                 content_hash=artifact.content_hash,
                 artifact_fingerprint=artifact.artifact_fingerprint,
-                metadata=dict(artifact.metadata),
-                provenance=dict(artifact.provenance),
+                metadata=dict(artifact.metadata or {}),
+                provenance=dict(artifact.provenance or {}),
                 created_at=created_at,
             )
             self.db.commit()
             return self._artifact_view(persisted)
         except IntegrityError as exc:
             self.db.rollback()
-            if self.repository.get_artifact_by_fingerprint(
-                run_id, artifact.artifact_fingerprint
-            ) is not None:
+            if (
+                self.repository.get_artifact_by_fingerprint(
+                    run_id, artifact.artifact_fingerprint
+                )
+                is not None
+            ):
                 raise InvalidInputError(
                     "An artifact with the same identity is already registered for this run."
                 ) from exc
@@ -1804,7 +1827,10 @@ class ResearchExperimentService:
     ) -> ResearchExperimentArtifactView:
         normalized_artifact_id = self._validate_artifact_id(artifact_id)
         artifact = self.repository.get_artifact(normalized_artifact_id)
-        if artifact is None or self.repository.get(artifact.run_id, owner=owner) is None:
+        if (
+            artifact is None
+            or self.repository.get(artifact.run_id, owner=owner) is None
+        ):
             raise ResourceNotFoundError(
                 f"Experiment artifact not found: {normalized_artifact_id}"
             )
@@ -1958,8 +1984,8 @@ class ResearchExperimentService:
             recorded_at = datetime.now(timezone.utc)
             result = self.repository.create_result(
                 run_id=normalized_run_id,
-                result_payload=execution_result.result_payload,
-                metrics=execution_result.metrics,
+                result_payload=dict(execution_result.result_payload),
+                metrics=dict(execution_result.metrics or {}),
                 result_fingerprint=execution_result.result_fingerprint,
                 recorded_at=recorded_at,
             )

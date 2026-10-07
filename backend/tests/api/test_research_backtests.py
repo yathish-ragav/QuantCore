@@ -7,7 +7,9 @@ from fastapi.testclient import TestClient
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.core.enums import PriceBasis
-from quantcore.services.research_backtest_product_service import ResearchBacktestProductResult
+from quantcore.services.research_backtest_product_service import (
+    ResearchBacktestProductResult,
+)
 from quantcore.services.research_backtest_service import (
     ResearchBacktest,
     ResearchBacktestPeriod,
@@ -17,10 +19,12 @@ from quantcore.services.research_backtest_service import (
 from quantcore.services.research_portfolio_construction_service import (
     ResearchPortfolio,
     ResearchPortfolioConstructionStatus,
+    ResearchPortfolioPosition,
+    ResearchPortfolioPositionSide,
 )
-from quantcore.services.research_portfolio_product_service import ResearchPortfolioProductResult
-from quantcore.services.research_portfolio_construction_service import ResearchPortfolioPosition, ResearchPortfolioPositionSide
-from quantcore.services.research_strategy_service import ResearchStrategyDirection
+from quantcore.services.research_portfolio_product_service import (
+    ResearchPortfolioProductResult,
+)
 
 client = TestClient(app)
 AS_OF_0 = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)

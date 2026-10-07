@@ -24,7 +24,10 @@ from quantcore.services.research_rebalance_service import (
     ResearchRebalanceDefinition,
     ResearchRebalanceFrequency,
 )
-from quantcore.services.research_signal_service import ResearchSignalPanel, ResearchSignalRow
+from quantcore.services.research_signal_service import (
+    ResearchSignalPanel,
+    ResearchSignalRow,
+)
 from quantcore.services.research_strategy_service import (
     ResearchStrategyDefinition,
     ResearchStrategyDirection,
@@ -32,7 +35,6 @@ from quantcore.services.research_strategy_service import (
 from quantcore.services.research_transaction_cost_service import (
     ResearchTransactionCostDefinition,
 )
-
 
 AS_OF_0 = datetime(2026, 1, 2, 15, 30, tzinfo=timezone.utc)
 AS_OF_1 = datetime(2026, 1, 5, 15, 30, tzinfo=timezone.utc)
@@ -129,7 +131,7 @@ def prices(*values):
         AS_OF_1 + timedelta(hours=1),
         AS_OF_2 + timedelta(hours=1),
     )
-    return [Price(date, close) for date, close in zip(dates, values)]
+    return [Price(date, close) for date, close in zip(dates, values, strict=True)]
 
 
 def backtest():
@@ -252,7 +254,7 @@ def test_empty_periods_are_rejected():
         periods=(),
         status=ResearchBacktestStatus.COMPLETED,
     )
-    with pytest.raises(InvalidInputError, match="at least one"):
+    with pytest.raises(InvalidInputError, match=r"at\ least\ one"):
         ResearchBacktestPerformanceService().analyze(empty)
 
 
@@ -299,5 +301,5 @@ def test_incomplete_period_is_rejected():
         periods=(invalid,),
         status=ResearchBacktestStatus.COMPLETED,
     )
-    with pytest.raises(InvalidInputError, match="positive duration"):
+    with pytest.raises(InvalidInputError, match=r"positive\ duration"):
         ResearchBacktestPerformanceService().analyze(modified)

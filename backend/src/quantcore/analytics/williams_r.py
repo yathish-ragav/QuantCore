@@ -1,26 +1,17 @@
-from typing import List
-
-
 class WilliamsR:
 
     @staticmethod
     def calculate(
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
         period: int = 14,
-    ) -> List[float]:
+    ) -> list[float | None]:
 
-        if not (
-            len(highs)
-            == len(lows)
-            == len(closes)
-        ):
-            raise ValueError(
-                "Input lengths must match."
-            )
+        if not (len(highs) == len(lows) == len(closes)):
+            raise ValueError("Input lengths must match.")
 
-        result = []
+        result: list[float | None] = []
 
         for i in range(len(closes)):
 
@@ -28,13 +19,9 @@ class WilliamsR:
                 result.append(None)
                 continue
 
-            highest_high = max(
-                highs[i - period + 1 : i + 1]
-            )
+            highest_high = max(highs[i - period + 1 : i + 1])
 
-            lowest_low = min(
-                lows[i - period + 1 : i + 1]
-            )
+            lowest_low = min(lows[i - period + 1 : i + 1])
 
             denominator = highest_high - lowest_low
 
@@ -42,10 +29,7 @@ class WilliamsR:
                 result.append(0.0)
                 continue
 
-            wr = (
-                (highest_high - closes[i])
-                / denominator
-            ) * -100
+            wr = ((highest_high - closes[i]) / denominator) * -100
 
             result.append(wr)
 

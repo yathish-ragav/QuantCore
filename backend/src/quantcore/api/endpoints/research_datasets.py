@@ -8,11 +8,13 @@ from quantcore.schemas.research_datasets import (
     ResearchHistoricalDatasetResponse,
     ResearchHistoricalDatasetRowResponse,
 )
-from quantcore.schemas.responses import ResearchFeatureResponse, ResearchFeatureVectorResponse
+from quantcore.schemas.responses import (
+    ResearchFeatureResponse,
+    ResearchFeatureVectorResponse,
+)
 from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalAnalysisService,
 )
-
 
 router = APIRouter(
     prefix="/api/v1/research/datasets",
@@ -83,9 +85,9 @@ def build_research_historical_dataset(
                 symbol=row.symbol,
                 security_id=row.security_id,
                 as_of=row.as_of,
-                feature_vector=_feature_vector_response(
-                    row.feature_vector
-                ).model_dump(mode="json"),
+                feature_vector=_feature_vector_response(row.feature_vector).model_dump(
+                    mode="json"
+                ),
             )
             for row in dataset.rows
         ],

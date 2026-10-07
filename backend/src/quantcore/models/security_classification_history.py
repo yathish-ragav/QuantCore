@@ -8,7 +8,6 @@ from quantcore.core.enums import SecurityType
 from quantcore.db.database import Base
 from quantcore.models.provenance import DataSource
 
-
 SECURITY_TYPE_HISTORY_ENUM = SQLAlchemyEnum(
     SecurityType,
     name="security_type_history",

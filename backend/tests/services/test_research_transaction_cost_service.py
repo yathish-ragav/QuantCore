@@ -8,7 +8,6 @@ from quantcore.services.research_rebalance_service import (
     ResearchRebalance,
     ResearchRebalanceAction,
     ResearchRebalanceActionType,
-    ResearchRebalanceDefinition,
     ResearchRebalanceFrequency,
     ResearchRebalanceStatus,
 )
@@ -17,7 +16,6 @@ from quantcore.services.research_transaction_cost_service import (
     ResearchTransactionCostService,
     ResearchTransactionCostStatus,
 )
-
 
 AS_OF = datetime(2026, 1, 2, 15, 30, tzinfo=timezone.utc)
 
@@ -72,7 +70,9 @@ def test_definition_rejects_empty_identity(field, value):
         ResearchTransactionCostDefinition(**values)
 
 
-@pytest.mark.parametrize("value", [-1, float("inf"), float("nan"), True, "not-a-number"])
+@pytest.mark.parametrize(
+    "value", [-1, float("inf"), float("nan"), True, "not-a-number"]
+)
 def test_definition_rejects_invalid_cost_bps(value):
     with pytest.raises(InvalidInputError):
         ResearchTransactionCostDefinition("cost", "1", value)

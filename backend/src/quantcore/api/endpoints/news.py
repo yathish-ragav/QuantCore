@@ -8,7 +8,6 @@ from quantcore.schemas.responses import (
 )
 from quantcore.services.news_service import NewsService
 
-
 router = APIRouter(
     prefix="/news",
     tags=["News"],
@@ -25,9 +24,7 @@ def get_news(
 ):
     normalized_symbol = symbol.strip().upper()
 
-    articles = service.get_news(
-        normalized_symbol
-    )
+    articles = service.get_news(normalized_symbol)
 
     return [
         NewsResponse(
@@ -52,9 +49,7 @@ def sync_news(
 ):
     normalized_symbol = symbol.strip().upper()
 
-    articles_added = service.sync_news(
-        normalized_symbol
-    )
+    articles_added = service.sync_news(normalized_symbol)
 
     return NewsSyncResponse(
         symbol=normalized_symbol,

@@ -1,15 +1,12 @@
-from typing import List
-
-
 class ExponentialMovingAverage:
 
     @staticmethod
     def ema(
-        prices: List[float],
+        prices: list[float],
         period: int,
-    ) -> List[float | None]:
+    ) -> list[float | None]:
 
-        ema_values: List[float | None] = []
+        ema_values: list[float | None] = []
 
         multiplier = 2 / (period + 1)
 
@@ -26,6 +23,7 @@ class ExponentialMovingAverage:
                 ema_values.append(sma)
                 continue
 
+            assert sma is not None
             sma = (prices[i] - sma) * multiplier + sma
             ema_values.append(sma)
 

@@ -1,71 +1,42 @@
-from typing import List
-
-
 class MoneyFlowIndex:
 
     @staticmethod
     def calculate(
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
-        volumes: List[float],
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
+        volumes: list[float],
         period: int = 14,
-    ) -> List[float | None]:
+    ) -> list[float | None]:
 
-        if not (
-            len(highs)
-            == len(lows)
-            == len(closes)
-            == len(volumes)
-        ):
-            raise ValueError(
-                "Input lengths must match."
-            )
+        if not (len(highs) == len(lows) == len(closes) == len(volumes)):
+            raise ValueError("Input lengths must match.")
 
         typical_prices = []
 
-        for high, low, close in zip(
-            highs,
-            lows,
-            closes,
-        ):
-            typical_prices.append(
-                (high + low + close) / 3
-            )
+        for high, low, close in zip(highs, lows, closes, strict=True):
+            typical_prices.append((high + low + close) / 3)
 
         positive_flow = [0.0]
         negative_flow = [0.0]
 
         for i in range(1, len(typical_prices)):
 
-            money_flow = (
-                typical_prices[i]
-                * volumes[i]
-            )
+            money_flow = typical_prices[i] * volumes[i]
 
-            if (
-                typical_prices[i]
-                > typical_prices[i - 1]
-            ):
-                positive_flow.append(
-                    money_flow
-                )
+            if typical_prices[i] > typical_prices[i - 1]:
+                positive_flow.append(money_flow)
                 negative_flow.append(0.0)
 
-            elif (
-                typical_prices[i]
-                < typical_prices[i - 1]
-            ):
+            elif typical_prices[i] < typical_prices[i - 1]:
                 positive_flow.append(0.0)
-                negative_flow.append(
-                    money_flow
-                )
+                negative_flow.append(money_flow)
 
             else:
                 positive_flow.append(0.0)
                 negative_flow.append(0.0)
 
-        mfi_values: List[float | None] = []
+        mfi_values: list[float | None] = []
 
         for i in range(len(closes)):
 
@@ -75,17 +46,9 @@ class MoneyFlowIndex:
 
                 continue
 
-            pos_sum = sum(
-                positive_flow[
-                    i + 1 - period : i + 1
-                ]
-            )
+            pos_sum = sum(positive_flow[i + 1 - period : i + 1])
 
-            neg_sum = sum(
-                negative_flow[
-                    i + 1 - period : i + 1
-                ]
-            )
+            neg_sum = sum(negative_flow[i + 1 - period : i + 1])
 
             if neg_sum == 0:
 
@@ -93,17 +56,9 @@ class MoneyFlowIndex:
 
                 continue
 
-            money_ratio = (
-                pos_sum / neg_sum
-            )
+            money_ratio = pos_sum / neg_sum
 
-            mfi = (
-                100
-                - (
-                    100
-                    / (1 + money_ratio)
-                )
-            )
+            mfi = 100 - (100 / (1 + money_ratio))
 
             mfi_values.append(mfi)
 

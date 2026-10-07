@@ -2,13 +2,11 @@ from datetime import date
 from unittest.mock import Mock, patch
 
 import pytest
-
 from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
 from quantcore.services.financial_statement_revision import FinancialStatementSyncResult
-
 
 client = TestClient(app)
 
@@ -63,9 +61,7 @@ def make_statement():
 
 
 def test_get_balance_sheets():
-    with patch(
-        "quantcore.api.dependencies.BalanceSheetService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.BalanceSheetService") as service_class:
         service = Mock()
         service_class.return_value = service
         service.get_balance_sheets.return_value = [make_statement()]
@@ -81,9 +77,7 @@ def test_get_balance_sheets():
 
 
 def test_get_balance_sheets_normalizes_symbol():
-    with patch(
-        "quantcore.api.dependencies.BalanceSheetService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.BalanceSheetService") as service_class:
         service = Mock()
         service_class.return_value = service
         service.get_balance_sheets.return_value = []
@@ -94,31 +88,30 @@ def test_get_balance_sheets_normalizes_symbol():
     service.get_balance_sheets.assert_called_once_with("AAPL", as_of=None)
 
 
-
 def test_get_balance_sheets_supports_as_of_query():
-    with patch(
-        "quantcore.api.dependencies.BalanceSheetService"
-    ) as mock_service_class:
+    with patch("quantcore.api.dependencies.BalanceSheetService") as mock_service_class:
 
         service = Mock()
         mock_service_class.return_value = service
         service.get_balance_sheets.return_value = []
 
-        response = client.get(
-            "/balance-sheets/AAPL?as_of=2026-01-05T12:00:00Z"
-        )
+        response = client.get("/balance-sheets/AAPL?as_of=2026-01-05T12:00:00Z")
 
     assert response.status_code == 200
     service.get_balance_sheets.assert_called_once()
-    assert service.get_balance_sheets.call_args.kwargs["as_of"].isoformat() == "2026-01-05T12:00:00+00:00"
+    assert (
+        service.get_balance_sheets.call_args.kwargs["as_of"].isoformat()
+        == "2026-01-05T12:00:00+00:00"
+    )
+
 
 def test_sync_balance_sheets():
-    with patch(
-        "quantcore.api.dependencies.BalanceSheetService"
-    ) as service_class:
+    with patch("quantcore.api.dependencies.BalanceSheetService") as service_class:
         service = Mock()
         service_class.return_value = service
-        service.sync_balance_sheets.return_value = FinancialStatementSyncResult(created=2, updated=1, unchanged=3, records_processed=6)
+        service.sync_balance_sheets.return_value = FinancialStatementSyncResult(
+            created=2, updated=1, unchanged=3, records_processed=6
+        )
 
         response = client.post("/balance-sheets/AAPL/sync")
 

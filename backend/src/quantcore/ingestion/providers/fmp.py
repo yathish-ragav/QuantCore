@@ -47,15 +47,16 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
 
         fiscal_date = item["date"]
         calendar_year = item.get("calendarYear")
-        fiscal_year = int(calendar_year) if calendar_year is not None else int(
-            str(fiscal_date)[:4]
+        fiscal_year = (
+            int(calendar_year)
+            if calendar_year is not None
+            else int(str(fiscal_date)[:4])
         )
 
         return {
             "fiscal_year": fiscal_year,
-            "fiscal_period": item.get("period") or (
-                "FY" if period_type is FinancialPeriodType.ANNUAL else None
-            ),
+            "fiscal_period": item.get("period")
+            or ("FY" if period_type is FinancialPeriodType.ANNUAL else None),
             "period_type": period_type,
             "filing_date": item.get("filingDate") or item.get("fillingDate"),
             "filing_form": item.get("form"),
@@ -88,14 +89,10 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
         # ---------------------------------------------------------
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         if limit <= 0:
-            raise InvalidInputError(
-                "Limit must be greater than zero."
-            )
+            raise InvalidInputError("Limit must be greater than zero.")
 
         # ---------------------------------------------------------
         # 2. Call external provider.
@@ -105,13 +102,14 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
         # ---------------------------------------------------------
 
         try:
+            params: dict[str, str | int] = {
+                "symbol": symbol,
+                "limit": limit,
+                "apikey": self.api_key,
+            }
             response = requests.get(
                 f"{self.BASE_URL}/income-statement",
-                params={
-                    "symbol": symbol,
-                    "limit": limit,
-                    "apikey": self.api_key,
-                },
+                params=params,
                 timeout=30,
             )
 
@@ -130,9 +128,7 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
         # ---------------------------------------------------------
 
         if not isinstance(data, list):
-            raise DataValidationError(
-                "FMP income statement response must be a list."
-            )
+            raise DataValidationError("FMP income statement response must be a list.")
 
         # ---------------------------------------------------------
         # 4. Transform provider records.
@@ -156,19 +152,11 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                             period_type=FinancialPeriodType.ANNUAL,
                         ),
                         total_revenue=item.get("revenue"),
-                        gross_profit=item.get(
-                            "grossProfit"
-                        ),
-                        operating_income=item.get(
-                            "operatingIncome"
-                        ),
-                        net_income=item.get(
-                            "netIncome"
-                        ),
+                        gross_profit=item.get("grossProfit"),
+                        operating_income=item.get("operatingIncome"),
+                        net_income=item.get("netIncome"),
                         eps=item.get("eps"),
-                        shares_outstanding=item.get(
-                            "sharesOutstanding"
-                        ),
+                        shares_outstanding=item.get("sharesOutstanding"),
                         weighted_average_shares_outstanding=item.get(
                             "weightedAverageShsOut"
                         ),
@@ -176,9 +164,7 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                 )
 
             except (KeyError, TypeError, ValueError) as exc:
-                raise DataValidationError(
-                    "Invalid FMP income statement item."
-                ) from exc
+                raise DataValidationError("Invalid FMP income statement item.") from exc
 
         return statements
 
@@ -213,27 +199,24 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
         # ---------------------------------------------------------
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         if limit <= 0:
-            raise InvalidInputError(
-                "Limit must be greater than zero."
-            )
+            raise InvalidInputError("Limit must be greater than zero.")
 
         # ---------------------------------------------------------
         # 2. Call external provider.
         # ---------------------------------------------------------
 
         try:
+            params: dict[str, str | int] = {
+                "symbol": symbol,
+                "limit": limit,
+                "apikey": self.api_key,
+            }
             response = requests.get(
                 f"{self.BASE_URL}/cash-flow-statement",
-                params={
-                    "symbol": symbol,
-                    "limit": limit,
-                    "apikey": self.api_key,
-                },
+                params=params,
                 timeout=30,
             )
 
@@ -270,25 +253,16 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                 )
 
             try:
-                operating_cash_flow = item.get(
-                    "operatingCashFlow"
-                )
-                capital_expenditure = item.get(
-                    "capitalExpenditure"
-                )
-                free_cash_flow = item.get(
-                    "freeCashFlow"
-                )
+                operating_cash_flow = item.get("operatingCashFlow")
+                capital_expenditure = item.get("capitalExpenditure")
+                free_cash_flow = item.get("freeCashFlow")
 
                 if (
                     free_cash_flow is None
                     and operating_cash_flow is not None
                     and capital_expenditure is not None
                 ):
-                    free_cash_flow = (
-                        operating_cash_flow
-                        + capital_expenditure
-                    )
+                    free_cash_flow = operating_cash_flow + capital_expenditure
 
                 statements.append(
                     CashFlowStatementData(
@@ -309,18 +283,10 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                         depreciation_and_amortization=item.get(
                             "depreciationAndAmortization"
                         ),
-                        stock_based_compensation=item.get(
-                            "stockBasedCompensation"
-                        ),
-                        dividends_paid=item.get(
-                            "netDividendsPaid"
-                        ),
-                        share_repurchases=item.get(
-                            "commonStockRepurchased"
-                        ),
-                        net_change_in_cash=item.get(
-                            "netChangeInCash"
-                        ),
+                        stock_based_compensation=item.get("stockBasedCompensation"),
+                        dividends_paid=item.get("netDividendsPaid"),
+                        share_repurchases=item.get("commonStockRepurchased"),
+                        net_change_in_cash=item.get("netChangeInCash"),
                     )
                 )
 
@@ -339,23 +305,20 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
         """Retrieve annual balance sheet data from FMP."""
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         if limit <= 0:
-            raise InvalidInputError(
-                "Limit must be greater than zero."
-            )
+            raise InvalidInputError("Limit must be greater than zero.")
 
         try:
+            params: dict[str, str | int] = {
+                "symbol": symbol,
+                "limit": limit,
+                "apikey": self.api_key,
+            }
             response = requests.get(
                 f"{self.BASE_URL}/balance-sheet-statement",
-                params={
-                    "symbol": symbol,
-                    "limit": limit,
-                    "apikey": self.api_key,
-                },
+                params=params,
                 timeout=30,
             )
 
@@ -364,58 +327,43 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
 
         except requests.RequestException as exc:
             raise ExternalDataError(
-                "Failed to retrieve balance sheet data "
-                "from Financial Modeling Prep."
+                "Failed to retrieve balance sheet data " "from Financial Modeling Prep."
             ) from exc
 
         if not isinstance(data, list):
-            raise DataValidationError(
-                "FMP balance sheet response must be a list."
-            )
+            raise DataValidationError("FMP balance sheet response must be a list.")
 
         statements: list[BalanceSheetData] = []
 
         for item in data:
             if not isinstance(item, dict):
-                raise DataValidationError(
-                    "FMP balance sheet item must be an object."
-                )
+                raise DataValidationError("FMP balance sheet item must be an object.")
 
             try:
                 cash = item.get("cashAndCashEquivalents")
-                short_term_investments = item.get(
-                    "shortTermInvestments"
-                )
+                short_term_investments = item.get("shortTermInvestments")
                 short_term_debt = item.get("shortTermDebt")
                 long_term_debt = item.get("longTermDebt")
 
                 total_debt = item.get("totalDebt")
                 if total_debt is None and (
-                    short_term_debt is not None
-                    or long_term_debt is not None
+                    short_term_debt is not None or long_term_debt is not None
                 ):
-                    total_debt = (
-                        (short_term_debt or 0)
-                        + (long_term_debt or 0)
-                    )
+                    total_debt = (short_term_debt or 0) + (long_term_debt or 0)
 
                 net_debt = item.get("netDebt")
                 if net_debt is None and total_debt is not None:
                     net_debt = total_debt - (cash or 0)
 
                 current_assets = item.get("totalCurrentAssets")
-                current_liabilities = item.get(
-                    "totalCurrentLiabilities"
-                )
+                current_liabilities = item.get("totalCurrentLiabilities")
                 working_capital = item.get("workingCapital")
                 if (
                     working_capital is None
                     and current_assets is not None
                     and current_liabilities is not None
                 ):
-                    working_capital = (
-                        current_assets - current_liabilities
-                    )
+                    working_capital = current_assets - current_liabilities
 
                 statements.append(
                     BalanceSheetData(
@@ -441,9 +389,7 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                             "propertyPlantEquipmentNet"
                         ),
                         goodwill=item.get("goodwill"),
-                        intangible_assets=item.get(
-                            "intangibleAssets"
-                        ),
+                        intangible_assets=item.get("intangibleAssets"),
                         total_assets=item.get("totalAssets"),
                         accounts_payable=(
                             item.get("accountPayables")
@@ -453,18 +399,13 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                         short_term_debt=short_term_debt,
                         total_current_liabilities=current_liabilities,
                         long_term_debt=long_term_debt,
-                        total_liabilities=item.get(
-                            "totalLiabilities"
-                        ),
+                        total_liabilities=item.get("totalLiabilities"),
                         total_equity=(
                             item.get("totalStockholdersEquity")
-                            if item.get("totalStockholdersEquity")
-                            is not None
+                            if item.get("totalStockholdersEquity") is not None
                             else item.get("totalEquity")
                         ),
-                        retained_earnings=item.get(
-                            "retainedEarnings"
-                        ),
+                        retained_earnings=item.get("retainedEarnings"),
                         total_debt=total_debt,
                         net_debt=net_debt,
                         working_capital=working_capital,
@@ -472,9 +413,7 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
                 )
 
             except (KeyError, TypeError, ValueError) as exc:
-                raise DataValidationError(
-                    "Invalid FMP balance sheet item."
-                ) from exc
+                raise DataValidationError("Invalid FMP balance sheet item.") from exc
 
         return statements
 
@@ -484,17 +423,16 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
         symbol = symbol.strip().upper()
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         try:
+            params: dict[str, str] = {
+                "symbol": symbol,
+                "apikey": self.api_key,
+            }
             response = requests.get(
                 f"{self.BASE_URL}/quote",
-                params={
-                    "symbol": symbol,
-                    "apikey": self.api_key,
-                },
+                params=params,
                 timeout=30,
             )
             response.raise_for_status()
@@ -502,21 +440,16 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
 
         except requests.RequestException as exc:
             raise ExternalDataError(
-                "Failed to retrieve quote data from "
-                "Financial Modeling Prep."
+                "Failed to retrieve quote data from " "Financial Modeling Prep."
             ) from exc
 
         if not isinstance(data, list) or not data:
-            raise DataValidationError(
-                "FMP quote response must be a non-empty list."
-            )
+            raise DataValidationError("FMP quote response must be a non-empty list.")
 
         item = data[0]
 
         if not isinstance(item, dict):
-            raise DataValidationError(
-                "FMP quote item must be an object."
-            )
+            raise DataValidationError("FMP quote item must be an object.")
 
         try:
             timestamp = item["timestamp"]
@@ -557,6 +490,4 @@ class FMPClient(FinancialDataProvider, QuoteProvider):
             OverflowError,
             ValidationError,
         ) as exc:
-            raise DataValidationError(
-                "Invalid FMP quote item."
-            ) from exc
+            raise DataValidationError("Invalid FMP quote item.") from exc

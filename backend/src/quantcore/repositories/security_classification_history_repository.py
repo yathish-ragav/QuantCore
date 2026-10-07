@@ -5,7 +5,9 @@ from sqlalchemy.orm import Session
 
 from quantcore.core.enums import SecurityType
 from quantcore.models.provenance import DataSource
-from quantcore.models.security_classification_history import SecurityClassificationHistory
+from quantcore.models.security_classification_history import (
+    SecurityClassificationHistory,
+)
 
 
 class SecurityClassificationHistoryRepository:
@@ -57,7 +59,9 @@ class SecurityClassificationHistoryRepository:
         if current_known_at.tzinfo is None:
             current_known_at = current_known_at.replace(tzinfo=timezone.utc)
         if observed_at < current_known_at:
-            raise ValueError("Classification observations cannot move known_at backward")
+            raise ValueError(
+                "Classification observations cannot move known_at backward"
+            )
 
         current_last_seen_at = current.last_seen_at
         if current_last_seen_at.tzinfo is None:

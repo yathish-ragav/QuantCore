@@ -1,14 +1,13 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from math import isclose, isfinite
-from typing import Mapping
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_factor_cross_sectional_service import (
     ResearchFactorRankedPanel,
     ResearchFactorRankRow,
 )
-
 
 ResearchFactorIdentity = tuple[str, str]
 
@@ -76,7 +75,9 @@ class ResearchSignalDefinition:
             try:
                 numeric_weight = float(weight)
             except (TypeError, ValueError) as exc:
-                raise InvalidInputError("Research signal weights must be numeric.") from exc
+                raise InvalidInputError(
+                    "Research signal weights must be numeric."
+                ) from exc
             if not isfinite(numeric_weight) or numeric_weight <= 0.0:
                 raise InvalidInputError(
                     "Research signal weights must be finite and strictly positive."
@@ -179,6 +180,7 @@ class ResearchSignalService:
                 definition.factor_identities,
                 definition.weights,
                 factor_rows,
+                strict=True,
             ):
                 normalized_rank = float(row.normalized_rank)
                 contribution = weight * normalized_rank
@@ -248,7 +250,9 @@ class ResearchSignalService:
                     "Research signal inputs must be ResearchFactorRankedPanel values."
                 )
             if not panel.rows:
-                raise InvalidInputError("Research signal factor panels must not be empty.")
+                raise InvalidInputError(
+                    "Research signal factor panels must not be empty."
+                )
             if (panel.factor_key, panel.definition_version) != identity:
                 raise InvalidInputError(
                     "Research signal panel identity does not match its mapping key."
@@ -261,9 +265,13 @@ class ResearchSignalService:
                         "Research signal panels must contain ResearchFactorRankRow values."
                     )
                 if not isinstance(row.as_of, datetime) or row.as_of.tzinfo is None:
-                    raise InvalidInputError("Research signal as_of must be timezone-aware.")
+                    raise InvalidInputError(
+                        "Research signal as_of must be timezone-aware."
+                    )
                 if not isinstance(row.security_id, int):
-                    raise InvalidInputError("Research signal security_id must be an integer.")
+                    raise InvalidInputError(
+                        "Research signal security_id must be an integer."
+                    )
                 point = (row.security_id, row.as_of)
                 if point in points:
                     raise InvalidInputError(
@@ -271,7 +279,10 @@ class ResearchSignalService:
                     )
                 points.add(point)
 
-                if row.symbol.strip().upper() != row.factor_value.symbol.strip().upper():
+                if (
+                    row.symbol.strip().upper()
+                    != row.factor_value.symbol.strip().upper()
+                ):
                     raise InvalidInputError(
                         "Research signal row symbol does not match its factor value."
                     )
@@ -283,16 +294,25 @@ class ResearchSignalService:
                     raise InvalidInputError(
                         "Research signal row as_of does not match its factor value."
                     )
-                if (row.factor_value.factor_key, row.factor_value.definition_version) != identity:
+                if (
+                    row.factor_value.factor_key,
+                    row.factor_value.definition_version,
+                ) != identity:
                     raise InvalidInputError(
                         "Research signal row factor identity does not match its panel identity."
                     )
 
                 factor_rank = row.rank
-                if not isinstance(factor_rank, (int, float)) or not isfinite(float(factor_rank)):
-                    raise InvalidInputError("Research signal factor ranks must be finite.")
+                if not isinstance(factor_rank, (int, float)) or not isfinite(
+                    float(factor_rank)
+                ):
+                    raise InvalidInputError(
+                        "Research signal factor ranks must be finite."
+                    )
                 if float(factor_rank) < 1.0:
-                    raise InvalidInputError("Research signal factor ranks must be positive.")
+                    raise InvalidInputError(
+                        "Research signal factor ranks must be positive."
+                    )
 
                 normalized_rank = row.normalized_rank
                 if not isinstance(normalized_rank, (int, float)) or not isfinite(

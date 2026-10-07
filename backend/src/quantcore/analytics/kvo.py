@@ -1,49 +1,31 @@
-from typing import List
-
-
 class KlingerVolumeOscillator:
 
     @staticmethod
     def calculate(
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
-        volumes: List[float],
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
+        volumes: list[float],
         fast_period: int = 34,
         slow_period: int = 55,
         signal_period: int = 13,
-    ) -> List[dict]:
+    ) -> list[dict]:
 
-        if not (
-            len(highs)
-            == len(lows)
-            == len(closes)
-            == len(volumes)
-        ):
+        if not (len(highs) == len(lows) == len(closes) == len(volumes)):
             raise ValueError("Input lengths must match.")
 
-        if (
-            fast_period <= 0
-            or slow_period <= 0
-            or signal_period <= 0
-        ):
-            raise ValueError(
-                "Periods must be greater than zero."
-            )
+        if fast_period <= 0 or slow_period <= 0 or signal_period <= 0:
+            raise ValueError("Periods must be greater than zero.")
 
         if not closes:
             return []
 
         hlc = [
             high + low + close
-            for high, low, close in zip(
-                highs,
-                lows,
-                closes,
-            )
+            for high, low, close in zip(highs, lows, closes, strict=True)
         ]
 
-        trend = [None] * len(closes)
+        trend: list[int] = [1] * len(closes)
 
         for i in range(1, len(closes)):
             if hlc[i] > hlc[i - 1]:
@@ -64,46 +46,33 @@ class KlingerVolumeOscillator:
 
             cm = abs(hlc[i] - hlc[i - 1])
 
-            vf[i] = (
-                volumes[i]
-                * trend[i]
-                * abs(2 * (cm / dm) - 1)
-            )
+            vf[i] = volumes[i] * trend[i] * abs(2 * (cm / dm) - 1)
 
         def ema(
-            values: List[float],
+            values: list[float],
             period: int,
-        ) -> List[float]:
+        ) -> list[float]:
 
             alpha = 2 / (period + 1)
 
             result = [values[0]]
 
             for i in range(1, len(values)):
-                result.append(
-                    alpha * values[i]
-                    + (1 - alpha) * result[-1]
-                )
+                result.append(alpha * values[i] + (1 - alpha) * result[-1])
 
             return result
 
         fast_ema = ema(vf, fast_period)
         slow_ema = ema(vf, slow_period)
 
-        kvo = [
-            fast - slow
-            for fast, slow in zip(
-                fast_ema,
-                slow_ema,
-            )
-        ]
+        kvo = [fast - slow for fast, slow in zip(fast_ema, slow_ema, strict=True)]
 
         signal = ema(
             kvo,
             signal_period,
         )
 
-        result = []
+        result: list[dict[str, float | None]] = []
 
         for i in range(len(closes)):
 

@@ -11,8 +11,20 @@ from quantcore.services.market_index_import_service import (
 
 def test_fingerprint_is_order_independent():
     rows = [
-        IndexMembershipImportRow(2, date(2020, 1, 1), None, Decimal("0.2"), datetime(2020, 1, 2, tzinfo=timezone.utc)),
-        IndexMembershipImportRow(1, date(2020, 1, 1), None, Decimal("0.8"), datetime(2020, 1, 2, tzinfo=timezone.utc)),
+        IndexMembershipImportRow(
+            2,
+            date(2020, 1, 1),
+            None,
+            Decimal("0.2"),
+            datetime(2020, 1, 2, tzinfo=timezone.utc),
+        ),
+        IndexMembershipImportRow(
+            1,
+            date(2020, 1, 1),
+            None,
+            Decimal("0.8"),
+            datetime(2020, 1, 2, tzinfo=timezone.utc),
+        ),
     ]
     first = MarketIndexImportService._fingerprint(tuple(rows))
     second = MarketIndexImportService._fingerprint(tuple(reversed(rows)))
@@ -32,6 +44,7 @@ def test_import_rows_requires_authorized_source_and_matching_index_source():
     service.index_service.get.return_value = index
 
     import pytest
+
     from quantcore.core.exceptions import DataValidationError
 
     with pytest.raises(DataValidationError, match="not configured"):
@@ -40,7 +53,10 @@ def test_import_rows_requires_authorized_source_and_matching_index_source():
             source_key="SPDJI",
             rows=[
                 IndexMembershipImportRow(
-                    1, date(2020, 1, 1), None, None,
+                    1,
+                    date(2020, 1, 1),
+                    None,
+                    None,
                     datetime(2020, 1, 2, tzinfo=timezone.utc),
                 )
             ],
@@ -66,7 +82,10 @@ def test_import_rows_is_idempotent_for_completed_fingerprint():
         source_key="SPDJI",
         rows=[
             IndexMembershipImportRow(
-                1, date(2020, 1, 1), None, None,
+                1,
+                date(2020, 1, 1),
+                None,
+                None,
                 datetime(2020, 1, 2, tzinfo=timezone.utc),
             )
         ],
@@ -102,7 +121,12 @@ def test_import_rows_persists_authorized_membership_and_load_audit():
     session = Session(engine)
     try:
         company = Company(
-            cik="0000000004", name="Example", sector="", industry="", country="", website=""
+            cik="0000000004",
+            name="Example",
+            sector="",
+            industry="",
+            country="",
+            website="",
         )
         session.add(company)
         session.flush()
@@ -116,11 +140,16 @@ def test_import_rows_persists_authorized_membership_and_load_audit():
             authority="AUTHORITATIVE",
             license_status="AUTHORIZED",
             storage_allowed=True,
+            license_reference="contract:test",
+            reviewed_at=datetime.now(timezone.utc),
         )
         session.add(source)
         session.flush()
         index = MarketIndex(
-            key="TESTIDX", name="Test Index", provider="Test Provider", data_source_id=source.id
+            key="TESTIDX",
+            name="Test Index",
+            provider="Test Provider",
+            data_source_id=source.id,
         )
         session.add(index)
         session.commit()
@@ -131,13 +160,23 @@ def test_import_rows_persists_authorized_membership_and_load_audit():
                 security_id=security.id,
                 effective_from=date(2020, 1, 1),
                 effective_to=None,
-                weight=Decimal("1"),
+                weight=Decimal(1),
                 known_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
                 source_reference="licensed-file-2020",
             )
         ]
-        assert service.import_rows(index_key="TESTIDX", source_key="LICENSED_TEST", rows=rows) == 1
-        assert service.import_rows(index_key="TESTIDX", source_key="LICENSED_TEST", rows=rows) == 1
+        assert (
+            service.import_rows(
+                index_key="TESTIDX", source_key="LICENSED_TEST", rows=rows
+            )
+            == 1
+        )
+        assert (
+            service.import_rows(
+                index_key="TESTIDX", source_key="LICENSED_TEST", rows=rows
+            )
+            == 1
+        )
         assert session.query(MarketIndexConstituent).count() == 1
         assert session.query(MarketIndexDataLoad).count() == 1
     finally:

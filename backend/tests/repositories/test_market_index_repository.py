@@ -141,11 +141,14 @@ def test_get_constituents_as_of_treats_effective_to_as_exclusive():
             effective_on=date(2020, 12, 31),
             known_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
         )
-        assert repository.get_constituents_as_of(
-            index.id,
-            effective_on=date(2021, 1, 1),
-            known_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
-        ) == []
+        assert (
+            repository.get_constituents_as_of(
+                index.id,
+                effective_on=date(2021, 1, 1),
+                known_at=datetime(2021, 1, 1, tzinfo=timezone.utc),
+            )
+            == []
+        )
     finally:
         session.close()
         engine.dispose()
@@ -155,37 +158,55 @@ def test_get_constituents_as_of_uses_latest_known_revision():
     engine, session = make_session()
     try:
         company = Company(
-            cik="0000000003", name="Example", sector="", industry="", country="", website=""
+            cik="0000000003",
+            name="Example",
+            sector="",
+            industry="",
+            country="",
+            website="",
         )
         session.add(company)
         session.flush()
         security = Security(
-            company_id=company.id, symbol="TEST", exchange="NASDAQ", status=SecurityStatus.ACTIVE
+            company_id=company.id,
+            symbol="TEST",
+            exchange="NASDAQ",
+            status=SecurityStatus.ACTIVE,
         )
         session.add(security)
         session.flush()
         index = MarketIndex(key="TEST3", name="Test Index 3", provider="provider")
         session.add(index)
         session.flush()
-        session.add_all([
-            MarketIndexConstituent(
-                index_id=index.id, security_id=security.id, effective_from=date(2020, 1, 1),
-                effective_to=None, weight=Decimal("0.1"),
-                known_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
-                observed_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
-            ),
-            MarketIndexConstituent(
-                index_id=index.id, security_id=security.id, effective_from=date(2020, 1, 1),
-                effective_to=None, weight=Decimal("0.2"),
-                known_at=datetime(2020, 2, 2, tzinfo=timezone.utc),
-                observed_at=datetime(2020, 2, 2, tzinfo=timezone.utc),
-            ),
-        ])
+        session.add_all(
+            [
+                MarketIndexConstituent(
+                    index_id=index.id,
+                    security_id=security.id,
+                    effective_from=date(2020, 1, 1),
+                    effective_to=None,
+                    weight=Decimal("0.1"),
+                    known_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
+                    observed_at=datetime(2020, 1, 2, tzinfo=timezone.utc),
+                ),
+                MarketIndexConstituent(
+                    index_id=index.id,
+                    security_id=security.id,
+                    effective_from=date(2020, 1, 1),
+                    effective_to=None,
+                    weight=Decimal("0.2"),
+                    known_at=datetime(2020, 2, 2, tzinfo=timezone.utc),
+                    observed_at=datetime(2020, 2, 2, tzinfo=timezone.utc),
+                ),
+            ]
+        )
         session.commit()
 
         repository = MarketIndexRepository(session)
         result = repository.get_constituents_as_of(
-            index.id, effective_on=date(2020, 6, 1), known_at=datetime(2020, 3, 1, tzinfo=timezone.utc)
+            index.id,
+            effective_on=date(2020, 6, 1),
+            known_at=datetime(2020, 3, 1, tzinfo=timezone.utc),
         )
         assert len(result) == 1
         assert result[0].weight == Decimal("0.2")
@@ -197,10 +218,22 @@ def test_get_constituents_as_of_uses_latest_known_revision():
 def test_get_constituents_as_of_applies_latest_known_backdated_removal_after_revision_selection():
     engine, session = make_session()
     try:
-        company = Company(cik="0000000004", name="Example", sector="", industry="", country="", website="")
+        company = Company(
+            cik="0000000004",
+            name="Example",
+            sector="",
+            industry="",
+            country="",
+            website="",
+        )
         session.add(company)
         session.flush()
-        security = Security(company_id=company.id, symbol="TEST", exchange="NASDAQ", status=SecurityStatus.ACTIVE)
+        security = Security(
+            company_id=company.id,
+            symbol="TEST",
+            exchange="NASDAQ",
+            status=SecurityStatus.ACTIVE,
+        )
         session.add(security)
         session.flush()
         index = MarketIndex(key="TEST4", name="Test Index 4", provider="provider")
@@ -208,25 +241,37 @@ def test_get_constituents_as_of_applies_latest_known_backdated_removal_after_rev
         session.flush()
         early = datetime(2020, 1, 2, tzinfo=timezone.utc)
         late = datetime(2025, 7, 1, tzinfo=timezone.utc)
-        session.add_all([
-            MarketIndexConstituent(
-                index_id=index.id, security_id=security.id, effective_from=date(2020, 1, 1),
-                effective_to=None, known_at=early, observed_at=early,
-            ),
-            MarketIndexConstituent(
-                index_id=index.id, security_id=security.id, effective_from=date(2020, 1, 1),
-                effective_to=date(2025, 6, 2), known_at=late, observed_at=late,
-            ),
-        ])
+        session.add_all(
+            [
+                MarketIndexConstituent(
+                    index_id=index.id,
+                    security_id=security.id,
+                    effective_from=date(2020, 1, 1),
+                    effective_to=None,
+                    known_at=early,
+                    observed_at=early,
+                ),
+                MarketIndexConstituent(
+                    index_id=index.id,
+                    security_id=security.id,
+                    effective_from=date(2020, 1, 1),
+                    effective_to=date(2025, 6, 2),
+                    known_at=late,
+                    observed_at=late,
+                ),
+            ]
+        )
         session.commit()
         repository = MarketIndexRepository(session)
 
         before = repository.get_constituents_as_of(
-            index.id, effective_on=date(2025, 6, 15),
+            index.id,
+            effective_on=date(2025, 6, 15),
             known_at=datetime(2025, 6, 15, tzinfo=timezone.utc),
         )
         after = repository.get_constituents_as_of(
-            index.id, effective_on=date(2025, 6, 15),
+            index.id,
+            effective_on=date(2025, 6, 15),
             known_at=datetime(2025, 7, 2, tzinfo=timezone.utc),
         )
 

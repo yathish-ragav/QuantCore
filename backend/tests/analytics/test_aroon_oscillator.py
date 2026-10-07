@@ -16,13 +16,9 @@ def test_aroon_oscillator_basic():
     assert result[0] is None
     assert result[1] is None
 
-    assert result[2] == pytest.approx(
-        66.6666666667 - 100.0
-    )
+    assert result[2] == pytest.approx(66.6666666667 - 100.0)
 
-    assert result[3] == pytest.approx(
-        100.0 - 66.6666666667
-    )
+    assert result[3] == pytest.approx(100.0 - 66.6666666667)
 
 
 def test_aroon_oscillator_period_larger_than_data():

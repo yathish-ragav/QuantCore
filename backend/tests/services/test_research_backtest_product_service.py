@@ -13,10 +13,18 @@ from quantcore.services.research_backtest_service import ResearchBacktestDefinit
 from quantcore.services.research_portfolio_constraint_service import (
     ResearchPortfolioConstraintDefinition,
 )
-from quantcore.services.research_rebalance_service import ResearchRebalanceDefinition, ResearchRebalanceFrequency
+from quantcore.services.research_rebalance_service import (
+    ResearchRebalanceDefinition,
+    ResearchRebalanceFrequency,
+)
 from quantcore.services.research_signal_service import ResearchSignalDefinition
-from quantcore.services.research_strategy_service import ResearchStrategyDefinition, ResearchStrategyDirection
-from quantcore.services.research_transaction_cost_service import ResearchTransactionCostDefinition
+from quantcore.services.research_strategy_service import (
+    ResearchStrategyDefinition,
+    ResearchStrategyDirection,
+)
+from quantcore.services.research_transaction_cost_service import (
+    ResearchTransactionCostDefinition,
+)
 
 AS_OF_0 = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)
 AS_OF_1 = datetime(2026, 8, 21, 15, 30, tzinfo=timezone.utc)
@@ -99,7 +107,7 @@ def test_run_constructs_targets_once_and_loads_all_pit_revisions():
     portfolio_product.construct_sequence.return_value = (first, second)
 
     price_service = Mock()
-    naive_date = datetime(2026, 8, 20, 16, 0)
+    naive_date = datetime(2026, 8, 20, 16, 0)  # noqa: DTZ001
     known_at = datetime(2026, 8, 20, 16, 30, tzinfo=timezone.utc)
     revision_1 = Mock(
         date=naive_date,
@@ -199,7 +207,9 @@ def test_run_reuses_one_price_history_query_per_security():
     backtest_service = Mock()
     backtest_service.run.return_value = Mock()
 
-    service = ResearchBacktestProductService(portfolio_product, price_service, backtest_service)
+    service = ResearchBacktestProductService(
+        portfolio_product, price_service, backtest_service
+    )
     backtest_definition, constraint, rebalance, cost = definitions()
 
     service.run(
@@ -218,7 +228,8 @@ def test_run_reuses_one_price_history_query_per_security():
 
     assert price_service.get_price_revision_history_known_as_of.call_count == 2
     assert [
-        call.args for call in price_service.get_price_revision_history_known_as_of.call_args_list
+        call.args
+        for call in price_service.get_price_revision_history_known_as_of.call_args_list
     ] == [("AAA", AS_OF_1), ("BBB", AS_OF_1)]
 
 

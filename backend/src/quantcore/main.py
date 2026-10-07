@@ -11,5 +11,4 @@ resolve to the same canonical FastAPI application.
 
 from quantcore.api.main import app
 
-
 __all__ = ["app"]

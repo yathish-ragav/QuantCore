@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
 import pytest
 
@@ -94,8 +94,8 @@ def test_empty_expected_schedule_is_not_called_complete():
 @pytest.mark.parametrize(
     "expected, observed",
     [
-        (dates(3) + (dates(3)[-1],), dates(3)),
-        (dates(3), dates(3) + (dates(3)[-1],)),
+        ((*dates(3), dates(3)[-1]), dates(3)),
+        (dates(3), (*dates(3), dates(3)[-1])),
     ],
 )
 def test_duplicate_timestamps_are_rejected(expected, observed):

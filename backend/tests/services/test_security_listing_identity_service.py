@@ -3,8 +3,14 @@ from unittest.mock import Mock
 
 import pytest
 
-from quantcore.core.exceptions import DataValidationError, InvalidInputError, ResourceNotFoundError
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
+from quantcore.core.exceptions import (
+    DataValidationError,
+    InvalidInputError,
+    ResourceNotFoundError,
+)
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
+)
 
 
 def make_service():
@@ -56,7 +62,7 @@ def test_resolve_as_of_can_disambiguate_by_exchange():
     service.resolve_as_of(
         "ABC",
         effective_on=date(2025, 1, 1),
-        known_at=datetime(2025, 2, 1),
+        known_at=datetime(2025, 2, 1),  # noqa: DTZ001
         exchange=" nyse ",
     )
 

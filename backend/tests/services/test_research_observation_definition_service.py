@@ -33,7 +33,9 @@ def make_service():
     service.db = Mock()
     service.pit_alignment_service = Mock()
     service.observation_service = Mock()
-    service.definition_registry = ResearchObservationDefinitionRegistry([ROEDefinition()])
+    service.definition_registry = ResearchObservationDefinitionRegistry(
+        [ROEDefinition()]
+    )
     return service
 
 
@@ -81,7 +83,7 @@ def test_compute_observation_uses_one_pit_snapshot_and_persists_provenance():
 
     result = service.compute_observation(
         " aapl ",
-        as_of=datetime(2026, 8, 20, 15, 30),
+        as_of=datetime(2026, 8, 20, 15, 30),  # noqa: DTZ001
         observation_key=" roe ",
         definition_version=" 1 ",
         macro_series_ids=["gdp"],
@@ -142,7 +144,9 @@ def test_compute_observation_requires_definition_value():
     service.db = Mock()
     service.pit_alignment_service = Mock()
     service.observation_service = Mock()
-    service.definition_registry = ResearchObservationDefinitionRegistry([EmptyDefinition()])
+    service.definition_registry = ResearchObservationDefinitionRegistry(
+        [EmptyDefinition()]
+    )
     service.pit_alignment_service.get_snapshot.return_value = make_snapshot()
 
     with pytest.raises(InvalidInputError):

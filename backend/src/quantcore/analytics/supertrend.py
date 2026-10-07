@@ -1,5 +1,3 @@
-from typing import List
-
 from .atr import AverageTrueRange
 
 
@@ -7,9 +5,9 @@ class Supertrend:
 
     @staticmethod
     def calculate(
-        highs: List[float],
-        lows: List[float],
-        closes: List[float],
+        highs: list[float],
+        lows: list[float],
+        closes: list[float],
         period: int = 10,
         multiplier: float = 3.0,
     ):
@@ -21,10 +19,10 @@ class Supertrend:
             period,
         )
 
-        result: List[float | None] = [None] * len(closes)
+        result: list[float | None] = [None] * len(closes)
 
-        upper_band: List[float | None] = []
-        lower_band: List[float | None] = []
+        upper_band: list[float | None] = []
+        lower_band: list[float | None] = []
 
         for i in range(len(closes)):
 
@@ -35,10 +33,13 @@ class Supertrend:
 
                 continue
 
+            atr_value = atr[i]
+            assert atr_value is not None
+
             hl2 = (highs[i] + lows[i]) / 2
 
-            upper = hl2 + multiplier * atr[i]
-            lower = hl2 - multiplier * atr[i]
+            upper = hl2 + multiplier * atr_value
+            lower = hl2 - multiplier * atr_value
 
             upper_band.append(upper)
             lower_band.append(lower)
@@ -50,11 +51,7 @@ class Supertrend:
             if upper_band[i] is None:
                 continue
 
-            if trend is None:
-
-                trend = lower_band[i]
-
-            elif closes[i] > trend:
+            if trend is None or closes[i] > trend:
 
                 trend = lower_band[i]
 

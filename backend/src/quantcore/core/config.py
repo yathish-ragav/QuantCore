@@ -3,7 +3,6 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-
 BACKEND_ROOT = Path(__file__).resolve().parents[3]
 ENV_FILE = BACKEND_ROOT / ".env"
 
@@ -22,6 +21,17 @@ class Settings(BaseSettings):
     MASSIVE_REFERENCE_REQUEST_INTERVAL_SECONDS: float = 12.5
     SEC_USER_AGENT: str = "QuantCore/1.0 contact: yathishragav@gmail.com"
     PRODUCTION_DATA_POLICY_ENFORCED: bool = True
+    # Production provider-rights attestations are deployment controls, not
+    # legal determinations. They require an operator to record that the
+    # deployed account/contract permits QuantCore's intended use.
+    MASSIVE_DATA_LICENSE_CONFIRMED: bool = False
+    MASSIVE_DATA_LICENSE_REFERENCE: str = ""
+    FRED_DATA_TERMS_CONFIRMED: bool = False
+    FRED_DATA_TERMS_REFERENCE: str = ""
+    FRED_DATA_STORAGE_AUTHORIZED: bool = False
+    FRED_DATA_STORAGE_REFERENCE: str = ""
+    SEC_DATA_POLICY_CONFIRMED: bool = False
+    SEC_DATA_POLICY_REFERENCE: str = ""
     QUANTCORE_INGESTION_SCHEDULES_JSON: str = ""
 
     market_data_provider: str = "yahoo"
@@ -52,4 +62,4 @@ class Settings(BaseSettings):
     )
 
 
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]  # Pydantic loads required fields from the environment.

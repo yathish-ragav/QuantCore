@@ -85,7 +85,9 @@ class IngestionScheduler:
                 try:
                     self.run_once()
                 except Exception:
-                    logger.exception("Ingestion scheduler failed while triggering schedules")
+                    logger.exception(
+                        "Ingestion scheduler failed while triggering schedules"
+                    )
                 self._stop_event.wait(self.config.poll_interval_seconds)
         finally:
             logger.info("Stopped ingestion scheduler")

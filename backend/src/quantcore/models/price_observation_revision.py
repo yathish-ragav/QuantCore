@@ -1,12 +1,20 @@
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, Integer, String, Enum as SQLAlchemyEnum, UniqueConstraint
+from sqlalchemy import (
+    BigInteger,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    UniqueConstraint,
+)
+from sqlalchemy import Enum as SQLAlchemyEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from quantcore.core.enums import PriceBasis
 from quantcore.db.database import Base
 from quantcore.models.provenance import DATA_SOURCE_ENUM, DataSource
-
 
 PRICE_BASIS_ENUM = SQLAlchemyEnum(
     PriceBasis,

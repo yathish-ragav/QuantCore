@@ -1,37 +1,38 @@
-from datetime import datetime, timedelta, timezone
 import json
+from datetime import datetime, timezone
 
 import pytest
-
-from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from sqlalchemy import select
 
+from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
 from quantcore.core.resource_identity import ResourceOwner
-from quantcore.models.research_experiment import ResearchExperimentComparisonResultRecord
+from quantcore.models.research_experiment import (
+    ResearchExperimentComparisonResultRecord,
+)
+from quantcore.services.research_dataset_service import ResearchFeatureVector
 from quantcore.services.research_experiment_service import (
-    ResearchExperimentDefinition,
-    ResearchExperimentDefinitionRegistry,
     ResearchExperimentArtifactDefinition,
     ResearchExperimentArtifactProvenance,
-    ResearchExperimentExecutionContext,
-    ResearchExperimentExecutionResult,
     ResearchExperimentComparison,
-    ResearchExperimentComparisonRun,
     ResearchExperimentComparisonMetric,
     ResearchExperimentComparisonResult,
+    ResearchExperimentComparisonRun,
+    ResearchExperimentDefinition,
+    ResearchExperimentDefinitionRegistry,
+    ResearchExperimentExecutionContext,
+    ResearchExperimentExecutionResult,
     ResearchExperimentRunQuery,
-    ResearchExperimentRunSelection,
     ResearchExperimentRunResultView,
+    ResearchExperimentRunSelection,
     ResearchExperimentRunStatus,
     ResearchExperimentRunView,
     ResearchExperimentService,
 )
-
-from quantcore.services.research_dataset_service import ResearchFeatureVector
 from quantcore.services.research_historical_analysis_service import (
     ResearchHistoricalDataset,
     ResearchHistoricalDatasetRow,
 )
+
 
 def make_dataset(as_of=None, *, security_id=10, symbol="AAPL"):
     if as_of is None:
@@ -77,12 +78,12 @@ def test_definition_normalizes_and_exposes_identity():
 
 
 def test_as_of_must_be_timezone_aware():
-    with pytest.raises(InvalidInputError, match="timezone-aware"):
-        definition(observation_as_of=datetime(2026, 8, 1))
+    with pytest.raises(InvalidInputError, match=r"timezone\-aware"):
+        definition(observation_as_of=datetime(2026, 8, 1))  # noqa: DTZ001
 
 
 def test_as_of_must_not_be_future():
-    with pytest.raises(InvalidInputError, match="future"):
+    with pytest.raises(InvalidInputError, match=r"future"):
         definition(observation_as_of=datetime.now(timezone.utc).replace(year=2099))
 
 
@@ -101,7 +102,7 @@ def test_versioned_identities_must_be_complete(field, value):
 
 
 def test_factor_identities_reject_duplicates():
-    with pytest.raises(InvalidInputError, match="duplicates"):
+    with pytest.raises(InvalidInputError, match=r"duplicates"):
         definition(factor_identities=(("value", "1"), ("value", "1")))
 
 
@@ -113,17 +114,17 @@ def test_parameters_are_canonicalized():
 
 def test_parameters_are_immutable_after_definition_creation():
     item = definition(parameters={"nested": {"value": 1}, "items": [1, 2]})
-    with pytest.raises(TypeError, match="Frozen"):
+    with pytest.raises(TypeError, match=r"Frozen"):
         item.parameters["nested"] = {}
-    with pytest.raises(TypeError, match="Frozen"):
+    with pytest.raises(TypeError, match=r"Frozen"):
         item.parameters["nested"]["value"] = 2
-    with pytest.raises(TypeError, match="Frozen"):
+    with pytest.raises(TypeError, match=r"Frozen"):
         item.parameters["items"].append(3)
 
 
 @pytest.mark.parametrize("parameters", [{"bad": float("nan")}, {"bad": float("inf")}])
 def test_parameters_reject_nonfinite_numbers(parameters):
-    with pytest.raises(InvalidInputError, match="deterministic JSON"):
+    with pytest.raises(InvalidInputError, match=r"deterministic\ JSON"):
         definition(parameters=parameters)
 
 
@@ -149,7 +150,7 @@ def test_definition_can_be_reconstructed_from_canonical_payload():
 
 
 def test_definition_reconstruction_rejects_invalid_snapshot():
-    with pytest.raises(InvalidInputError, match="snapshot"):
+    with pytest.raises(InvalidInputError, match=r"snapshot"):
         ResearchExperimentDefinition.from_canonical_payload(
             {"experiment": {"key": "value-quality"}}
         )
@@ -157,7 +158,7 @@ def test_definition_reconstruction_rejects_invalid_snapshot():
 
 def test_registry_rejects_duplicate_identity():
     registry = ResearchExperimentDefinitionRegistry([definition()])
-    with pytest.raises(InvalidInputError, match="already registered"):
+    with pytest.raises(InvalidInputError, match=r"already\ registered"):
         registry.register(definition())
 
 
@@ -178,8 +179,6 @@ def test_service_accepts_only_valid_definitions():
     assert ResearchExperimentService.validate_definition(item) is item
     with pytest.raises(InvalidInputError):
         ResearchExperimentService.validate_definition(object())
-
-
 
 
 def owner(subject="user-123", issuer="https://issuer.example"):
@@ -206,15 +205,16 @@ def test_legacy_unowned_runs_are_not_visible_to_owned_queries(db_session):
     with pytest.raises(ResourceNotFoundError):
         service.get_run("legacy-unowned", owner=owner("user-a"))
 
+
 @pytest.fixture
 def db_session():
     from sqlalchemy import create_engine
     from sqlalchemy.orm import Session
 
     from quantcore.models.research_experiment import (
-        ResearchExperimentRun,
         ResearchExperimentArtifact,
         ResearchExperimentComparisonResultRecord,
+        ResearchExperimentRun,
         ResearchExperimentRunResult,
     )
 
@@ -259,7 +259,7 @@ def test_execution_context_rejects_dataset_identity_mismatch():
         definition_identities=None,
         dataset_identity=("other-dataset", "1"),
     )
-    with pytest.raises(InvalidInputError, match="dataset identity"):
+    with pytest.raises(InvalidInputError, match=r"dataset\ identity"):
         ResearchExperimentExecutionContext(definition(), dataset)
 
 
@@ -269,20 +269,24 @@ def test_execution_context_requires_dataset_identity():
         definition_identities=None,
         dataset_identity=None,
     )
-    with pytest.raises(InvalidInputError, match="must declare a dataset identity"):
+    with pytest.raises(InvalidInputError, match=r"must\ declare\ a\ dataset\ identity"):
         ResearchExperimentExecutionContext(definition(), dataset)
 
 
 def test_execution_context_rejects_dataset_after_definition_as_of():
     later = datetime(2026, 8, 2, 15, 0, tzinfo=timezone.utc)
-    with pytest.raises(InvalidInputError, match="after the definition observation-as-of"):
+    with pytest.raises(
+        InvalidInputError, match=r"after\ the\ definition\ observation\-as\-of"
+    ):
         ResearchExperimentExecutionContext(definition(), make_dataset(as_of=later))
 
 
 def test_create_run_with_dataset_persists_authoritative_dataset_binding(db_session):
     service = ResearchExperimentService(db_session)
     context = ResearchExperimentExecutionContext(definition(), make_dataset())
-    item = service.create_run_with_dataset(context.definition, context.dataset, run_id="bound-run")
+    item = service.create_run_with_dataset(
+        context.definition, context.dataset, run_id="bound-run"
+    )
     assert item.dataset_fingerprint == context.dataset_fingerprint
     assert item.execution_input_fingerprint == context.execution_input_fingerprint
     persisted = service.get_run("bound-run")
@@ -297,9 +301,14 @@ def test_execute_run_with_context_rejects_dataset_mismatch(db_session):
     context = ResearchExperimentExecutionContext(definition(), first)
     service.create_run_with_dataset(context.definition, first, run_id="bound-mismatch")
     mismatched = ResearchExperimentExecutionContext(definition(), second)
-    with pytest.raises(InvalidInputError, match="does not match the persisted dataset snapshot"):
+    with pytest.raises(
+        InvalidInputError,
+        match=r"does\ not\ match\ the\ persisted\ dataset\ snapshot",
+    ):
         service.execute_run(
-            "bound-mismatch", mismatched, lambda _: ResearchExperimentExecutionResult({"ok": True})
+            "bound-mismatch",
+            mismatched,
+            lambda _: ResearchExperimentExecutionResult({"ok": True}),
         )
 
 
@@ -336,7 +345,7 @@ def test_create_run_rejects_duplicate_explicit_run_id(db_session):
     service = ResearchExperimentService(db_session)
     service.create_run(definition(), run_id="duplicate")
 
-    with pytest.raises(InvalidInputError, match="already exists"):
+    with pytest.raises(InvalidInputError, match=r"already\ exists"):
         service.create_run(definition(), run_id="duplicate")
 
 
@@ -425,16 +434,16 @@ def test_run_selection_is_order_independent_and_fingerprinted():
 
 
 def test_run_selection_rejects_empty_duplicates_and_oversized_sets():
-    with pytest.raises(InvalidInputError, match="at least one"):
+    with pytest.raises(InvalidInputError, match=r"at\ least\ one"):
         ResearchExperimentRunSelection(run_ids=())
 
-    with pytest.raises(InvalidInputError, match="must not contain duplicates"):
+    with pytest.raises(InvalidInputError, match=r"must\ not\ contain\ duplicates"):
         ResearchExperimentRunSelection(run_ids=("run-001", "run-001"))
 
-    with pytest.raises(InvalidInputError, match="between 1 and 100"):
+    with pytest.raises(InvalidInputError, match=r"between\ 1\ and\ 100"):
         ResearchExperimentRunSelection(run_ids=("run-001",), max_runs=101)
 
-    with pytest.raises(InvalidInputError, match="more than max_runs"):
+    with pytest.raises(InvalidInputError, match=r"more\ than\ max_runs"):
         ResearchExperimentRunSelection(run_ids=("run-001", "run-002"), max_runs=1)
 
 
@@ -444,9 +453,15 @@ def test_run_selection_resolves_existing_runs_in_deterministic_order(db_session)
     second = service.create_run(definition(), run_id="selection-002")
     third = service.create_run(definition(), run_id="selection-003")
 
-    service.repository.get(first.run_id).submitted_at = datetime(2026, 9, 10, 13, 0, tzinfo=timezone.utc)
-    service.repository.get(second.run_id).submitted_at = datetime(2026, 9, 10, 15, 0, tzinfo=timezone.utc)
-    service.repository.get(third.run_id).submitted_at = datetime(2026, 9, 10, 14, 0, tzinfo=timezone.utc)
+    service.repository.get(first.run_id).submitted_at = datetime(
+        2026, 9, 10, 13, 0, tzinfo=timezone.utc
+    )
+    service.repository.get(second.run_id).submitted_at = datetime(
+        2026, 9, 10, 15, 0, tzinfo=timezone.utc
+    )
+    service.repository.get(third.run_id).submitted_at = datetime(
+        2026, 9, 10, 14, 0, tzinfo=timezone.utc
+    )
     db_session.commit()
 
     runs = service.select_runs(
@@ -460,7 +475,7 @@ def test_run_selection_resolves_existing_runs_in_deterministic_order(db_session)
 
 def test_run_selection_rejects_missing_runs(db_session):
     service = ResearchExperimentService(db_session)
-    with pytest.raises(ResourceNotFoundError, match="Experiment runs not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ runs\ not\ found"):
         service.select_runs(
             ResearchExperimentRunSelection(run_ids=("missing-001", "missing-002"))
         )
@@ -469,7 +484,9 @@ def test_run_selection_rejects_missing_runs(db_session):
 def test_run_selection_enforces_optional_experiment_identity(db_session):
     service = ResearchExperimentService(db_session)
     matching = service.create_run(definition(), run_id="selection-match")
-    service.create_run(definition(experiment_key="momentum"), run_id="selection-mismatch")
+    service.create_run(
+        definition(experiment_key="momentum"), run_id="selection-mismatch"
+    )
 
     selected = service.select_runs(
         ResearchExperimentRunSelection(
@@ -480,7 +497,7 @@ def test_run_selection_enforces_optional_experiment_identity(db_session):
     )
     assert [item.run_id for item in selected] == [matching.run_id]
 
-    with pytest.raises(InvalidInputError, match="experiment key"):
+    with pytest.raises(InvalidInputError, match=r"experiment\ key"):
         service.select_runs(
             ResearchExperimentRunSelection(
                 run_ids=(matching.run_id, "selection-mismatch"),
@@ -488,7 +505,7 @@ def test_run_selection_enforces_optional_experiment_identity(db_session):
             )
         )
 
-    with pytest.raises(InvalidInputError, match="definition version"):
+    with pytest.raises(InvalidInputError, match=r"definition\ version"):
         service.select_runs(
             ResearchExperimentRunSelection(
                 run_ids=(matching.run_id,),
@@ -499,25 +516,25 @@ def test_run_selection_enforces_optional_experiment_identity(db_session):
 
 def test_run_selection_rejects_wrong_selection_type(db_session):
     service = ResearchExperimentService(db_session)
-    with pytest.raises(InvalidInputError, match="ResearchExperimentRunSelection"):
+    with pytest.raises(InvalidInputError, match=r"ResearchExperimentRunSelection"):
         service.select_runs(object())
 
 
 def test_run_query_rejects_invalid_limit():
-    with pytest.raises(InvalidInputError, match="between 1 and 100"):
+    with pytest.raises(InvalidInputError, match=r"between\ 1\ and\ 100"):
         ResearchExperimentRunQuery(limit=0)
 
-    with pytest.raises(InvalidInputError, match="between 1 and 100"):
+    with pytest.raises(InvalidInputError, match=r"between\ 1\ and\ 100"):
         ResearchExperimentRunQuery(limit=101)
 
 
 def test_run_query_rejects_invalid_filters():
-    with pytest.raises(InvalidInputError, match="timezone-aware"):
+    with pytest.raises(InvalidInputError, match=r"timezone\-aware"):
         ResearchExperimentRunQuery(
-            submitted_after=datetime(2026, 8, 1),
+            submitted_after=datetime(2026, 8, 1),  # noqa: DTZ001
         )
 
-    with pytest.raises(InvalidInputError, match="must not contain duplicates"):
+    with pytest.raises(InvalidInputError, match=r"must\ not\ contain\ duplicates"):
         ResearchExperimentRunQuery(
             statuses=(
                 ResearchExperimentRunStatus.QUEUED,
@@ -525,7 +542,7 @@ def test_run_query_rejects_invalid_filters():
             )
         )
 
-    with pytest.raises(InvalidInputError, match="later than"):
+    with pytest.raises(InvalidInputError, match=r"later\ than"):
         ResearchExperimentRunQuery(
             submitted_after=datetime(2026, 8, 2, tzinfo=timezone.utc),
             submitted_before=datetime(2026, 8, 1, tzinfo=timezone.utc),
@@ -534,7 +551,7 @@ def test_run_query_rejects_invalid_filters():
 
 def test_run_query_rejects_wrong_query_type(db_session):
     service = ResearchExperimentService(db_session)
-    with pytest.raises(InvalidInputError, match="ResearchExperimentRunQuery"):
+    with pytest.raises(InvalidInputError, match=r"ResearchExperimentRunQuery"):
         service.list_runs(object())
 
 
@@ -563,13 +580,13 @@ def test_terminal_run_cannot_transition_again(db_session):
     service.create_run(definition(), run_id="terminal")
     service.cancel_run("terminal")
 
-    with pytest.raises(InvalidInputError, match="cannot transition"):
+    with pytest.raises(InvalidInputError, match=r"cannot\ transition"):
         service.start_run("terminal")
 
 
 def test_missing_run_is_not_found(db_session):
     service = ResearchExperimentService(db_session)
-    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ run\ not\ found"):
         service.get_run("missing")
 
 
@@ -587,7 +604,7 @@ def test_execution_result_is_canonical_and_fingerprinted():
 
 
 def test_execution_result_rejects_nondeterministic_values():
-    with pytest.raises(InvalidInputError, match="deterministic JSON"):
+    with pytest.raises(InvalidInputError, match=r"deterministic\ JSON"):
         ResearchExperimentExecutionResult(
             result_payload={"bad": float("nan")},
         )
@@ -595,7 +612,9 @@ def test_execution_result_rejects_nondeterministic_values():
 
 def test_execute_run_persists_result_and_completes_run(db_session):
     service = ResearchExperimentService(db_session)
-    item = service.create_run_with_dataset(definition(), make_dataset(), run_id="execute-001")
+    item = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="execute-001"
+    )
 
     calls = []
 
@@ -614,45 +633,59 @@ def test_execute_run_persists_result_and_completes_run(db_session):
     assert result.metrics["sharpe"] == 1.25
     assert result.result_fingerprint
     assert calls == [definition().identity]
-    assert service.get_run("execute-001").status is ResearchExperimentRunStatus.COMPLETED
+    assert (
+        service.get_run("execute-001").status is ResearchExperimentRunStatus.COMPLETED
+    )
 
 
 def test_execute_run_rejects_definition_mismatch(db_session):
     service = ResearchExperimentService(db_session)
-    service.create_run_with_dataset(definition(), make_dataset(), run_id="execute-mismatch")
+    service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="execute-mismatch"
+    )
 
-    with pytest.raises(InvalidInputError, match="does not match"):
+    with pytest.raises(InvalidInputError, match=r"does\ not\ match"):
         service.execute_run(
             "execute-mismatch",
             execution_context(definition(parameters={"bucket_count": 10})),
             lambda _: ResearchExperimentExecutionResult(result_payload={}),
         )
 
-    assert service.get_run("execute-mismatch").status is ResearchExperimentRunStatus.QUEUED
+    assert (
+        service.get_run("execute-mismatch").status is ResearchExperimentRunStatus.QUEUED
+    )
 
 
 def test_execute_run_requires_typed_result(db_session):
     service = ResearchExperimentService(db_session)
-    service.create_run_with_dataset(definition(), make_dataset(), run_id="execute-invalid")
+    service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="execute-invalid"
+    )
 
-    with pytest.raises(InvalidInputError, match="must return ResearchExperimentExecutionResult"):
-        service.execute_run("execute-invalid", execution_context(), lambda _: {"ok": True})
+    with pytest.raises(
+        InvalidInputError, match=r"must\ return\ ResearchExperimentExecutionResult"
+    ):
+        service.execute_run(
+            "execute-invalid", execution_context(), lambda _: {"ok": True}
+        )
 
     run = service.get_run("execute-invalid")
     assert run.status is ResearchExperimentRunStatus.FAILED
     assert run.finished_at is not None
-    with pytest.raises(ResourceNotFoundError, match="Experiment result not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ result\ not\ found"):
         service.get_result("execute-invalid")
 
 
 def test_execute_run_records_executor_failure(db_session):
     service = ResearchExperimentService(db_session)
-    service.create_run_with_dataset(definition(), make_dataset(), run_id="execute-failure")
+    service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="execute-failure"
+    )
 
     def executor(_):
         raise RuntimeError("factor calculation failed")
 
-    with pytest.raises(RuntimeError, match="factor calculation failed"):
+    with pytest.raises(RuntimeError, match=r"factor\ calculation\ failed"):
         service.execute_run("execute-failure", execution_context(), executor)
 
     run = service.get_run("execute-failure")
@@ -662,10 +695,12 @@ def test_execute_run_records_executor_failure(db_session):
 
 def test_execute_run_rejects_nonqueued_run(db_session):
     service = ResearchExperimentService(db_session)
-    service.create_run_with_dataset(definition(), make_dataset(), run_id="execute-terminal")
+    service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="execute-terminal"
+    )
     service.cancel_run("execute-terminal")
 
-    with pytest.raises(InvalidInputError, match="not queued"):
+    with pytest.raises(InvalidInputError, match=r"not\ queued"):
         service.execute_run(
             "execute-terminal",
             execution_context(),
@@ -677,13 +712,15 @@ def test_get_result_requires_persisted_result(db_session):
     service = ResearchExperimentService(db_session)
     service.create_run(definition(), run_id="no-result")
 
-    with pytest.raises(ResourceNotFoundError, match="Experiment result not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ result\ not\ found"):
         service.get_result("no-result")
 
 
 def test_execute_run_result_is_reloaded_from_persistence(db_session):
     service = ResearchExperimentService(db_session)
-    service.create_run_with_dataset(definition(), make_dataset(), run_id="reload-result")
+    service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="reload-result"
+    )
 
     service.execute_run(
         "reload-result",
@@ -707,7 +744,7 @@ def test_execute_run_hides_cross_owner_run(db_session):
         definition(), run_id="execute-owner", owner=owner_a, dataset=make_dataset()
     )
 
-    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ run\ not\ found"):
         service.execute_run(
             "execute-owner",
             execution_context(),
@@ -715,7 +752,10 @@ def test_execute_run_hides_cross_owner_run(db_session):
             owner=owner_b,
         )
 
-    assert service.get_run("execute-owner", owner=owner_a).status is ResearchExperimentRunStatus.QUEUED
+    assert (
+        service.get_run("execute-owner", owner=owner_a).status
+        is ResearchExperimentRunStatus.QUEUED
+    )
 
 
 def test_run_lifecycle_hides_cross_owner_run(db_session):
@@ -724,12 +764,15 @@ def test_run_lifecycle_hides_cross_owner_run(db_session):
     owner_b = ResourceOwner("https://issuer.example", "owner-b")
     service.create_run(definition(), run_id="lifecycle-owner", owner=owner_a)
 
-    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ run\ not\ found"):
         service.start_run("lifecycle-owner", owner=owner_b)
-    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ run\ not\ found"):
         service.cancel_run("lifecycle-owner", owner=owner_b)
 
-    assert service.get_run("lifecycle-owner", owner=owner_a).status is ResearchExperimentRunStatus.QUEUED
+    assert (
+        service.get_run("lifecycle-owner", owner=owner_a).status
+        is ResearchExperimentRunStatus.QUEUED
+    )
 
 
 def test_create_artifact_hides_cross_owner_run(db_session):
@@ -743,16 +786,22 @@ def test_create_artifact_hides_cross_owner_run(db_session):
         content_hash="a" * 64,
     )
 
-    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
-        service.create_artifact(artifact, artifact_id="artifact-create-owner-1", owner=owner_b)
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ run\ not\ found"):
+        service.create_artifact(
+            artifact, artifact_id="artifact-create-owner-1", owner=owner_b
+        )
 
 
 def test_build_comparison_result_is_owner_scoped(db_session):
     service = ResearchExperimentService(db_session)
     owner_a = ResourceOwner("https://issuer.example", "owner-a")
     owner_b = ResourceOwner("https://issuer.example", "owner-b")
-    first = service.create_run_with_dataset(definition(), make_dataset(), run_id="comparison-owner-a", owner=owner_a)
-    second = service.create_run_with_dataset(definition(), make_dataset(), run_id="comparison-owner-b", owner=owner_b)
+    first = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="comparison-owner-a", owner=owner_a
+    )
+    second = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="comparison-owner-b", owner=owner_b
+    )
 
     for run_id, owner in ((first.run_id, owner_a), (second.run_id, owner_b)):
         service.execute_run(
@@ -769,7 +818,7 @@ def test_build_comparison_result_is_owner_scoped(db_session):
         experiment_key="value-quality",
         definition_version="1",
     )
-    with pytest.raises(ResourceNotFoundError, match="Experiment runs not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ runs\ not\ found"):
         service.build_comparison_result(selection, ["sharpe"], owner=owner_a)
 
 
@@ -812,12 +861,18 @@ def test_artifact_definition_validates_identity_fields(field, value):
 
 def test_artifact_fingerprint_is_order_independent():
     first = ResearchExperimentArtifactDefinition(
-        run_id="run-001", artifact_type="report", content_hash="a" * 64,
-        metadata={"z": 2, "a": 1}, provenance={"b": 2, "a": 1},
+        run_id="run-001",
+        artifact_type="report",
+        content_hash="a" * 64,
+        metadata={"z": 2, "a": 1},
+        provenance={"b": 2, "a": 1},
     )
     second = ResearchExperimentArtifactDefinition(
-        run_id="run-001", artifact_type="report", content_hash="a" * 64,
-        metadata={"a": 1, "z": 2}, provenance={"a": 1, "b": 2},
+        run_id="run-001",
+        artifact_type="report",
+        content_hash="a" * 64,
+        metadata={"a": 1, "z": 2},
+        provenance={"a": 1, "b": 2},
     )
     assert first.artifact_fingerprint == second.artifact_fingerprint
 
@@ -879,7 +934,7 @@ def test_artifact_identity_payload_excludes_caller_supplied_provenance():
 def test_artifact_provenance_is_derived_from_persisted_run(db_session):
     service = ResearchExperimentService(db_session)
     service.create_run(definition(), run_id="artifact-provenance")
-    artifact = service.create_artifact(
+    service.create_artifact(
         ResearchExperimentArtifactDefinition(
             run_id="artifact-provenance",
             artifact_type="factor_panel",
@@ -918,7 +973,9 @@ def test_artifact_provenance_hides_cross_owner_resource_existence(db_session):
         artifact_id="artifact-owner-provenance-1",
     )
 
-    with pytest.raises(ResourceNotFoundError, match="Experiment artifact not found"):
+    with pytest.raises(
+        ResourceNotFoundError, match=r"Experiment\ artifact\ not\ found"
+    ):
         service.get_artifact_provenance(
             "artifact-owner-provenance-1", owner=other_owner
         )
@@ -926,7 +983,9 @@ def test_artifact_provenance_hides_cross_owner_resource_existence(db_session):
 
 def test_artifact_provenance_includes_persisted_result_fingerprint(db_session):
     service = ResearchExperimentService(db_session)
-    service.create_run_with_dataset(definition(), make_dataset(), run_id="artifact-result-provenance")
+    service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="artifact-result-provenance"
+    )
     service.execute_run(
         "artifact-result-provenance",
         execution_context(),
@@ -935,7 +994,7 @@ def test_artifact_provenance_includes_persisted_result_fingerprint(db_session):
             metrics={"sharpe": 1.2},
         ),
     )
-    artifact = service.create_artifact(
+    service.create_artifact(
         ResearchExperimentArtifactDefinition(
             run_id="artifact-result-provenance",
             artifact_type="report",
@@ -949,7 +1008,10 @@ def test_artifact_provenance_includes_persisted_result_fingerprint(db_session):
     result = service.get_result("artifact-result-provenance")
 
     assert provenance.result_fingerprint == result.result_fingerprint
-    assert provenance.canonical_payload["result"]["result_fingerprint"] == result.result_fingerprint
+    assert (
+        provenance.canonical_payload["result"]["result_fingerprint"]
+        == result.result_fingerprint
+    )
     assert provenance.provenance_fingerprint
 
 
@@ -969,19 +1031,19 @@ def test_artifact_provenance_detects_inconsistent_persisted_run_snapshot(db_sess
     run.run_input_fingerprint = "d" * 64
     db_session.commit()
 
-    with pytest.raises(InvalidInputError, match="inconsistent definition snapshot"):
+    with pytest.raises(InvalidInputError, match=r"inconsistent\ definition\ snapshot"):
         service.get_artifact_provenance("artifact-corrupt-1")
 
 
 def test_get_artifact_validates_artifact_id():
     service = ResearchExperimentService.__new__(ResearchExperimentService)
-    with pytest.raises(InvalidInputError, match="Experiment artifact id"):
+    with pytest.raises(InvalidInputError, match=r"Experiment\ artifact\ id"):
         service.get_artifact("   ")
 
 
 def test_artifact_requires_existing_run(db_session):
     service = ResearchExperimentService(db_session)
-    with pytest.raises(ResourceNotFoundError, match="Experiment run not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ run\ not\ found"):
         service.create_artifact(
             ResearchExperimentArtifactDefinition(
                 run_id="missing", artifact_type="report", content_hash="a" * 64
@@ -996,7 +1058,7 @@ def test_artifact_registration_is_idempotency_protected(db_session):
         run_id="artifact-duplicate", artifact_type="report", content_hash="a" * 64
     )
     service.create_artifact(artifact)
-    with pytest.raises(InvalidInputError, match="same identity"):
+    with pytest.raises(InvalidInputError, match=r"same\ identity"):
         service.create_artifact(artifact)
 
 
@@ -1031,7 +1093,6 @@ def test_artifact_has_no_update_boundary(db_session):
     )
     assert not hasattr(service, "update_artifact")
     assert artifact.artifact_id == "artifact-immutable-1"
-
 
 
 def test_comparison_run_normalizes_identity_and_fingerprints():
@@ -1109,7 +1170,7 @@ def test_comparison_contract_rejects_invalid_selection_fingerprint():
         run_input_fingerprint="a" * 64,
         result_fingerprint="b" * 64,
     )
-    with pytest.raises(InvalidInputError, match="selection fingerprint"):
+    with pytest.raises(InvalidInputError, match=r"selection\ fingerprint"):
         ResearchExperimentComparison(
             selection_fingerprint="not-a-hash",
             experiment_key="value-quality",
@@ -1133,6 +1194,7 @@ def test_comparison_run_canonical_payload_is_normalized():
         "run_input_fingerprint": "a" * 64,
         "result_fingerprint": "b" * 64,
     }
+
 
 def test_comparison_contract_is_canonical_and_order_independent():
     first = ResearchExperimentComparison(
@@ -1176,7 +1238,7 @@ def test_comparison_contract_requires_at_least_two_runs():
         run_input_fingerprint="a" * 64,
         result_fingerprint="b" * 64,
     )
-    with pytest.raises(InvalidInputError, match="at least two runs"):
+    with pytest.raises(InvalidInputError, match=r"at\ least\ two\ runs"):
         ResearchExperimentComparison(
             selection_fingerprint="c" * 64,
             experiment_key="value-quality",
@@ -1202,7 +1264,9 @@ def test_comparison_contract_rejects_mixed_experiment_identity():
             result_fingerprint="d" * 64,
         ),
     )
-    with pytest.raises(InvalidInputError, match="share the comparison experiment identity"):
+    with pytest.raises(
+        InvalidInputError, match=r"share\ the\ comparison\ experiment\ identity"
+    ):
         ResearchExperimentComparison(
             selection_fingerprint="e" * 64,
             experiment_key="value-quality",
@@ -1213,8 +1277,12 @@ def test_comparison_contract_rejects_mixed_experiment_identity():
 
 def test_compare_runs_resolves_persisted_results(db_session):
     service = ResearchExperimentService(db_session)
-    first = service.create_run_with_dataset(definition(), make_dataset(), run_id="compare-001")
-    second = service.create_run_with_dataset(definition(), make_dataset(), run_id="compare-002")
+    first = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="compare-001"
+    )
+    second = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="compare-002"
+    )
     service.execute_run(
         first.run_id,
         execution_context(),
@@ -1247,15 +1315,19 @@ def test_compare_runs_resolves_persisted_results(db_session):
 
 def test_compare_runs_rejects_missing_persisted_result(db_session):
     service = ResearchExperimentService(db_session)
-    first = service.create_run_with_dataset(definition(), make_dataset(), run_id="compare-missing-001")
-    second = service.create_run_with_dataset(definition(), make_dataset(), run_id="compare-missing-002")
+    first = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="compare-missing-001"
+    )
+    second = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="compare-missing-002"
+    )
     service.execute_run(
         first.run_id,
         execution_context(),
         lambda _: ResearchExperimentExecutionResult(result_payload={"value": 1}),
     )
 
-    with pytest.raises(ResourceNotFoundError, match="Experiment results not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Experiment\ results\ not\ found"):
         service.compare_runs(
             ResearchExperimentRunSelection(
                 run_ids=(first.run_id, second.run_id),
@@ -1267,9 +1339,13 @@ def test_compare_runs_rejects_missing_persisted_result(db_session):
 
 def test_compare_runs_rejects_mixed_persisted_experiment_identity(db_session):
     service = ResearchExperimentService(db_session)
-    first = service.create_run_with_dataset(definition(), make_dataset(), run_id="compare-mixed-001")
+    first = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="compare-mixed-001"
+    )
     second = service.create_run_with_dataset(
-        definition(experiment_key="momentum"), make_dataset(), run_id="compare-mixed-002"
+        definition(experiment_key="momentum"),
+        make_dataset(),
+        run_id="compare-mixed-002",
     )
     for run_id, item_definition in (
         (first.run_id, definition()),
@@ -1281,7 +1357,7 @@ def test_compare_runs_rejects_mixed_persisted_experiment_identity(db_session):
             lambda _: ResearchExperimentExecutionResult(result_payload={"ok": True}),
         )
 
-    with pytest.raises(InvalidInputError, match="same experiment identity"):
+    with pytest.raises(InvalidInputError, match=r"same\ experiment\ identity"):
         service.compare_runs(
             ResearchExperimentRunSelection(
                 run_ids=(first.run_id, second.run_id),
@@ -1291,7 +1367,7 @@ def test_compare_runs_rejects_mixed_persisted_experiment_identity(db_session):
 
 def test_compare_runs_requires_selection_type(db_session):
     service = ResearchExperimentService(db_session)
-    with pytest.raises(InvalidInputError, match="ResearchExperimentRunSelection"):
+    with pytest.raises(InvalidInputError, match=r"ResearchExperimentRunSelection"):
         service.compare_runs(object())
 
 
@@ -1350,7 +1426,7 @@ def test_comparison_result_rejects_duplicate_metric_names():
         metric_name="sharpe",
         values=(("run-a", 1.0), ("run-b", 1.1)),
     )
-    with pytest.raises(InvalidInputError, match="duplicate names"):
+    with pytest.raises(InvalidInputError, match=r"duplicate\ names"):
         ResearchExperimentComparisonResult(
             comparison_fingerprint="a" * 64,
             metrics=(metric, metric),
@@ -1367,7 +1443,7 @@ def test_comparison_result_rejects_mismatched_participants():
         values=(("run-a", 1.1), ("run-c", 1.3)),
     )
 
-    with pytest.raises(InvalidInputError, match="same run ids"):
+    with pytest.raises(InvalidInputError, match=r"same\ run\ ids"):
         ResearchExperimentComparisonResult(
             comparison_fingerprint="a" * 64,
             metrics=(first, second),
@@ -1405,7 +1481,10 @@ def test_validate_comparison_result_accepts_matching_comparison():
         ),
     )
 
-    assert ResearchExperimentService.validate_comparison_result(comparison, result) is result
+    assert (
+        ResearchExperimentService.validate_comparison_result(comparison, result)
+        is result
+    )
 
 
 def test_validate_comparison_result_rejects_wrong_comparison_identity():
@@ -1439,7 +1518,10 @@ def test_validate_comparison_result_rejects_wrong_comparison_identity():
         ),
     )
 
-    with pytest.raises(InvalidInputError, match="does not match the supplied comparison identity"):
+    with pytest.raises(
+        InvalidInputError,
+        match=r"does\ not\ match\ the\ supplied\ comparison\ identity",
+    ):
         ResearchExperimentService.validate_comparison_result(comparison, result)
 
 
@@ -1458,7 +1540,7 @@ def test_validate_comparison_result_rejects_wrong_participants():
         run_input_fingerprint="c" * 64,
         result_fingerprint="d" * 64,
     )
-    comparison = ResearchExperimentComparison(
+    ResearchExperimentComparison(
         selection_fingerprint="e" * 64,
         experiment_key="value-quality",
         definition_version="1",
@@ -1495,14 +1577,18 @@ def test_validate_comparison_result_rejects_wrong_participants():
         ),
     )
 
-    with pytest.raises(InvalidInputError, match="participants do not match"):
+    with pytest.raises(InvalidInputError, match=r"participants\ do\ not\ match"):
         ResearchExperimentService.validate_comparison_result(other_comparison, result)
 
 
 def test_build_comparison_result_aligns_selected_metrics(db_session):
     service = ResearchExperimentService(db_session)
-    first = service.create_run_with_dataset(definition(), make_dataset(), run_id="metric-001")
-    second = service.create_run_with_dataset(definition(), make_dataset(), run_id="metric-002")
+    first = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="metric-001"
+    )
+    second = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="metric-002"
+    )
 
     service.execute_run(
         first.run_id,
@@ -1539,8 +1625,12 @@ def test_build_comparison_result_aligns_selected_metrics(db_session):
 
 
 def _persisted_comparison_and_result(service, prefix):
-    first = service.create_run_with_dataset(definition(), make_dataset(), run_id=f"{prefix}-001")
-    second = service.create_run_with_dataset(definition(), make_dataset(), run_id=f"{prefix}-002")
+    first = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id=f"{prefix}-001"
+    )
+    second = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id=f"{prefix}-002"
+    )
 
     for run_id, value in ((first.run_id, 1.1), (second.run_id, 1.3)):
         service.execute_run(
@@ -1594,12 +1684,8 @@ def test_record_comparison_result_allows_same_fingerprint_for_different_owners(
     owner_a = ResourceOwner("https://issuer.example", "owner-a")
     owner_b = ResourceOwner("https://issuer.example", "owner-b")
 
-    first = service.record_comparison_result(
-        comparison, result, owner=owner_a
-    )
-    second = service.record_comparison_result(
-        comparison, result, owner=owner_b
-    )
+    first = service.record_comparison_result(comparison, result, owner=owner_a)
+    second = service.record_comparison_result(comparison, result, owner=owner_b)
 
     assert first.result_fingerprint == second.result_fingerprint
     records = service.db.scalars(
@@ -1617,7 +1703,9 @@ def test_record_comparison_result_allows_same_fingerprint_for_different_owners(
 
 def test_record_comparison_result_is_idempotent(db_session):
     service = ResearchExperimentService(db_session)
-    comparison, result = _persisted_comparison_and_result(service, "idempotent-comparison")
+    comparison, result = _persisted_comparison_and_result(
+        service, "idempotent-comparison"
+    )
 
     first_recorded = service.record_comparison_result(comparison, result)
     second_recorded = service.record_comparison_result(comparison, result)
@@ -1637,21 +1725,25 @@ def test_get_comparison_result_rejects_corrupted_persisted_snapshot(db_session):
     record.result_payload = corrupted_payload
     db_session.commit()
 
-    with pytest.raises(InvalidInputError, match="inconsistent result fingerprint"):
+    with pytest.raises(InvalidInputError, match=r"inconsistent\ result\ fingerprint"):
         service.get_comparison_result(result.result_fingerprint)
 
 
 def test_get_comparison_result_rejects_unknown_fingerprint(db_session):
     service = ResearchExperimentService(db_session)
 
-    with pytest.raises(ResourceNotFoundError, match="Comparison result not found"):
+    with pytest.raises(ResourceNotFoundError, match=r"Comparison\ result\ not\ found"):
         service.get_comparison_result("a" * 64)
 
 
 def test_build_comparison_result_rejects_missing_metric(db_session):
     service = ResearchExperimentService(db_session)
-    first = service.create_run_with_dataset(definition(), make_dataset(), run_id="metric-missing-001")
-    second = service.create_run_with_dataset(definition(), make_dataset(), run_id="metric-missing-002")
+    first = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="metric-missing-001"
+    )
+    second = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="metric-missing-002"
+    )
 
     service.execute_run(
         first.run_id,
@@ -1670,7 +1762,7 @@ def test_build_comparison_result_rejects_missing_metric(db_session):
         ),
     )
 
-    with pytest.raises(InvalidInputError, match="missing for runs"):
+    with pytest.raises(InvalidInputError, match=r"missing\ for\ runs"):
         service.build_comparison_result(
             ResearchExperimentRunSelection(
                 run_ids=(first.run_id, second.run_id),
@@ -1694,8 +1786,12 @@ def test_build_comparison_result_rejects_invalid_metric_selection(
     db_session, metric_names, match
 ):
     service = ResearchExperimentService(db_session)
-    first = service.create_run_with_dataset(definition(), make_dataset(), run_id="metric-input-001")
-    second = service.create_run_with_dataset(definition(), make_dataset(), run_id="metric-input-002")
+    first = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="metric-input-001"
+    )
+    second = service.create_run_with_dataset(
+        definition(), make_dataset(), run_id="metric-input-002"
+    )
     service.execute_run(
         first.run_id,
         execution_context(),

@@ -1,15 +1,12 @@
-from typing import List
-
-
 class MovingAverage:
 
     @staticmethod
     def sma(
-        prices: List[float],
+        prices: list[float],
         period: int,
-    ) -> List[float | None]:
+    ) -> list[float | None]:
 
-        sma_values: List[float | None] = []
+        sma_values: list[float | None] = []
 
         for i in range(len(prices)):
 
@@ -19,8 +16,6 @@ class MovingAverage:
 
             window = prices[i + 1 - period : i + 1]
 
-            sma_values.append(
-                sum(window) / period
-            )
+            sma_values.append(sum(window) / period)
 
         return sma_values

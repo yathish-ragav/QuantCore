@@ -15,7 +15,9 @@ def make_service(observations=()):
     service = ResearchDatasetService.__new__(ResearchDatasetService)
     service.db = Mock()
     service.observation_service = Mock()
-    service.observation_service.get_latest_for_symbol_as_of.return_value = list(observations)
+    service.observation_service.get_latest_for_symbol_as_of.return_value = list(
+        observations
+    )
     return service
 
 
@@ -52,7 +54,7 @@ def test_build_feature_vector_uses_latest_pit_observations_and_normalizes_symbol
 
     result = service.build_feature_vector(
         " aapl ",
-        as_of=datetime(2026, 8, 20, 15, 30),
+        as_of=datetime(2026, 8, 20, 15, 30),  # noqa: DTZ001
     )
 
     assert isinstance(result, ResearchFeatureVector)
@@ -107,7 +109,9 @@ def test_build_feature_vector_can_select_versioned_identities_in_requested_order
         definition_identities=[(" operating_margin ", " 1 "), ("net_margin", "2")],
     )
 
-    assert [(item.observation_key, item.definition_version) for item in result.features] == [
+    assert [
+        (item.observation_key, item.definition_version) for item in result.features
+    ] == [
         ("operating_margin", "1"),
         ("net_margin", "2"),
     ]
@@ -153,7 +157,9 @@ def test_build_feature_vector_rejects_empty_requested_identity_selection():
 def test_build_feature_vector_rejects_empty_materialized_dataset():
     service = make_service(())
 
-    with pytest.raises(ResourceNotFoundError, match="No research observations available"):
+    with pytest.raises(
+        ResourceNotFoundError, match="No research observations available"
+    ):
         service.build_feature_vector(
             "AAPL",
             as_of=datetime(2026, 8, 20, tzinfo=timezone.utc),
@@ -222,6 +228,7 @@ def test_feature_vector_input_fingerprint_changes_when_pit_boundary_changes():
     )
 
     assert first.input_fingerprint != second.input_fingerprint
+
 
 def test_feature_vector_input_fingerprint_is_independent_of_feature_order():
     as_of = datetime(2026, 8, 20, tzinfo=timezone.utc)

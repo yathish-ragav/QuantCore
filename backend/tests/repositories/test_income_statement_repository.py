@@ -20,9 +20,7 @@ def test_get_by_company_and_date_returns_statement():
 
     repository, db = make_repository()
 
-    statement = Mock(
-        spec=IncomeStatement
-    )
+    statement = Mock(spec=IncomeStatement)
 
     db.scalar.return_value = statement
 
@@ -122,9 +120,7 @@ def test_create_income_statement():
         weighted_average_shares_outstanding=15_408_095_000,
     )
 
-    db.add.assert_called_once_with(
-        statement
-    )
+    db.add.assert_called_once_with(statement)
 
     assert isinstance(
         statement,
@@ -137,25 +133,13 @@ def test_create_income_statement():
         9,
         28,
     )
-    assert statement.total_revenue == (
-        394_000_000_000
-    )
-    assert statement.gross_profit == (
-        175_000_000_000
-    )
-    assert statement.operating_income == (
-        119_000_000_000
-    )
-    assert statement.net_income == (
-        99_000_000_000
-    )
+    assert statement.total_revenue == (394_000_000_000)
+    assert statement.gross_profit == (175_000_000_000)
+    assert statement.operating_income == (119_000_000_000)
+    assert statement.net_income == (99_000_000_000)
     assert statement.eps == 6.4
-    assert statement.shares_outstanding == (
-        15_000_000_000
-    )
-    assert statement.weighted_average_shares_outstanding == (
-        15_408_095_000
-    )
+    assert statement.shares_outstanding == (15_000_000_000)
+    assert statement.weighted_average_shares_outstanding == (15_408_095_000)
 
     # Repository must not control the transaction.
     db.commit.assert_not_called()

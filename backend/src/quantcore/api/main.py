@@ -2,9 +2,11 @@ import logging
 import time
 import uuid
 from contextlib import asynccontextmanager
+from typing import cast
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from starlette.types import ExceptionHandler
 
 from quantcore.api.errors import (
     quantcore_error_handler,
@@ -12,10 +14,9 @@ from quantcore.api.errors import (
     validation_error_handler,
 )
 from quantcore.api.router import router
+from quantcore.core.exceptions import QuantCoreError
 from quantcore.core.logging import configure_logging
 from quantcore.core.production_data_policy import ProductionDataPolicy
-from quantcore.core.exceptions import QuantCoreError
-
 
 configure_logging()
 logger = logging.getLogger(__name__)
@@ -75,17 +76,17 @@ async def request_id_middleware(request: Request, call_next):
 
 app.add_exception_handler(
     QuantCoreError,
-    quantcore_error_handler,
+    cast(ExceptionHandler, quantcore_error_handler),
 )
 
 app.add_exception_handler(
     RequestValidationError,
-    validation_error_handler,
+    cast(ExceptionHandler, validation_error_handler),
 )
 
 app.add_exception_handler(
     Exception,
-    unhandled_error_handler,
+    cast(ExceptionHandler, unhandled_error_handler),
 )
 
 app.include_router(router)

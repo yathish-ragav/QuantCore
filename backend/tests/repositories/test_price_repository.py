@@ -23,9 +23,7 @@ def test_get_for_security_returns_prices():
 
     db.scalars.return_value.all.return_value = prices
 
-    result = repository.get_for_security(
-        security_id=1
-    )
+    result = repository.get_for_security(security_id=1)
 
     db.scalars.assert_called_once()
 
@@ -40,9 +38,7 @@ def test_get_for_security_returns_empty_list():
 
     db.scalars.return_value.all.return_value = []
 
-    result = repository.get_for_security(
-        security_id=999
-    )
+    result = repository.get_for_security(security_id=999)
 
     db.scalars.assert_called_once()
 
@@ -59,7 +55,7 @@ def test_get_by_security_and_date_returns_price():
 
     db.scalar.return_value = price
 
-    date = datetime(
+    date = datetime(  # noqa: DTZ001
         2026,
         1,
         2,
@@ -81,7 +77,7 @@ def test_get_by_security_and_date_returns_none():
 
     db.scalar.return_value = None
 
-    date = datetime(
+    date = datetime(  # noqa: DTZ001
         2026,
         1,
         2,
@@ -101,7 +97,7 @@ def test_create_price():
 
     repository, db = make_repository()
 
-    date = datetime(
+    date = datetime(  # noqa: DTZ001
         2026,
         1,
         2,
@@ -137,11 +133,12 @@ def test_create_price():
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
 
+
 def test_get_for_security_and_dates_returns_matching_prices():
     repository, db = make_repository()
     prices = [Mock(spec=Price), Mock(spec=Price)]
     db.scalars.return_value.all.return_value = prices
-    dates = [datetime(2026, 1, 2), datetime(2026, 1, 5)]
+    dates = [datetime(2026, 1, 2), datetime(2026, 1, 5)]  # noqa: DTZ001
 
     assert repository.get_for_security_and_dates(1, dates) == prices
     db.scalars.assert_called_once()

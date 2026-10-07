@@ -3,8 +3,8 @@ from unittest.mock import Mock, call
 import pytest
 
 from quantcore.models.company import Company
-from quantcore.models.security import Security, SecurityStatus
 from quantcore.models.provenance import CompanyField, DataSource
+from quantcore.models.security import Security, SecurityStatus
 from quantcore.universe.models import UniverseCompany
 from quantcore.universe.service import UniverseService
 
@@ -58,9 +58,7 @@ def make_existing_security():
 def make_service():
     db = Mock()
 
-    service = UniverseService.__new__(
-        UniverseService
-    )
+    service = UniverseService.__new__(UniverseService)
 
     service.db = db
     service.provider = Mock()
@@ -78,9 +76,7 @@ def test_sync_creates_new_company_and_security():
 
     service, db = make_service()
 
-    service.provider.fetch.return_value = [
-        make_company()
-    ]
+    service.provider.fetch.return_value = [make_company()]
 
     service.company_repo.get_by_ciks.return_value = []
 
@@ -123,13 +119,9 @@ def test_sync_updates_existing_company_by_cik():
 
     existing = make_existing_company()
 
-    service.provider.fetch.return_value = [
-        make_company()
-    ]
+    service.provider.fetch.return_value = [make_company()]
 
-    service.company_repo.get_by_ciks.return_value = [
-        existing
-    ]
+    service.company_repo.get_by_ciks.return_value = [existing]
 
     service.security_repo.get_by_company_ids.return_value = []
 
@@ -164,20 +156,12 @@ def test_sync_retires_old_listing_when_exchange_changes():
 
     existing_security = make_existing_security()
 
-    service.provider.fetch.return_value = [
-        make_company()
-    ]
+    service.provider.fetch.return_value = [make_company()]
 
-    service.company_repo.get_by_ciks.return_value = [
-        existing_company
-    ]
+    service.company_repo.get_by_ciks.return_value = [existing_company]
 
-    service.security_repo.get_by_company_ids.return_value = [
-        existing_security
-    ]
-    service.security_repo.get_active_by_exchanges.return_value = [
-        existing_security
-    ]
+    service.security_repo.get_by_company_ids.return_value = [existing_security]
+    service.security_repo.get_active_by_exchanges.return_value = [existing_security]
 
     result = service.sync()
 
@@ -204,11 +188,7 @@ def test_sync_does_not_use_symbol_as_company_identity():
 
     existing = make_existing_company()
 
-    service.provider.fetch.return_value = [
-        make_company(
-            cik="0000999999"
-        )
-    ]
+    service.provider.fetch.return_value = [make_company(cik="0000999999")]
 
     service.company_repo.get_by_ciks.return_value = []
 
@@ -425,13 +405,9 @@ def test_sync_rolls_back_on_error():
 
     service, db = make_service()
 
-    service.provider.fetch.return_value = [
-        make_company()
-    ]
+    service.provider.fetch.return_value = [make_company()]
 
-    service.company_repo.get_by_ciks.side_effect = (
-        RuntimeError("database error")
-    )
+    service.company_repo.get_by_ciks.side_effect = RuntimeError("database error")
 
     with pytest.raises(
         RuntimeError,
@@ -482,9 +458,10 @@ def test_sync_rejects_symbol_for_multiple_companies():
     db.commit.assert_not_called()
     db.rollback.assert_not_called()
 
+
 def test_sync_records_sec_provenance_for_company_identity_and_security():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     service.provider.fetch.return_value = [make_company()]
     service.company_repo.get_by_ciks.return_value = []

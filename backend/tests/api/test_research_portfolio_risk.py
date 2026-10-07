@@ -6,7 +6,9 @@ from fastapi.testclient import TestClient
 
 from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.api.main import app
-from quantcore.services.research_portfolio_product_service import ResearchPortfolioRiskProductResult
+from quantcore.services.research_portfolio_product_service import (
+    ResearchPortfolioRiskProductResult,
+)
 
 client = TestClient(app)
 AS_OF = datetime(2026, 8, 20, 15, 30, tzinfo=timezone.utc)

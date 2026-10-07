@@ -5,7 +5,6 @@ from quantcore.api.dependencies import get_quote_service
 from quantcore.schemas.quote import QuoteData
 from quantcore.services.quote_service import QuoteService
 
-
 router = APIRouter(
     prefix="/quotes",
     tags=["Quotes"],

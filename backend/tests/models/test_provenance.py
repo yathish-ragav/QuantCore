@@ -1,11 +1,9 @@
-from datetime import datetime, timezone
-
 from quantcore.models.cash_flow_statement import CashFlowStatement
 from quantcore.models.income_statement import IncomeStatement
+from quantcore.models.ingestion_lineage import IngestionLineage
 from quantcore.models.news import News
 from quantcore.models.price import Price
 from quantcore.models.price_observation_revision import PriceObservationRevision
-from quantcore.models.ingestion_lineage import IngestionLineage
 from quantcore.models.provenance import (
     CompanyField,
     CompanyFieldProvenance,
@@ -44,10 +42,7 @@ def test_company_enrichment_columns_are_nullable():
 
 
 def test_company_field_values_match_company_columns():
-    assert {
-        field.value
-        for field in CompanyField
-    } == {
+    assert {field.value for field in CompanyField} == {
         "cik",
         "name",
         "sector",
@@ -85,7 +80,6 @@ def test_company_field_provenance_is_unique_per_company_field():
     constraints = CompanyFieldProvenance.__table__.constraints
 
     assert any(
-        constraint.name
-        == "uq_company_field_provenance_company_field"
+        constraint.name == "uq_company_field_provenance_company_field"
         for constraint in constraints
     )

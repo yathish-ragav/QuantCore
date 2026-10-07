@@ -22,7 +22,7 @@ def company_dict():
 
 def price_dict():
     return {
-        "date": datetime(2026, 1, 2),
+        "date": datetime(2026, 1, 2),  # noqa: DTZ001
         "open": 250.0,
         "high": 255.0,
         "low": 248.0,
@@ -39,7 +39,7 @@ def news_dict():
         "publisher": "Reuters",
         "summary": "Apple reported strong quarterly results.",
         "url": "https://example.com/article",
-        "published_at": datetime(2026, 1, 2),
+        "published_at": datetime(2026, 1, 2),  # noqa: DTZ001
     }
 
 
@@ -118,10 +118,7 @@ def test_companies_transforms_list():
     )
 
     assert len(result) == 2
-    assert all(
-        isinstance(item, CompanyData)
-        for item in result
-    )
+    assert all(isinstance(item, CompanyData) for item in result)
 
 
 def test_companies_rejects_non_list():
@@ -138,10 +135,7 @@ def test_prices_transforms_list():
     )
 
     assert len(result) == 2
-    assert all(
-        isinstance(item, PriceData)
-        for item in result
-    )
+    assert all(isinstance(item, PriceData) for item in result)
 
 
 def test_prices_rejects_non_list():
@@ -158,10 +152,7 @@ def test_news_articles_transforms_list():
     )
 
     assert len(result) == 2
-    assert all(
-        isinstance(item, NewsData)
-        for item in result
-    )
+    assert all(isinstance(item, NewsData) for item in result)
 
 
 def test_news_articles_rejects_non_list():

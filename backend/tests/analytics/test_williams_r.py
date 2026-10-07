@@ -26,9 +26,7 @@ def test_williams_r_basic():
     # Williams %R =
     # (14 - 12) / (14 - 0) * -100
     # = -14.2857...
-    assert result[2] == pytest.approx(
-        -14.2857142857
-    )
+    assert result[2] == pytest.approx(-14.2857142857)
 
     # Index 3:
     # Highest high = 16
@@ -37,9 +35,7 @@ def test_williams_r_basic():
     #
     # = (16 - 14) / (16 - 2) * -100
     # = -14.2857...
-    assert result[3] == pytest.approx(
-        -14.2857142857
-    )
+    assert result[3] == pytest.approx(-14.2857142857)
 
 
 def test_williams_r_period_larger_than_data():
@@ -87,7 +83,7 @@ def test_williams_r_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         WilliamsR.calculate(
             highs,

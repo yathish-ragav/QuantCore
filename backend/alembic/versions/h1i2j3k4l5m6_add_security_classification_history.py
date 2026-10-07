@@ -5,13 +5,14 @@ Revises: g7h8i9j0k1l2
 Create Date: 2026-09-25
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
+
 revision: str = "h1i2j3k4l5m6"
-down_revision: Union[str, Sequence[str], None] = "g7h8i9j0k1l2"
+down_revision: str | Sequence[str] | None = "g7h8i9j0k1l2"
 branch_labels = None
 depends_on = None
 

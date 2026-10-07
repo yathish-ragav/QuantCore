@@ -1,7 +1,7 @@
 import hashlib
 import json
+from collections.abc import Mapping
 from datetime import datetime, timezone
-from typing import Mapping
 
 from sqlalchemy.orm import Session
 
@@ -10,7 +10,9 @@ from quantcore.repositories.research_observation_repository import (
     ResearchObservationRepository,
 )
 from quantcore.repositories.security_repository import SecurityRepository
-from quantcore.services.security_listing_identity_service import SecurityListingIdentityService
+from quantcore.services.security_listing_identity_service import (
+    SecurityListingIdentityService,
+)
 
 
 class ResearchObservationService:
@@ -43,7 +45,9 @@ class ResearchObservationService:
                 )
             )
         except (TypeError, ValueError) as exc:
-            raise InvalidInputError("Input manifest must be JSON serializable.") from exc
+            raise InvalidInputError(
+                "Input manifest must be JSON serializable."
+            ) from exc
         return normalized
 
     @staticmethod
@@ -56,7 +60,9 @@ class ResearchObservationService:
         return hashlib.sha256(payload).hexdigest()
 
     @staticmethod
-    def _validate_identity(observation_key: str, definition_version: str) -> tuple[str, str]:
+    def _validate_identity(
+        observation_key: str, definition_version: str
+    ) -> tuple[str, str]:
         normalized_key = observation_key.strip()
         normalized_version = definition_version.strip()
         if not normalized_key:
@@ -133,9 +139,7 @@ class ResearchObservationService:
 
         security = self.security_repo.get_by_symbol(normalized)
         if security is None:
-            raise ResourceNotFoundError(
-                f"Security '{normalized}' not found."
-            )
+            raise ResourceNotFoundError(f"Security '{normalized}' not found.")
         return security
 
     def _get_security_as_of(self, symbol: str, as_of: datetime):

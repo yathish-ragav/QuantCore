@@ -1,21 +1,16 @@
-from typing import List
-
-
 class DonchianChannels:
 
     @staticmethod
     def calculate(
-        highs: List[float],
-        lows: List[float],
+        highs: list[float],
+        lows: list[float],
         period: int = 20,
-    ) -> List[dict]:
+    ) -> list[dict[str, float | None]]:
 
         if len(highs) != len(lows):
-            raise ValueError(
-                "Input lengths must match."
-            )
+            raise ValueError("Input lengths must match.")
 
-        channels = []
+        channels: list[dict[str, float | None]] = []
 
         for i in range(len(highs)):
 
@@ -31,21 +26,11 @@ class DonchianChannels:
 
                 continue
 
-            highest = max(
-                highs[
-                    i + 1 - period : i + 1
-                ]
-            )
+            highest = max(highs[i + 1 - period : i + 1])
 
-            lowest = min(
-                lows[
-                    i + 1 - period : i + 1
-                ]
-            )
+            lowest = min(lows[i + 1 - period : i + 1])
 
-            middle = (
-                highest + lowest
-            ) / 2
+            middle = (highest + lowest) / 2
 
             channels.append(
                 {

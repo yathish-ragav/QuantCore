@@ -1,5 +1,3 @@
-from typing import List, Dict
-
 from .ema import ExponentialMovingAverage
 
 
@@ -7,11 +5,11 @@ class MACD:
 
     @staticmethod
     def macd(
-        prices: List[float],
+        prices: list[float],
         fast_period: int = 12,
         slow_period: int = 26,
         signal_period: int = 9,
-    ) -> List[Dict]:
+    ) -> list[dict[str, float | None]]:
 
         ema_fast = ExponentialMovingAverage.ema(
             prices,
@@ -23,9 +21,9 @@ class MACD:
             slow_period,
         )
 
-        macd_line = []
+        macd_line: list[float | None] = []
 
-        for fast, slow in zip(ema_fast, ema_slow):
+        for fast, slow in zip(ema_fast, ema_slow, strict=True):
 
             if fast is None or slow is None:
                 macd_line.append(None)
@@ -41,7 +39,7 @@ class MACD:
             signal_period,
         )
 
-        signal_full = [None] * len(macd_line)
+        signal_full: list[float | None] = [None] * len(macd_line)
 
         index = 0
 
@@ -51,9 +49,9 @@ class MACD:
                 signal_full[i] = signal_values[index]
                 index += 1
 
-        results = []
+        results: list[dict[str, float | None]] = []
 
-        for macd, signal in zip(macd_line, signal_full):
+        for macd, signal in zip(macd_line, signal_full, strict=True):
 
             histogram = None
 

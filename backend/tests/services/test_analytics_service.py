@@ -29,9 +29,7 @@ def make_service():
 
     db = Mock()
 
-    service = AnalyticsService.__new__(
-        AnalyticsService
-    )
+    service = AnalyticsService.__new__(AnalyticsService)
 
     service.security_repo = Mock()
     service.listing_identity_service = Mock()
@@ -45,7 +43,7 @@ def make_prices():
 
     return [
         make_price(
-            datetime(2026, 1, 1),
+            datetime(2026, 1, 1),  # noqa: DTZ001
             100.0,
             105.0,
             95.0,
@@ -53,7 +51,7 @@ def make_prices():
             1_000_000,
         ),
         make_price(
-            datetime(2026, 1, 2),
+            datetime(2026, 1, 2),  # noqa: DTZ001
             102.0,
             108.0,
             99.0,
@@ -75,7 +73,9 @@ def setup_service():
     prices = make_prices()
 
     service.security_repo.get_by_symbol.return_value = security
-    service.listing_identity_service.resolve_as_of.return_value = Mock(security=security)
+    service.listing_identity_service.resolve_as_of.return_value = Mock(
+        security=security
+    )
     service.price_repo.get_for_security.return_value = prices
 
     return service, db, security, prices
@@ -88,34 +88,32 @@ def setup_service():
 
 def test_get_prices_returns_security_prices():
 
-    service, db, security, prices = setup_service()
+    service, _db, _security, prices = setup_service()
 
     result = service._get_prices("AAPL")
 
     assert result == prices
 
-    service.security_repo.get_by_symbol.assert_called_once_with(
-        "AAPL"
-    )
+    service.security_repo.get_by_symbol.assert_called_once_with("AAPL")
 
-    service.price_repo.get_for_security.assert_called_once_with(
-        10
-    )
+    service.price_repo.get_for_security.assert_called_once_with(10)
 
 
 def test_get_prices_uses_point_in_time_revisions():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     security = Mock()
     security.id = 10
 
-    revisions = [make_price(datetime(2026, 1, 2))]
+    revisions = [make_price(datetime(2026, 1, 2))]  # noqa: DTZ001
     service.security_repo.get_by_symbol.return_value = security
-    service.listing_identity_service.resolve_as_of.return_value = Mock(security=security)
+    service.listing_identity_service.resolve_as_of.return_value = Mock(
+        security=security
+    )
     service.revision_repo.get_latest_for_security_as_of.return_value = revisions
 
-    as_of = datetime(2026, 1, 5)
+    as_of = datetime(2026, 1, 5)  # noqa: DTZ001
     result = service._get_prices("AAPL", as_of=as_of)
 
     assert result == revisions
@@ -125,7 +123,7 @@ def test_get_prices_uses_point_in_time_revisions():
 
 def test_get_prices_security_not_found():
 
-    service, db = make_service()
+    service, _db = make_service()
 
     service.security_repo.get_by_symbol.return_value = None
 
@@ -145,7 +143,7 @@ def test_get_prices_security_not_found():
 
 def test_sma_calls_indicator_and_returns_result(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, prices = setup_service()
 
     values = [None, 101.5]
 
@@ -184,7 +182,7 @@ def test_sma_calls_indicator_and_returns_result(monkeypatch):
 
 def test_ema_calls_indicator_and_returns_result(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 104.0]
 
@@ -213,7 +211,7 @@ def test_ema_calls_indicator_and_returns_result(monkeypatch):
 
 def test_macd_calls_indicator_and_returns_result(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, prices = setup_service()
 
     values = [
         {
@@ -237,9 +235,7 @@ def test_macd_calls_indicator_and_returns_result(monkeypatch):
 
     result = service.macd("AAPL")
 
-    mocked.assert_called_once_with(
-        [102.0, 106.0]
-    )
+    mocked.assert_called_once_with([102.0, 106.0])
 
     assert result[1] == {
         "date": prices[1].date,
@@ -257,7 +253,7 @@ def test_macd_calls_indicator_and_returns_result(monkeypatch):
 
 def test_rsi_calls_indicator_and_returns_result(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 65.0]
 
@@ -288,7 +284,7 @@ def test_rsi_calls_indicator_and_returns_result(monkeypatch):
 
 def test_bollinger_calls_indicator_and_returns_result(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {
@@ -332,7 +328,7 @@ def test_bollinger_calls_indicator_and_returns_result(monkeypatch):
 
 def test_atr_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 4.5]
 
@@ -357,7 +353,7 @@ def test_atr_calls_indicator(monkeypatch):
 
 def test_adx_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 25.0]
 
@@ -382,7 +378,7 @@ def test_adx_calls_indicator(monkeypatch):
 
 def test_supertrend_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 103.0]
 
@@ -412,7 +408,7 @@ def test_supertrend_calls_indicator(monkeypatch):
 
 def test_stochastic_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {"k": None, "d": None},
@@ -442,7 +438,7 @@ def test_stochastic_calls_indicator(monkeypatch):
 
 def test_parabolic_sar_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [99.0, 101.0]
 
@@ -470,7 +466,7 @@ def test_parabolic_sar_calls_indicator(monkeypatch):
 
 def test_vwap_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [100.0, 104.0]
 
@@ -496,7 +492,7 @@ def test_vwap_calls_indicator(monkeypatch):
 
 def test_obv_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [0, 1_200_000]
 
@@ -519,7 +515,7 @@ def test_obv_calls_indicator(monkeypatch):
 
 def test_mfi_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 60.0]
 
@@ -545,7 +541,7 @@ def test_mfi_calls_indicator(monkeypatch):
 
 def test_cmf_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 0.25]
 
@@ -576,7 +572,7 @@ def test_cmf_calls_indicator(monkeypatch):
 
 def test_ichimoku_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {
@@ -615,7 +611,7 @@ def test_ichimoku_calls_indicator(monkeypatch):
 
 def test_donchian_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {
@@ -650,7 +646,7 @@ def test_donchian_calls_indicator(monkeypatch):
 
 def test_keltner_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {
@@ -687,7 +683,7 @@ def test_keltner_calls_indicator(monkeypatch):
 
 def test_cci_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 120.0]
 
@@ -712,7 +708,7 @@ def test_cci_calls_indicator(monkeypatch):
 
 def test_williams_r_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, -20.0]
 
@@ -737,7 +733,7 @@ def test_williams_r_calls_indicator(monkeypatch):
 
 def test_roc_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 4.0]
 
@@ -760,7 +756,7 @@ def test_roc_calls_indicator(monkeypatch):
 
 def test_ultimate_oscillator_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 70.0]
 
@@ -787,7 +783,7 @@ def test_ultimate_oscillator_calls_indicator(monkeypatch):
 
 def test_trix_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 2.5]
 
@@ -810,7 +806,7 @@ def test_trix_calls_indicator(monkeypatch):
 
 def test_aroon_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {
@@ -844,7 +840,7 @@ def test_aroon_calls_indicator(monkeypatch):
 
 def test_aroon_oscillator_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 60.0]
 
@@ -868,7 +864,7 @@ def test_aroon_oscillator_calls_indicator(monkeypatch):
 
 def test_dpo_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 1.5]
 
@@ -891,7 +887,7 @@ def test_dpo_calls_indicator(monkeypatch):
 
 def test_vortex_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {
@@ -931,7 +927,7 @@ def test_vortex_calls_indicator(monkeypatch):
 
 def test_emv_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 2.0]
 
@@ -956,7 +952,7 @@ def test_emv_calls_indicator(monkeypatch):
 
 def test_accumulation_distribution_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [0.0, 500.0]
 
@@ -981,7 +977,7 @@ def test_accumulation_distribution_calls_indicator(monkeypatch):
 
 def test_force_index_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [0.0, 4_800_000.0]
 
@@ -1004,7 +1000,7 @@ def test_force_index_calls_indicator(monkeypatch):
 
 def test_nvi_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [1000.0, 1050.0]
 
@@ -1027,7 +1023,7 @@ def test_nvi_calls_indicator(monkeypatch):
 
 def test_pvi_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [1000.0, 1050.0]
 
@@ -1050,7 +1046,7 @@ def test_pvi_calls_indicator(monkeypatch):
 
 def test_kvo_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {
@@ -1088,7 +1084,7 @@ def test_kvo_calls_indicator(monkeypatch):
 
 def test_chaikin_oscillator_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 2.5]
 
@@ -1120,7 +1116,7 @@ def test_chaikin_oscillator_calls_indicator(monkeypatch):
 
 def test_elder_ray_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [
         {
@@ -1155,7 +1151,7 @@ def test_elder_ray_calls_indicator(monkeypatch):
 
 def test_rvi_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 0.75]
 
@@ -1181,7 +1177,7 @@ def test_rvi_calls_indicator(monkeypatch):
 
 def test_coppock_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 4.0]
 
@@ -1206,7 +1202,7 @@ def test_coppock_calls_indicator(monkeypatch):
 
 def test_kst_calls_indicator(monkeypatch):
 
-    service, db, company, prices = setup_service()
+    service, _db, _company, _prices = setup_service()
 
     values = [None, 12.0]
 

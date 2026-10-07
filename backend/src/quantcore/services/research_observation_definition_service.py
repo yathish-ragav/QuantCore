@@ -1,11 +1,15 @@
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable, Mapping, Protocol
+from typing import Protocol
 
 from sqlalchemy.orm import Session
 
 from quantcore.core.exceptions import InvalidInputError, ResourceNotFoundError
-from quantcore.services.pit_alignment_service import PITAlignedSnapshot, PITAlignmentService
+from quantcore.services.pit_alignment_service import (
+    PITAlignedSnapshot,
+    PITAlignmentService,
+)
 from quantcore.services.research_observation_service import ResearchObservationService
 
 
@@ -120,7 +124,9 @@ class ResearchObservationDefinitionService:
                 "Research observation definitions must return ResearchObservationValue."
             )
         if result.value_numeric is None and result.value_text is None:
-            raise InvalidInputError("A research observation definition must produce a value.")
+            raise InvalidInputError(
+                "A research observation definition must produce a value."
+            )
         if result.value_numeric is not None and result.value_text is not None:
             raise InvalidInputError(
                 "A research observation definition must produce either a numeric or text value."
@@ -205,9 +211,7 @@ class ResearchObservationDefinitionService:
         else:
             identities = tuple(definition_identities)
             if not identities:
-                raise InvalidInputError(
-                    "At least one definition identity is required."
-                )
+                raise InvalidInputError("At least one definition identity is required.")
 
             normalized_identities: list[tuple[str, str]] = []
             seen: set[tuple[str, str]] = set()

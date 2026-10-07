@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import timezone
 
 import pytest
 
@@ -29,7 +29,9 @@ def test_massive_classification_provider_maps_types_and_paginates(monkeypatch):
             ],
         }
         if len(calls) == 1:
-            payload["next_url"] = "https://api.massive.com/v3/reference/tickers?cursor=next"
+            payload["next_url"] = (
+                "https://api.massive.com/v3/reference/tickers?cursor=next"
+            )
         else:
             payload["results"] = [
                 {
@@ -99,10 +101,13 @@ def test_massive_classification_provider_retries_rate_limit(monkeypatch):
 
     responses = [
         Response(429, headers={"Retry-After": "7"}),
-        Response(200, {
-            "status": "OK",
-            "results": [{"cik": "0000320193", "ticker": "AAPL", "type": "CS"}],
-        }),
+        Response(
+            200,
+            {
+                "status": "OK",
+                "results": [{"cik": "0000320193", "ticker": "AAPL", "type": "CS"}],
+            },
+        ),
     ]
 
     def fake_get(url, params=None, timeout=None):
@@ -152,15 +157,19 @@ def test_massive_classification_provider_throttles_between_pages(monkeypatch):
     def fake_get(url, params=None, timeout=None):
         calls.append((url, params))
         if len(calls) == 1:
-            return Response({
+            return Response(
+                {
+                    "status": "OK",
+                    "results": [{"cik": "0000320193", "ticker": "AAPL", "type": "CS"}],
+                    "next_url": "https://api.massive.com/v3/reference/tickers?cursor=next",
+                }
+            )
+        return Response(
+            {
                 "status": "OK",
-                "results": [{"cik": "0000320193", "ticker": "AAPL", "type": "CS"}],
-                "next_url": "https://api.massive.com/v3/reference/tickers?cursor=next",
-            })
-        return Response({
-            "status": "OK",
-            "results": [{"cik": "0000789019", "ticker": "MSFT", "type": "CS"}],
-        })
+                "results": [{"cik": "0000789019", "ticker": "MSFT", "type": "CS"}],
+            }
+        )
 
     monkeypatch.setattr(
         "quantcore.universe.providers.massive.requests.get",

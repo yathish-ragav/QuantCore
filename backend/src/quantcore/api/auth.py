@@ -5,8 +5,7 @@ from typing import Any
 import jwt
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jwt import InvalidTokenError
-from jwt import PyJWKClient
+from jwt import InvalidTokenError, PyJWKClient
 from jwt.exceptions import PyJWKClientError
 
 from quantcore.core.config import settings
@@ -15,7 +14,6 @@ from quantcore.core.exceptions import (
     AuthenticationError,
     AuthenticationProviderError,
 )
-
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -43,9 +41,7 @@ def _configured_authentication() -> tuple[str, str, str, tuple[str, ...]]:
     audience = settings.AUTH_AUDIENCE.strip()
     jwks_url = settings.AUTH_JWKS_URL.strip()
     algorithms = tuple(
-        value.strip()
-        for value in settings.AUTH_ALGORITHMS.split(",")
-        if value.strip()
+        value.strip() for value in settings.AUTH_ALGORITHMS.split(",") if value.strip()
     )
 
     if not issuer or not audience or not jwks_url or not algorithms:

@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterable
 
 from quantcore.core.exceptions import InvalidInputError
 from quantcore.services.research_factor_computation_service import (
@@ -44,7 +43,9 @@ class ResearchFactorPanelService:
         self.computation_service = computation_service
 
     @staticmethod
-    def _normalize_identity(factor_key: str, definition_version: str) -> tuple[str, str]:
+    def _normalize_identity(
+        factor_key: str, definition_version: str
+    ) -> tuple[str, str]:
         if not isinstance(factor_key, str) or not isinstance(definition_version, str):
             raise InvalidInputError("Factor identity must contain string values.")
         key = factor_key.strip()
@@ -75,11 +76,17 @@ class ResearchFactorPanelService:
                 )
             symbol = row.symbol.strip().upper()
             if not symbol:
-                raise InvalidInputError("Research historical row symbol must not be empty.")
+                raise InvalidInputError(
+                    "Research historical row symbol must not be empty."
+                )
             if not isinstance(row.security_id, int):
-                raise InvalidInputError("Research historical row security_id must be an integer.")
+                raise InvalidInputError(
+                    "Research historical row security_id must be an integer."
+                )
             if not isinstance(row.as_of, datetime):
-                raise InvalidInputError("Research historical row as_of must be a datetime.")
+                raise InvalidInputError(
+                    "Research historical row as_of must be a datetime."
+                )
             as_of = row.as_of
             if as_of.tzinfo is None:
                 as_of = as_of.replace(tzinfo=timezone.utc)

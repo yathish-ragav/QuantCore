@@ -13,9 +13,7 @@ class MarketIndexRepository:
         self.db = db
 
     def get_by_key(self, key: str) -> MarketIndex | None:
-        return self.db.scalar(
-            select(MarketIndex).where(MarketIndex.key == key)
-        )
+        return self.db.scalar(select(MarketIndex).where(MarketIndex.key == key))
 
     def list_active(self) -> list[MarketIndex]:
         stmt = (

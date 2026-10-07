@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 from email.utils import parsedate_to_datetime
-from typing import Any
+from typing import Any, ClassVar
 
 import requests
 from pydantic import ValidationError
@@ -65,7 +65,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     BASE_URL = "https://data.sec.gov"
     TICKER_URL = "https://www.sec.gov/files/company_tickers.json"
 
-    HEADERS = {
+    HEADERS: ClassVar[dict[str, str]] = {
         "User-Agent": settings.SEC_USER_AGENT,
         "Accept-Encoding": "gzip, deflate",
     }
@@ -181,9 +181,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 raise DataUnavailableError(
                     "SEC CompanyFacts is not available for this CIK."
                 ) from exc
-            status_code = (
-                exc.response.status_code if exc.response is not None else None
-            )
+            status_code = exc.response.status_code if exc.response is not None else None
             message = error_message.rstrip(".")
             detail = (
                 f"{message} (HTTP {status_code})."
@@ -198,9 +196,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             raise ExternalDataError(detail) from exc
 
         if not isinstance(data, dict):
-            raise DataValidationError(
-                "SEC CompanyFacts response must be an object."
-            )
+            raise DataValidationError("SEC CompanyFacts response must be an object.")
 
         self._company_facts_cache.set(cik, data)
         return data
@@ -231,14 +227,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             data = response.json()
 
         except requests.RequestException as exc:
-            raise ExternalDataError(
-                "Failed to retrieve SEC ticker mapping."
-            ) from exc
+            raise ExternalDataError("Failed to retrieve SEC ticker mapping.") from exc
 
         if not isinstance(data, dict):
-            raise DataValidationError(
-                "SEC ticker mapping response must be an object."
-            )
+            raise DataValidationError("SEC ticker mapping response must be an object.")
 
         mapping: dict[str, str] = {}
 
@@ -255,9 +247,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
                 mapping[str(ticker).upper()] = f"{int(cik):010d}"
         except (TypeError, ValueError) as exc:
-            raise DataValidationError(
-                "Invalid SEC ticker mapping data."
-            ) from exc
+            raise DataValidationError("Invalid SEC ticker mapping data.") from exc
 
         SECProvider._ticker_to_cik = mapping
 
@@ -278,9 +268,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             return mapping[symbol]
 
         except KeyError as exc:
-            raise InvalidInputError(
-                f"SEC CIK not found for ticker: {symbol}"
-            ) from exc
+            raise InvalidInputError(f"SEC CIK not found for ticker: {symbol}") from exc
 
     def get_sec_filings(
         self,
@@ -315,14 +303,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             response.raise_for_status()
             data = response.json()
         except requests.RequestException as exc:
-            raise ExternalDataError(
-                "Failed to retrieve SEC filing metadata."
-            ) from exc
+            raise ExternalDataError("Failed to retrieve SEC filing metadata.") from exc
 
         if not isinstance(data, dict):
-            raise DataValidationError(
-                "SEC submissions response must be an object."
-            )
+            raise DataValidationError("SEC submissions response must be an object.")
 
         filing_rows = []
         filings = data.get("filings", {})
@@ -337,9 +321,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
         files = filings.get("files", [])
         if not isinstance(files, list):
-            raise DataValidationError(
-                "SEC submissions 'files' field must be a list."
-            )
+            raise DataValidationError("SEC submissions 'files' field must be a list.")
 
         for file_info in files:
             if not isinstance(file_info, dict):
@@ -383,9 +365,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                     "SEC historical submissions response must contain filing rows."
                 )
 
-            filing_rows.extend(
-                self._submission_rows(historical_rows)
-            )
+            filing_rows.extend(self._submission_rows(historical_rows))
 
         normalized: list[SECFilingData] = []
         for row in filing_rows:
@@ -397,9 +377,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                     )
                 )
             except (TypeError, ValueError, KeyError) as exc:
-                raise DataValidationError(
-                    "Invalid SEC filing metadata row."
-                ) from exc
+                raise DataValidationError("Invalid SEC filing metadata row.") from exc
 
         return normalized
 
@@ -408,11 +386,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         """Convert SEC's columnar submissions structure into row dictionaries."""
 
         columns = list(recent.keys())
-        lengths = [
-            len(value)
-            for value in recent.values()
-            if isinstance(value, list)
-        ]
+        lengths = [len(value) for value in recent.values() if isinstance(value, list)]
         if not lengths:
             return []
 
@@ -474,9 +448,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         return SECFilingData(
             accession_number=accession,
             filing_date=filing_date,
-            report_date=cls._parse_submission_date(
-                row.get("reportDate")
-            ),
+            report_date=cls._parse_submission_date(row.get("reportDate")),
             acceptance_datetime=cls._parse_acceptance_datetime(
                 row.get("acceptanceDateTime")
             ),
@@ -490,9 +462,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             is_xbrl=bool(row.get("isXBRL", False)),
             is_inline_xbrl=bool(row.get("isInlineXBRL", False)),
             fiscal_year=(
-                int(row["fiscalYear"])
-                if row.get("fiscalYear") is not None
-                else None
+                int(row["fiscalYear"]) if row.get("fiscalYear") is not None else None
             ),
             fiscal_period=row.get("fiscalPeriod"),
             is_amendment=form.endswith("/A"),
@@ -522,14 +492,18 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             raise DataValidationError("SEC CompanyFacts response must be an object.")
         facts = data.get("facts")
         if not isinstance(facts, dict):
-            raise DataValidationError("SEC CompanyFacts 'facts' field must be an object.")
+            raise DataValidationError(
+                "SEC CompanyFacts 'facts' field must be an object."
+            )
 
         observations: list[SECXBRLFactObservationData] = []
         for taxonomy, taxonomy_facts in facts.items():
             if not isinstance(taxonomy, str) or not isinstance(taxonomy_facts, dict):
                 continue
             for concept, fact_definition in taxonomy_facts.items():
-                if not isinstance(concept, str) or not isinstance(fact_definition, dict):
+                if not isinstance(concept, str) or not isinstance(
+                    fact_definition, dict
+                ):
                     continue
                 units = fact_definition.get("units", {})
                 if not isinstance(units, dict):
@@ -545,7 +519,13 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                         form = str(raw.get("form") or "").strip()
                         end = raw.get("end")
                         value = raw.get("val")
-                        if not accession or not filed or not form or not end or value is None:
+                        if (
+                            not accession
+                            or not filed
+                            or not form
+                            or not end
+                            or value is None
+                        ):
                             continue
                         # Keep the source identity in validation errors. A single
                         # malformed observation must be diagnosable without logging
@@ -563,7 +543,8 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                             validation_stage = "period_start"
                             period_start = (
                                 date.fromisoformat(str(raw["start"]))
-                                if raw.get("start") else None
+                                if raw.get("start")
+                                else None
                             )
 
                             # Do not require period_end <= filed_at here. SEC
@@ -633,14 +614,20 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                                 # rejecting the entire company-facts response.
                                 fiscal_year=fiscal_year,
                                 fiscal_period=(
-                                    str(raw["fp"]) if raw.get("fp") is not None else None
+                                    str(raw["fp"])
+                                    if raw.get("fp") is not None
+                                    else None
                                 ),
                                 frame=(
-                                    str(raw["frame"]) if raw.get("frame") is not None else ""
+                                    str(raw["frame"])
+                                    if raw.get("frame") is not None
+                                    else ""
                                 ),
                                 qtrs=qtrs,
                                 decimals=(
-                                    str(raw["decimals"]) if raw.get("decimals") is not None else None
+                                    str(raw["decimals"])
+                                    if raw.get("decimals") is not None
+                                    else None
                                 ),
                             )
                         except DataValidationError as exc:
@@ -690,9 +677,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         symbol = symbol.strip()
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         # -------------------------------------------------
         # 2. Resolve ticker -> SEC CIK.
@@ -714,9 +699,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         # 4. Extract US GAAP facts.
         # -------------------------------------------------
         if not isinstance(data, dict):
-            raise DataValidationError(
-                "SEC CompanyFacts response must be an object."
-            )
+            raise DataValidationError("SEC CompanyFacts response must be an object.")
 
         facts = data.get("facts", {})
         if not isinstance(facts, dict):
@@ -735,11 +718,14 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
         revenue = self._get_fact_from_taxonomies(
             [
-                (us_gaap, [
-                    "RevenueFromContractWithCustomerExcludingAssessedTax",
-                    "Revenues",
-                    "SalesRevenueNet",
-                ]),
+                (
+                    us_gaap,
+                    [
+                        "RevenueFromContractWithCustomerExcludingAssessedTax",
+                        "Revenues",
+                        "SalesRevenueNet",
+                    ],
+                ),
                 (ifrs_full, ["Revenue", "RevenueFromContractsWithCustomers"]),
             ],
             preferred_unit="USD",
@@ -776,12 +762,15 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         eps = self._get_fact_from_taxonomies(
             [
                 (us_gaap, ["EarningsPerShareDiluted", "EarningsPerShareBasic"]),
-                (ifrs_full, [
-                    "DilutedEarningsLossPerShare",
-                    "BasicEarningsLossPerShare",
-                    "DilutedEarningsLossPerShareFromContinuingOperations",
-                    "BasicEarningsLossPerShareFromContinuingOperations",
-                ]),
+                (
+                    ifrs_full,
+                    [
+                        "DilutedEarningsLossPerShare",
+                        "BasicEarningsLossPerShare",
+                        "DilutedEarningsLossPerShareFromContinuingOperations",
+                        "BasicEarningsLossPerShareFromContinuingOperations",
+                    ],
+                ),
             ],
             preferred_unit="USD-per-shares",
             period_type=period_type,
@@ -798,10 +787,13 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         )
         weighted_average_shares = self._get_fact_from_taxonomies(
             [
-                (us_gaap, [
-                    "WeightedAverageNumberOfDilutedSharesOutstanding",
-                    "WeightedAverageNumberOfSharesOutstandingBasic",
-                ]),
+                (
+                    us_gaap,
+                    [
+                        "WeightedAverageNumberOfDilutedSharesOutstanding",
+                        "WeightedAverageNumberOfSharesOutstandingBasic",
+                    ],
+                ),
                 (ifrs_full, ["WeightedAverageNumberOfOrdinarySharesOutstanding"]),
             ],
             preferred_unit="shares",
@@ -835,8 +827,13 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 IncomeStatementData(
                     fiscal_date=fiscal_date,
                     **self._metadata_on_date_from_groups(
-                        revenue, gross_profit, operating_income, net_income, eps,
-                        weighted_average_shares, fiscal_date=fiscal_date,
+                        revenue,
+                        gross_profit,
+                        operating_income,
+                        net_income,
+                        eps,
+                        weighted_average_shares,
+                        fiscal_date=fiscal_date,
                         period_type=period_type,
                     ),
                     total_revenue=self._value_on_date(
@@ -894,9 +891,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         symbol = symbol.strip()
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         # -------------------------------------------------
         # 2. Resolve ticker -> SEC CIK.
@@ -915,9 +910,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         # 4. Extract US GAAP facts.
         # -------------------------------------------------
         if not isinstance(data, dict):
-            raise DataValidationError(
-                "SEC CompanyFacts response must be an object."
-            )
+            raise DataValidationError("SEC CompanyFacts response must be an object.")
 
         facts = data.get("facts", {})
         if not isinstance(facts, dict):
@@ -936,10 +929,13 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
         operating_cash_flow = self._get_fact_from_taxonomies(
             [
-                (us_gaap, [
-                    "NetCashProvidedByUsedInOperatingActivities",
-                    "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
-                ]),
+                (
+                    us_gaap,
+                    [
+                        "NetCashProvidedByUsedInOperatingActivities",
+                        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+                    ],
+                ),
                 (ifrs_full, ["CashFlowsFromUsedInOperatingActivities"]),
             ],
             preferred_unit="USD",
@@ -952,11 +948,19 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         # deriving free cash flow.
         capital_expenditure = self._get_fact_from_taxonomies(
             [
-                (us_gaap, [
-                    "PaymentsToAcquirePropertyPlantAndEquipment",
-                    "PaymentsForCapitalImprovements",
-                ]),
-                (ifrs_full, ["PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"]),
+                (
+                    us_gaap,
+                    [
+                        "PaymentsToAcquirePropertyPlantAndEquipment",
+                        "PaymentsForCapitalImprovements",
+                    ],
+                ),
+                (
+                    ifrs_full,
+                    [
+                        "PurchaseOfPropertyPlantAndEquipmentClassifiedAsInvestingActivities"
+                    ],
+                ),
             ],
             preferred_unit="USD",
             period_type=period_type,
@@ -982,11 +986,20 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
         depreciation_and_amortization = self._get_fact_from_taxonomies(
             [
-                (us_gaap, [
-                    "DepreciationDepletionAndAmortization",
-                    "DepreciationAmortizationAndAccretionNet",
-                ]),
-                (ifrs_full, ["DepreciationDepletionAndAmortisation", "DepreciationAndAmortisation"]),
+                (
+                    us_gaap,
+                    [
+                        "DepreciationDepletionAndAmortization",
+                        "DepreciationAmortizationAndAccretionNet",
+                    ],
+                ),
+                (
+                    ifrs_full,
+                    [
+                        "DepreciationDepletionAndAmortisation",
+                        "DepreciationAndAmortisation",
+                    ],
+                ),
             ],
             preferred_unit="USD",
             period_type=period_type,
@@ -1003,10 +1016,13 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
         dividends_paid = self._get_fact_from_taxonomies(
             [
-                (us_gaap, [
-                    "PaymentsOfDividends",
-                    "PaymentsOfDividendsCommonStock",
-                ]),
+                (
+                    us_gaap,
+                    [
+                        "PaymentsOfDividends",
+                        "PaymentsOfDividendsCommonStock",
+                    ],
+                ),
                 (ifrs_full, ["DividendsPaid"]),
             ],
             preferred_unit="USD",
@@ -1024,12 +1040,15 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
         net_change_in_cash = self._get_fact_from_taxonomies(
             [
-                (us_gaap, [
-                    "CashAndCashEquivalentsPeriodIncreaseDecrease",
-                    "CashCashEquivalentsRestrictedCashAndRestrictedCash"
-                    "EquivalentsPeriodIncreaseDecreaseIncludingExchange"
-                    "RateEffect",
-                ]),
+                (
+                    us_gaap,
+                    [
+                        "CashAndCashEquivalentsPeriodIncreaseDecrease",
+                        "CashCashEquivalentsRestrictedCashAndRestrictedCash"
+                        "EquivalentsPeriodIncreaseDecreaseIncludingExchange"
+                        "RateEffect",
+                    ],
+                ),
                 (ifrs_full, ["IncreaseDecreaseInCashAndCashEquivalents"]),
             ],
             preferred_unit="USD",
@@ -1074,8 +1093,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
 
             free_cash_flow = (
                 ocf_value - capex_value
-                if ocf_value is not None
-                and capex_value is not None
+                if ocf_value is not None and capex_value is not None
                 else None
             )
 
@@ -1083,10 +1101,16 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 CashFlowStatementData(
                     fiscal_date=fiscal_date,
                     **self._metadata_on_date_from_groups(
-                        operating_cash_flow, capital_expenditure, investing_cash_flow,
-                        financing_cash_flow, depreciation_and_amortization,
-                        stock_based_compensation, dividends_paid, share_repurchases,
-                        net_change_in_cash, fiscal_date=fiscal_date,
+                        operating_cash_flow,
+                        capital_expenditure,
+                        investing_cash_flow,
+                        financing_cash_flow,
+                        depreciation_and_amortization,
+                        stock_based_compensation,
+                        dividends_paid,
+                        share_repurchases,
+                        net_change_in_cash,
+                        fiscal_date=fiscal_date,
                         period_type=period_type,
                     ),
                     operating_cash_flow=ocf_value,
@@ -1159,9 +1183,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         symbol = symbol.strip()
 
         if not symbol:
-            raise InvalidInputError(
-                "Symbol must not be empty."
-            )
+            raise InvalidInputError("Symbol must not be empty.")
 
         cik = self._get_cik(symbol)
 
@@ -1171,9 +1193,7 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         )
 
         if not isinstance(data, dict):
-            raise DataValidationError(
-                "SEC CompanyFacts response must be an object."
-            )
+            raise DataValidationError("SEC CompanyFacts response must be an object.")
 
         facts = data.get("facts", {})
         if not isinstance(facts, dict):
@@ -1191,18 +1211,24 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             ifrs_full = {}
 
         cash = self._get_fact_from_taxonomies(
-            [(us_gaap, ["CashAndCashEquivalentsAtCarryingValue"]),
-             (ifrs_full, ["CashAndCashEquivalents"])],
+            [
+                (us_gaap, ["CashAndCashEquivalentsAtCarryingValue"]),
+                (ifrs_full, ["CashAndCashEquivalents"]),
+            ],
             preferred_unit="USD",
         )
         short_term_investments = self._get_fact_from_taxonomies(
-            [(us_gaap, ["ShortTermInvestments", "MarketableSecuritiesCurrent"]),
-             (ifrs_full, ["OtherCurrentFinancialAssets"])],
+            [
+                (us_gaap, ["ShortTermInvestments", "MarketableSecuritiesCurrent"]),
+                (ifrs_full, ["OtherCurrentFinancialAssets"]),
+            ],
             preferred_unit="USD",
         )
         accounts_receivable = self._get_fact_from_taxonomies(
-            [(us_gaap, ["AccountsReceivableNetCurrent", "AccountsReceivableNet"]),
-             (ifrs_full, ["TradeAndOtherCurrentReceivables"])],
+            [
+                (us_gaap, ["AccountsReceivableNetCurrent", "AccountsReceivableNet"]),
+                (ifrs_full, ["TradeAndOtherCurrentReceivables"]),
+            ],
             preferred_unit="USD",
         )
         inventory = self._get_fact_from_taxonomies(
@@ -1214,10 +1240,16 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             preferred_unit="USD",
         )
         property_plant_equipment_net = self._get_fact_from_taxonomies(
-            [(us_gaap, [
-                "PropertyPlantAndEquipmentNet",
-                "PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization",
-            ]), (ifrs_full, ["PropertyPlantAndEquipment"])],
+            [
+                (
+                    us_gaap,
+                    [
+                        "PropertyPlantAndEquipmentNet",
+                        "PropertyPlantAndEquipmentAndFinanceLeaseRightOfUseAssetAfterAccumulatedDepreciationAndAmortization",
+                    ],
+                ),
+                (ifrs_full, ["PropertyPlantAndEquipment"]),
+            ],
             preferred_unit="USD",
         )
         goodwill = self._get_fact_from_taxonomies(
@@ -1225,10 +1257,16 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             preferred_unit="USD",
         )
         intangible_assets = self._get_fact_from_taxonomies(
-            [(us_gaap, [
-                "FiniteLivedIntangibleAssetsNet",
-                "IntangibleAssetsNetExcludingGoodwill",
-            ]), (ifrs_full, ["IntangibleAssetsOtherThanGoodwill"])],
+            [
+                (
+                    us_gaap,
+                    [
+                        "FiniteLivedIntangibleAssetsNet",
+                        "IntangibleAssetsNetExcludingGoodwill",
+                    ],
+                ),
+                (ifrs_full, ["IntangibleAssetsOtherThanGoodwill"]),
+            ],
             preferred_unit="USD",
         )
         total_assets = self._get_fact_from_taxonomies(
@@ -1237,16 +1275,24 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         )
 
         accounts_payable = self._get_fact_from_taxonomies(
-            [(us_gaap, ["AccountsPayableCurrent"]),
-             (ifrs_full, ["TradeAndOtherCurrentPayables"])],
+            [
+                (us_gaap, ["AccountsPayableCurrent"]),
+                (ifrs_full, ["TradeAndOtherCurrentPayables"]),
+            ],
             preferred_unit="USD",
         )
         short_term_debt = self._get_fact_from_taxonomies(
-            [(us_gaap, [
-                "ShortTermBorrowings",
-                "ShortTermDebtCurrent",
-                "LongTermDebtCurrent",
-            ]), (ifrs_full, ["CurrentPortionOfLongtermBorrowings"])],
+            [
+                (
+                    us_gaap,
+                    [
+                        "ShortTermBorrowings",
+                        "ShortTermDebtCurrent",
+                        "LongTermDebtCurrent",
+                    ],
+                ),
+                (ifrs_full, ["CurrentPortionOfLongtermBorrowings"]),
+            ],
             preferred_unit="USD",
         )
         total_current_liabilities = self._get_fact_from_taxonomies(
@@ -1254,10 +1300,16 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             preferred_unit="USD",
         )
         long_term_debt = self._get_fact_from_taxonomies(
-            [(us_gaap, [
-                "LongTermDebtNoncurrent",
-                "LongTermDebtAndFinanceLeaseObligationsNoncurrent",
-            ]), (ifrs_full, ["LongtermBorrowings"])],
+            [
+                (
+                    us_gaap,
+                    [
+                        "LongTermDebtNoncurrent",
+                        "LongTermDebtAndFinanceLeaseObligationsNoncurrent",
+                    ],
+                ),
+                (ifrs_full, ["LongtermBorrowings"]),
+            ],
             preferred_unit="USD",
         )
         total_liabilities = self._get_fact_from_taxonomies(
@@ -1265,15 +1317,23 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
             preferred_unit="USD",
         )
         total_equity = self._get_fact_from_taxonomies(
-            [(us_gaap, [
-                "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
-                "StockholdersEquity",
-            ]), (ifrs_full, ["Equity"])],
+            [
+                (
+                    us_gaap,
+                    [
+                        "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+                        "StockholdersEquity",
+                    ],
+                ),
+                (ifrs_full, ["Equity"]),
+            ],
             preferred_unit="USD",
         )
         retained_earnings = self._get_fact_from_taxonomies(
-            [(us_gaap, ["RetainedEarningsAccumulatedDeficit"]),
-             (ifrs_full, ["RetainedEarningsAccumulatedDeficit"])],
+            [
+                (us_gaap, ["RetainedEarningsAccumulatedDeficit"]),
+                (ifrs_full, ["RetainedEarningsAccumulatedDeficit"]),
+            ],
             preferred_unit="USD",
         )
 
@@ -1304,17 +1364,22 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         statements: list[BalanceSheetData] = []
 
         for fiscal_date in fiscal_dates:
-            cash_value = self._value_on_date(cash, fiscal_date, period_type=FinancialPeriodType.INSTANT)
+            cash_value = self._value_on_date(
+                cash, fiscal_date, period_type=FinancialPeriodType.INSTANT
+            )
             sti_value = self._value_on_date(
-                short_term_investments, fiscal_date,
+                short_term_investments,
+                fiscal_date,
                 period_type=FinancialPeriodType.INSTANT,
             )
             std_value = self._value_on_date(
-                short_term_debt, fiscal_date,
+                short_term_debt,
+                fiscal_date,
                 period_type=FinancialPeriodType.INSTANT,
             )
             ltd_value = self._value_on_date(
-                long_term_debt, fiscal_date,
+                long_term_debt,
+                fiscal_date,
                 period_type=FinancialPeriodType.INSTANT,
             )
             total_debt = None
@@ -1322,17 +1387,17 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 total_debt = (std_value or 0) + (ltd_value or 0)
 
             net_debt = (
-                total_debt - (cash_value or 0)
-                if total_debt is not None
-                else None
+                total_debt - (cash_value or 0) if total_debt is not None else None
             )
 
             current_assets_value = self._value_on_date(
-                total_current_assets, fiscal_date,
+                total_current_assets,
+                fiscal_date,
                 period_type=FinancialPeriodType.INSTANT,
             )
             current_liabilities_value = self._value_on_date(
-                total_current_liabilities, fiscal_date,
+                total_current_liabilities,
+                fiscal_date,
                 period_type=FinancialPeriodType.INSTANT,
             )
             working_capital = (
@@ -1346,57 +1411,79 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 BalanceSheetData(
                     fiscal_date=fiscal_date,
                     **self._metadata_on_date_from_groups(
-                        cash, short_term_investments, accounts_receivable, inventory,
-                        total_current_assets, property_plant_equipment_net, goodwill,
-                        intangible_assets, total_assets, accounts_payable, short_term_debt,
-                        total_current_liabilities, long_term_debt, total_liabilities,
-                        total_equity, retained_earnings, fiscal_date=fiscal_date,
+                        cash,
+                        short_term_investments,
+                        accounts_receivable,
+                        inventory,
+                        total_current_assets,
+                        property_plant_equipment_net,
+                        goodwill,
+                        intangible_assets,
+                        total_assets,
+                        accounts_payable,
+                        short_term_debt,
+                        total_current_liabilities,
+                        long_term_debt,
+                        total_liabilities,
+                        total_equity,
+                        retained_earnings,
+                        fiscal_date=fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     cash_and_cash_equivalents=cash_value,
                     short_term_investments=sti_value,
                     accounts_receivable=self._value_on_date(
-                        accounts_receivable, fiscal_date,
+                        accounts_receivable,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     inventory=self._value_on_date(
-                        inventory, fiscal_date,
+                        inventory,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     total_current_assets=current_assets_value,
                     property_plant_equipment_net=self._value_on_date(
-                        property_plant_equipment_net, fiscal_date,
+                        property_plant_equipment_net,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     goodwill=self._value_on_date(
-                        goodwill, fiscal_date,
+                        goodwill,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     intangible_assets=self._value_on_date(
-                        intangible_assets, fiscal_date,
+                        intangible_assets,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     total_assets=self._value_on_date(
-                        total_assets, fiscal_date,
+                        total_assets,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     accounts_payable=self._value_on_date(
-                        accounts_payable, fiscal_date,
+                        accounts_payable,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     short_term_debt=std_value,
                     total_current_liabilities=current_liabilities_value,
                     long_term_debt=ltd_value,
                     total_liabilities=self._value_on_date(
-                        total_liabilities, fiscal_date,
+                        total_liabilities,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     total_equity=self._value_on_date(
-                        total_equity, fiscal_date,
+                        total_equity,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     retained_earnings=self._value_on_date(
-                        retained_earnings, fiscal_date,
+                        retained_earnings,
+                        fiscal_date,
                         period_type=FinancialPeriodType.INSTANT,
                     ),
                     total_debt=total_debt,
@@ -1495,8 +1582,14 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     ) -> bool:
         """Return True for annual periodic SEC financial facts."""
         annual_forms = {
-            "10-K", "10-K/A", "10-KT", "10-KT/A",
-            "20-F", "20-F/A", "40-F", "40-F/A",
+            "10-K",
+            "10-K/A",
+            "10-KT",
+            "10-KT/A",
+            "20-F",
+            "20-F/A",
+            "40-F",
+            "40-F/A",
         }
         return (
             str(fact.get("form") or "").upper() in annual_forms
@@ -1535,7 +1628,9 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 return False
 
         try:
-            duration = date.fromisoformat(str(fact["end"])) - date.fromisoformat(str(fact["start"]))
+            duration = date.fromisoformat(str(fact["end"])) - date.fromisoformat(
+                str(fact["start"])
+            )
         except (TypeError, ValueError):
             return False
         return 60 <= duration.days <= 120
@@ -1546,8 +1641,16 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
     ) -> bool:
         """Return True for periodic filing instant facts used by balance sheets."""
         periodic_forms = {
-            "10-K", "10-K/A", "10-KT", "10-KT/A",
-            "10-Q", "10-Q/A", "20-F", "20-F/A", "40-F", "40-F/A",
+            "10-K",
+            "10-K/A",
+            "10-KT",
+            "10-KT/A",
+            "10-Q",
+            "10-Q/A",
+            "20-F",
+            "20-F/A",
+            "40-F",
+            "40-F/A",
         }
         form = str(fact.get("form") or "").upper()
         if form not in periodic_forms or not fact.get("end"):
@@ -1592,7 +1695,10 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         target = fiscal_date.isoformat()
         for facts in fact_groups:
             for fact in facts:
-                if cls._is_fact_for_period(fact, period_type) and fact.get("end") == target:
+                if (
+                    cls._is_fact_for_period(fact, period_type)
+                    and fact.get("end") == target
+                ):
                     matching.append(fact)
         if not matching:
             return {"period_type": period_type}
@@ -1607,7 +1713,11 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 return None
 
         return {
-            "period_start": _parse_date(latest.get("start")) if period_type is not FinancialPeriodType.INSTANT else None,
+            "period_start": (
+                _parse_date(latest.get("start"))
+                if period_type is not FinancialPeriodType.INSTANT
+                else None
+            ),
             "fiscal_year": latest.get("fy"),
             "fiscal_period": latest.get("fp"),
             "period_type": period_type,
@@ -1643,7 +1753,11 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
                 return None
 
         return {
-            "period_start": _parse_date(latest.get("start")) if period_type is not FinancialPeriodType.INSTANT else None,
+            "period_start": (
+                _parse_date(latest.get("start"))
+                if period_type is not FinancialPeriodType.INSTANT
+                else None
+            ),
             "fiscal_year": latest.get("fy"),
             "fiscal_period": latest.get("fp"),
             "period_type": period_type,
@@ -1677,7 +1791,9 @@ class SECProvider(FinancialDataProvider, RegulatoryDataProvider):
         cls,
         facts: list[dict[str, Any]],
     ) -> list[date]:
-        return cls._get_fiscal_dates_from_groups(facts, period_type=FinancialPeriodType.ANNUAL)
+        return cls._get_fiscal_dates_from_groups(
+            facts, period_type=FinancialPeriodType.ANNUAL
+        )
 
     @classmethod
     def _value_on_date(

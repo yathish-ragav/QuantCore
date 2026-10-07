@@ -17,7 +17,6 @@ from quantcore.services.research_portfolio_product_service import (
 from quantcore.services.research_signal_service import ResearchSignalDefinition
 from quantcore.services.research_strategy_service import ResearchStrategyDefinition
 
-
 router = APIRouter(
     prefix="/api/v1/research/portfolios/constraints",
     tags=["Research Portfolio Constraints"],
@@ -45,8 +44,7 @@ def validate_research_portfolio_constraints(
         signal_key=request.signal_key,
         definition_version=request.signal_definition_version,
         factor_identities=tuple(
-            (factor.factor_key, factor.definition_version)
-            for factor in request.factors
+            (factor.factor_key, factor.definition_version) for factor in request.factors
         ),
         weights=tuple(factor.weight for factor in request.factors),
         description=request.signal_description,

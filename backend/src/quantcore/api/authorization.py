@@ -6,8 +6,8 @@ from quantcore.api.auth import AuthenticatedPrincipal, get_current_principal
 from quantcore.core.exceptions import AuthorizationError
 from quantcore.core.resource_identity import ResourceOwner
 
-
 RESEARCH_READ_SCOPE = "research:read"
+RESEARCH_WRITE_SCOPE = "research:write"
 INGESTION_WRITE_SCOPE = "ingestion:write"
 
 
@@ -22,7 +22,9 @@ def _scopes(principal: AuthenticatedPrincipal) -> frozenset[str]:
 def require_scopes(*required_scopes: str) -> Callable:
     """Create a fail-closed FastAPI dependency requiring all given scopes."""
     normalized = frozenset(
-        scope.strip() for scope in required_scopes if isinstance(scope, str) and scope.strip()
+        scope.strip()
+        for scope in required_scopes
+        if isinstance(scope, str) and scope.strip()
     )
     if not normalized:
         raise ValueError("At least one authorization scope is required.")

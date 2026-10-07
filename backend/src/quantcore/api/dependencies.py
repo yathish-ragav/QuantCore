@@ -10,25 +10,34 @@ from quantcore.services.cash_flow_statement_service import (
     CashFlowStatementService,
 )
 from quantcore.services.company_service import CompanyService
-from quantcore.services.universe_sync_service import UniverseSyncService
-from quantcore.services.market_index_service import MarketIndexService
+from quantcore.services.corporate_action_service import CorporateActionService
 from quantcore.services.income_statement_service import IncomeStatementService
 from quantcore.services.ingestion_orchestrator import IngestionOrchestrator
+from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrchestrator
+from quantcore.services.market_index_service import MarketIndexService
 from quantcore.services.news_service import NewsService
 from quantcore.services.price_service import PriceService
 from quantcore.services.quote_service import QuoteService
-from quantcore.services.sec_filing_service import SECFilingService
-from quantcore.services.corporate_action_service import CorporateActionService
-from quantcore.services.macro_ingestion_orchestrator import MacroIngestionOrchestrator
-from quantcore.services.research_observation_service import ResearchObservationService
-from quantcore.services.research_experiment_service import ResearchExperimentService
+from quantcore.services.research_backtest_attribution_product_service import (
+    ResearchBacktestAttributionProductService,
+)
+from quantcore.services.research_backtest_attribution_service import (
+    ResearchBacktestAttributionService,
+)
+from quantcore.services.research_backtest_performance_product_service import (
+    ResearchBacktestPerformanceProductService,
+)
+from quantcore.services.research_backtest_performance_service import (
+    ResearchBacktestPerformanceService,
+)
+from quantcore.services.research_backtest_product_service import (
+    ResearchBacktestProductService,
+)
+from quantcore.services.research_backtest_service import ResearchBacktestService
 from quantcore.services.research_dataset_service import ResearchDatasetService
-from quantcore.services.research_historical_analysis_service import ResearchHistoricalAnalysisService
+from quantcore.services.research_experiment_service import ResearchExperimentService
 from quantcore.services.research_factor_computation_service import (
     ResearchFactorComputationService,
-)
-from quantcore.services.research_factor_panel_service import (
-    ResearchFactorPanelService,
 )
 from quantcore.services.research_factor_cross_sectional_service import (
     ResearchFactorCrossSectionalService,
@@ -36,25 +45,45 @@ from quantcore.services.research_factor_cross_sectional_service import (
 from quantcore.services.research_factor_evaluation_service import (
     ResearchFactorEvaluationService,
 )
-from quantcore.services.research_factor_return_service import ResearchFactorReturnService
-from quantcore.services.research_factor_return_methodology_service import ResearchFactorReturnMethodologyService
-from quantcore.services.research_signal_service import ResearchSignalService
-from quantcore.services.research_portfolio_construction_service import ResearchPortfolioConstructionService
-from quantcore.services.research_portfolio_product_service import ResearchPortfolioProductService
-from quantcore.services.research_portfolio_stress_service import ResearchPortfolioStressService
-from quantcore.services.research_backtest_performance_product_service import ResearchBacktestPerformanceProductService
-from quantcore.services.research_backtest_attribution_product_service import ResearchBacktestAttributionProductService
-from quantcore.services.research_backtest_attribution_service import ResearchBacktestAttributionService
-from quantcore.services.research_backtest_product_service import ResearchBacktestProductService
-from quantcore.services.research_backtest_performance_service import ResearchBacktestPerformanceService
-from quantcore.services.research_backtest_service import ResearchBacktestService
-from quantcore.services.research_portfolio_risk_service import ResearchPortfolioRiskService
-from quantcore.services.research_portfolio_factor_risk_service import ResearchPortfolioFactorRiskService
-from quantcore.services.research_portfolio_constraint_service import ResearchPortfolioConstraintService
+from quantcore.services.research_factor_panel_service import (
+    ResearchFactorPanelService,
+)
+from quantcore.services.research_factor_return_methodology_service import (
+    ResearchFactorReturnMethodologyService,
+)
+from quantcore.services.research_factor_return_service import (
+    ResearchFactorReturnService,
+)
+from quantcore.services.research_historical_analysis_service import (
+    ResearchHistoricalAnalysisService,
+)
+from quantcore.services.research_observation_service import ResearchObservationService
+from quantcore.services.research_portfolio_constraint_service import (
+    ResearchPortfolioConstraintService,
+)
+from quantcore.services.research_portfolio_construction_service import (
+    ResearchPortfolioConstructionService,
+)
+from quantcore.services.research_portfolio_factor_risk_service import (
+    ResearchPortfolioFactorRiskService,
+)
+from quantcore.services.research_portfolio_product_service import (
+    ResearchPortfolioProductService,
+)
+from quantcore.services.research_portfolio_risk_service import (
+    ResearchPortfolioRiskService,
+)
+from quantcore.services.research_portfolio_stress_service import (
+    ResearchPortfolioStressService,
+)
 from quantcore.services.research_rebalance_service import ResearchRebalanceService
-from quantcore.services.research_transaction_cost_service import ResearchTransactionCostService
+from quantcore.services.research_signal_service import ResearchSignalService
 from quantcore.services.research_strategy_service import ResearchStrategyService
-
+from quantcore.services.research_transaction_cost_service import (
+    ResearchTransactionCostService,
+)
+from quantcore.services.sec_filing_service import SECFilingService
+from quantcore.services.universe_sync_service import UniverseSyncService
 
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -88,6 +117,7 @@ def get_balance_sheet_service(
 ) -> BalanceSheetService:
     return BalanceSheetService(db)
 
+
 def get_cash_flow_statement_service(
     db: DbSession,
 ) -> CashFlowStatementService:
@@ -98,6 +128,7 @@ def get_analytics_service(
     db: DbSession,
 ) -> AnalyticsService:
     return AnalyticsService(db)
+
 
 def get_quote_service() -> QuoteService:
     return QuoteService()
@@ -125,6 +156,7 @@ def get_macro_service(
     db: DbSession,
 ):
     from quantcore.services.macro_service import MacroService
+
     return MacroService(db)
 
 
@@ -138,6 +170,16 @@ def get_research_observation_service(
     db: DbSession,
 ) -> ResearchObservationService:
     return ResearchObservationService(db)
+
+
+def get_research_observation_definition_service(
+    db: DbSession,
+):
+    from quantcore.services.research_observation_definition_service import (
+        ResearchObservationDefinitionService,
+    )
+
+    return ResearchObservationDefinitionService(db)
 
 
 def get_research_experiment_service(
@@ -159,13 +201,16 @@ def get_research_historical_analysis_service(
 
 
 def get_research_factor_computation_service() -> ResearchFactorComputationService:
-    """Return the configured research factor computation service.
+    """Return the application-owned deterministic research factor registry."""
+    from quantcore.services.research_factor_catalog import (
+        get_research_factor_calculators,
+        get_research_factor_definitions,
+    )
 
-    Factor definitions and calculators are application-owned registrations and
-    are intentionally not persisted by this dependency. The composition root
-    can replace this dependency with the production registry.
-    """
-    return ResearchFactorComputationService((), ())
+    return ResearchFactorComputationService(
+        get_research_factor_definitions(),
+        get_research_factor_calculators(),
+    )
 
 
 def get_research_factor_panel_service(
@@ -177,7 +222,9 @@ def get_research_factor_panel_service(
     return ResearchFactorPanelService(computation_service)
 
 
-def get_research_factor_cross_sectional_service() -> ResearchFactorCrossSectionalService:
+def get_research_factor_cross_sectional_service() -> (
+    ResearchFactorCrossSectionalService
+):
     """Return the deterministic cross-sectional factor ranking service."""
     return ResearchFactorCrossSectionalService()
 
@@ -201,7 +248,9 @@ def get_research_portfolio_product_service(
     historical_service: ResearchHistoricalAnalysisService = Depends(
         get_research_historical_analysis_service
     ),
-    panel_service: ResearchFactorPanelService = Depends(get_research_factor_panel_service),
+    panel_service: ResearchFactorPanelService = Depends(
+        get_research_factor_panel_service
+    ),
     cross_sectional_service: ResearchFactorCrossSectionalService = Depends(
         get_research_factor_cross_sectional_service
     ),
@@ -264,8 +313,9 @@ def get_research_factor_return_service() -> ResearchFactorReturnService:
     return ResearchFactorReturnService()
 
 
-
-def get_research_factor_return_methodology_service() -> ResearchFactorReturnMethodologyService:
+def get_research_factor_return_methodology_service() -> (
+    ResearchFactorReturnMethodologyService
+):
     """Return the deterministic factor-return methodology service."""
     return ResearchFactorReturnMethodologyService()
 

@@ -80,9 +80,9 @@ Ingestion -> validation -> normalization -> canonical persistence
 
 ### Quantitative research
 
-- Research observations and canonical metrics
+- Research observations and canonical metrics, including an atomic materialization API for the canonical PIT metric registry
 - Historical research datasets and feature-vector fingerprints
-- Versioned factor definitions and factor computation
+- Versioned factor definitions and deterministic production factor calculators for the currently implemented quality and leverage factors
 - Cross-sectional factor panels, ranking, and evaluation
 - Forward factor returns and factor-return methodology
 - Deterministic signals and versioned strategies

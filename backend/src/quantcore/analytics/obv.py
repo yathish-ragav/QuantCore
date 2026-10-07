@@ -6,9 +6,7 @@ class OnBalanceVolume:
         volumes,
     ):
         if len(closes) != len(volumes):
-            raise ValueError(
-                "Input lengths must match."
-            )
+            raise ValueError("Input lengths must match.")
 
         if not closes:
             return []

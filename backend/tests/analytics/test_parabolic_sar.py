@@ -89,7 +89,7 @@ def test_parabolic_sar_mismatched_lengths():
 
     with pytest.raises(
         ValueError,
-        match="High and Low lengths must match.",
+        match=r"High\ and\ Low\ lengths\ must\ match\.",
     ):
         ParabolicSAR.calculate(
             highs,

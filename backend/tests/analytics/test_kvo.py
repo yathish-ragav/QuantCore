@@ -48,9 +48,7 @@ def test_kvo_basic():
     #
     # KVO[2] = 37.037037...
 
-    assert result[2]["kvo"] == pytest.approx(
-        37.0370370370
-    )
+    assert result[2]["kvo"] == pytest.approx(37.0370370370)
 
     # Signal EMA uses the complete KVO series.
     #
@@ -72,9 +70,7 @@ def test_kvo_basic():
     # + (1/3 * 51.851851...)
     # = 41.975308...
 
-    assert result[2]["signal"] == pytest.approx(
-        41.97530864197529
-    )
+    assert result[2]["signal"] == pytest.approx(41.97530864197529)
 
 
 def test_kvo_trend_reversal():
@@ -159,7 +155,7 @@ def test_kvo_mismatched_input_lengths():
 
     with pytest.raises(
         ValueError,
-        match="Input lengths must match.",
+        match=r"Input\ lengths\ must\ match\.",
     ):
         KlingerVolumeOscillator.calculate(
             highs,
@@ -180,7 +176,7 @@ def test_kvo_invalid_period():
 
     with pytest.raises(
         ValueError,
-        match="Periods must be greater than zero.",
+        match=r"Periods\ must\ be\ greater\ than\ zero\.",
     ):
         KlingerVolumeOscillator.calculate(
             highs,

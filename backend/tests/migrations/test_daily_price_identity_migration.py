@@ -1,5 +1,5 @@
-from datetime import datetime, timezone
 import importlib.util
+from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,14 +8,15 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
-
 MIGRATION_PATH = (
     Path(__file__).parents[2]
     / "alembic"
     / "versions"
     / "i2j3k4l5m6n7_reconcile_daily_price_identity.py"
 )
-_SPEC = importlib.util.spec_from_file_location("daily_price_identity_migration", MIGRATION_PATH)
+_SPEC = importlib.util.spec_from_file_location(
+    "daily_price_identity_migration", MIGRATION_PATH
+)
 _MIGRATION = importlib.util.module_from_spec(_SPEC)
 _SPEC.loader.exec_module(_MIGRATION)
 
@@ -83,12 +84,14 @@ def _database():
     return engine, prices, revisions
 
 
-def _insert_price(connection, table, *, row_id, hour, close=10.0, fetched_hour=1, security_id=7):
+def _insert_price(
+    connection, table, *, row_id, hour, close=10.0, fetched_hour=1, security_id=7
+):
     connection.execute(
         table.insert().values(
             id=row_id,
             security_id=security_id,
-            date=datetime(2024, 9, 20, hour),
+            date=datetime(2024, 9, 20, hour),  # noqa: DTZ001
             open=9.0,
             high=11.0,
             low=8.0,
@@ -111,7 +114,7 @@ def _insert_revision(connection, table, *, revision_id, price_id, hour):
             id=revision_id,
             price_id=price_id,
             revision_number=1,
-            date=datetime(2024, 9, 20, hour),
+            date=datetime(2024, 9, 20, hour),  # noqa: DTZ001
             open=9.0,
             high=11.0,
             low=8.0,
@@ -170,9 +173,13 @@ def test_migration_merges_identical_daily_rows_and_preserves_revisions():
         _upgrade(connection)
 
         price_rows = connection.execute(sa.select(prices)).mappings().all()
-        revision_rows = connection.execute(
-            sa.select(revisions).order_by(revisions.c.revision_number)
-        ).mappings().all()
+        revision_rows = (
+            connection.execute(
+                sa.select(revisions).order_by(revisions.c.revision_number)
+            )
+            .mappings()
+            .all()
+        )
         index_sql = connection.scalar(
             sa.text(
                 "SELECT sql FROM sqlite_master WHERE type='index' "
@@ -182,19 +189,23 @@ def test_migration_merges_identical_daily_rows_and_preserves_revisions():
 
         assert len(price_rows) == 1
         assert price_rows[0]["id"] == 2  # most recently fetched row is retained
-        assert price_rows[0]["date"] == datetime(2024, 9, 20)
-        assert [(row["id"], row["price_id"], row["revision_number"]) for row in revision_rows] == [
+        assert price_rows[0]["date"] == datetime(2024, 9, 20)  # noqa: DTZ001
+        assert [
+            (row["id"], row["price_id"], row["revision_number"])
+            for row in revision_rows
+        ] == [
             (11, 2, 1),
             (12, 2, 2),
         ]
-        assert all(row["date"] == datetime(2024, 9, 20) for row in revision_rows)
+        expected_date = datetime(2024, 9, 20)  # noqa: DTZ001
+        assert all(row["date"] == expected_date for row in revision_rows)
         assert "date(date)" in index_sql.lower()
 
         with pytest.raises(sa.exc.IntegrityError):
             connection.execute(
                 prices.insert().values(
                     security_id=7,
-                    date=datetime(2024, 9, 20, 12),
+                    date=datetime(2024, 9, 20, 12),  # noqa: DTZ001
                     open=9.0,
                     high=11.0,
                     low=8.0,
@@ -222,12 +233,16 @@ def test_migration_deletes_midnight_duplicate_before_normalizing_keeper():
         _upgrade(connection)
 
         price_rows = connection.execute(sa.select(prices)).mappings().all()
-        revision_rows = connection.execute(
-            sa.select(revisions).order_by(revisions.c.revision_number)
-        ).mappings().all()
+        revision_rows = (
+            connection.execute(
+                sa.select(revisions).order_by(revisions.c.revision_number)
+            )
+            .mappings()
+            .all()
+        )
         assert len(price_rows) == 1
         assert price_rows[0]["id"] == 2
-        assert price_rows[0]["date"] == datetime(2024, 9, 20)
+        assert price_rows[0]["date"] == datetime(2024, 9, 20)  # noqa: DTZ001
         assert [(row["price_id"], row["revision_number"]) for row in revision_rows] == [
             (2, 1),
             (2, 2),
@@ -241,7 +256,7 @@ def test_migration_aborts_on_conflicting_current_prices_without_mutating_data():
         _insert_price(connection, prices, row_id=1, hour=4, close=10.0)
         _insert_price(connection, prices, row_id=2, hour=9, close=12.0)
 
-        with pytest.raises(RuntimeError, match="conflicting current observations"):
+        with pytest.raises(RuntimeError, match=r"conflicting\ current\ observations"):
             _upgrade(connection)
 
         assert connection.scalar(sa.select(sa.func.count()).select_from(prices)) == 2
@@ -260,12 +275,8 @@ def test_migration_reports_all_conflicting_groups_before_mutating_data():
     with engine.begin() as connection:
         _insert_price(connection, prices, row_id=1, hour=4, close=10.0)
         _insert_price(connection, prices, row_id=2, hour=9, close=12.0)
-        _insert_price(
-            connection, prices, row_id=3, hour=4, close=20.0, security_id=8
-        )
-        _insert_price(
-            connection, prices, row_id=4, hour=9, close=22.0, security_id=8
-        )
+        _insert_price(connection, prices, row_id=3, hour=4, close=20.0, security_id=8)
+        _insert_price(connection, prices, row_id=4, hour=9, close=22.0, security_id=8)
 
         with pytest.raises(RuntimeError) as exc_info:
             _upgrade(connection)

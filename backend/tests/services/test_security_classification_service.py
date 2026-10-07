@@ -4,15 +4,17 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from quantcore.core.enums import SecurityType
+from quantcore.db.database import Base
 from quantcore.models.company import Company
-from quantcore.models.security import Security, SecurityStatus
-from quantcore.models.security_classification_history import SecurityClassificationHistory
 from quantcore.models.provenance import DataSource
+from quantcore.models.security import Security
+from quantcore.models.security_classification_history import (
+    SecurityClassificationHistory,
+)
 from quantcore.services.security_classification_service import (
     SecurityClassificationService,
 )
 from quantcore.universe.models import UniverseSecurityClassification
-from quantcore.db.database import Base
 
 
 class FakeProvider:
@@ -112,7 +114,6 @@ def test_security_classification_does_not_guess_unmatched_security():
         engine.dispose()
 
 
-
 def test_security_classification_reconciles_safe_vendor_symbol_formatting():
     engine = create_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -135,20 +136,40 @@ def test_security_classification_reconciles_safe_vendor_symbol_formatting():
         provider = FakeProvider(
             [
                 UniverseSecurityClassification(
-                    "0000000001", "ABRPD", SecurityType.PREFERRED_STOCK,
-                    "MASSIVE", observed_at, "ref-ab", "PFD",
+                    "0000000001",
+                    "ABRPD",
+                    SecurityType.PREFERRED_STOCK,
+                    "MASSIVE",
+                    observed_at,
+                    "ref-ab",
+                    "PFD",
                 ),
                 UniverseSecurityClassification(
-                    "0000000001", "AAC.U", SecurityType.UNIT,
-                    "MASSIVE", observed_at, "ref-aac-u", "UNIT",
+                    "0000000001",
+                    "AAC.U",
+                    SecurityType.UNIT,
+                    "MASSIVE",
+                    observed_at,
+                    "ref-aac-u",
+                    "UNIT",
                 ),
                 UniverseSecurityClassification(
-                    "0000000001", "AAC.WS", SecurityType.WARRANT,
-                    "MASSIVE", observed_at, "ref-aac-w", "WARRANT",
+                    "0000000001",
+                    "AAC.WS",
+                    SecurityType.WARRANT,
+                    "MASSIVE",
+                    observed_at,
+                    "ref-aac-w",
+                    "WARRANT",
                 ),
                 UniverseSecurityClassification(
-                    "0000000001", "AGM.A", SecurityType.COMMON_STOCK,
-                    "MASSIVE", observed_at, "ref-agm-a", "CS",
+                    "0000000001",
+                    "AGM.A",
+                    SecurityType.COMMON_STOCK,
+                    "MASSIVE",
+                    observed_at,
+                    "ref-agm-a",
+                    "CS",
                 ),
             ]
         )
@@ -190,12 +211,22 @@ def test_security_classification_does_not_use_ambiguous_symbol_alias():
         provider = FakeProvider(
             [
                 UniverseSecurityClassification(
-                    "0000000001", "ABC.A", SecurityType.COMMON_STOCK,
-                    "MASSIVE", observed_at, "ref-1", "CS",
+                    "0000000001",
+                    "ABC.A",
+                    SecurityType.COMMON_STOCK,
+                    "MASSIVE",
+                    observed_at,
+                    "ref-1",
+                    "CS",
                 ),
                 UniverseSecurityClassification(
-                    "0000000001", "ABCA", SecurityType.COMMON_STOCK,
-                    "MASSIVE", observed_at, "ref-2", "CS",
+                    "0000000001",
+                    "ABCA",
+                    SecurityType.COMMON_STOCK,
+                    "MASSIVE",
+                    observed_at,
+                    "ref-2",
+                    "CS",
                 ),
             ]
         )
@@ -230,25 +261,39 @@ def test_security_classification_records_type_transition_as_bitemporal_history()
 
         first = datetime(2026, 1, 2, tzinfo=timezone.utc)
         second = datetime(2026, 3, 2, tzinfo=timezone.utc)
-        provider = FakeProvider([
-            UniverseSecurityClassification(
-                "0000320193", "AAPL", SecurityType.COMMON_STOCK,
-                "MASSIVE", first, "ref-common", "CS",
-            )
-        ])
+        provider = FakeProvider(
+            [
+                UniverseSecurityClassification(
+                    "0000320193",
+                    "AAPL",
+                    SecurityType.COMMON_STOCK,
+                    "MASSIVE",
+                    first,
+                    "ref-common",
+                    "CS",
+                )
+            ]
+        )
         SecurityClassificationService(db, provider).sync()
 
         provider.rows = [
             UniverseSecurityClassification(
-                "0000320193", "AAPL", SecurityType.ADR,
-                "MASSIVE", second, "ref-adr", "ADR",
+                "0000320193",
+                "AAPL",
+                SecurityType.ADR,
+                "MASSIVE",
+                second,
+                "ref-adr",
+                "ADR",
             )
         ]
         SecurityClassificationService(db, provider).sync()
 
-        rows = db.query(SecurityClassificationHistory).order_by(
-            SecurityClassificationHistory.known_at
-        ).all()
+        rows = (
+            db.query(SecurityClassificationHistory)
+            .order_by(SecurityClassificationHistory.known_at)
+            .all()
+        )
         assert len(rows) == 3
         assert rows[0].security_type is SecurityType.COMMON_STOCK
         assert rows[0].effective_to is None
