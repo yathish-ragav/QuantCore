@@ -47,6 +47,40 @@ jobs:
       - name: Run test suite
         run: uv run pytest -q
 
+  quality:
+    name: Static quality gates
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          version: "0.9.17"
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --frozen
+
+      - name: Ruff
+        run: uv run ruff check .
+
+      - name: Black
+        run: uv run black --check src tests
+
+      - name: mypy
+        run: uv run mypy
+
   migrations:
     name: PostgreSQL migrations
     runs-on: ubuntu-latest
@@ -100,6 +134,7 @@ jobs:
     needs:
       - test
       - migrations
+      - quality
     steps:
       - name: Checkout
         uses: actions/checkout@v4
