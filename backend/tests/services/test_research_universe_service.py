@@ -15,7 +15,11 @@ from quantcore.db.database import Base
 from quantcore.ingestion.datasets import IngestionDataset
 from quantcore.models.company import Company
 from quantcore.models.financial_statement_revision import FinancialStatementRevision
-from quantcore.models.ingestion import IngestionScope, IngestionState
+from quantcore.models.ingestion import (
+    IngestionOutcome,
+    IngestionScope,
+    IngestionState,
+)
 from quantcore.models.price import Price
 from quantcore.models.price_observation_revision import PriceObservationRevision
 from quantcore.models.provenance import DataSource
@@ -151,6 +155,79 @@ def test_current_ready_requires_persisted_price_coverage(db_session):
             scope=IngestionScope.SECURITY,
             security_id=ready_state_only.id,
             last_success_at=now,
+        )
+    )
+    db_session.commit()
+
+    result = ResearchUniverseService(db_session).current_ready(as_of=now)
+
+    assert result.security_ids == ()
+
+
+def test_current_ready_rejects_recent_success_followed_by_failure(db_session):
+    now = datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc)
+    security = _security(db_session, "FAILED_AFTER_SUCCESS")
+    db_session.add(
+        IngestionState(
+            dataset=IngestionDataset.PRICE_HISTORY,
+            scope=IngestionScope.SECURITY,
+            security_id=security.id,
+            last_success_at=now - timedelta(minutes=5),
+            last_attempt_at=now,
+            last_success_records=100,
+            last_outcome=IngestionOutcome.FAILURE,
+            consecutive_failures=1,
+        )
+    )
+    db_session.add(
+        Price(
+            security_id=security.id,
+            date=datetime(2025, 6, 13),  # noqa: DTZ001
+            open=100.0,
+            high=101.0,
+            low=99.0,
+            close=100.5,
+            adjusted_close=100.5,
+            price_basis=PriceBasis.ADJUSTED,
+            volume=1000,
+            dividends=0.0,
+            stock_splits=0.0,
+        )
+    )
+    db_session.commit()
+
+    result = ResearchUniverseService(db_session).current_ready(as_of=now)
+
+    assert result.security_ids == ()
+
+
+def test_current_ready_rejects_unavailable_latest_outcome(db_session):
+    now = datetime(2025, 6, 15, 12, 0, tzinfo=timezone.utc)
+    security = _security(db_session, "UNAVAILABLE")
+    db_session.add(
+        IngestionState(
+            dataset=IngestionDataset.PRICE_HISTORY,
+            scope=IngestionScope.SECURITY,
+            security_id=security.id,
+            last_success_at=now,
+            last_success_records=100,
+            last_outcome=IngestionOutcome.UNAVAILABLE,
+            consecutive_failures=0,
+        )
+    )
+    db_session.add(
+        Price(
+            security_id=security.id,
+            date=datetime(2025, 6, 13),  # noqa: DTZ001
+            open=100.0,
+            high=101.0,
+            low=99.0,
+            close=100.5,
+            adjusted_close=100.5,
+            price_basis=PriceBasis.ADJUSTED,
+            volume=1000,
+            dividends=0.0,
+            stock_splits=0.0,
         )
     )
     db_session.commit()

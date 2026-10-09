@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import and_, exists, func, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.orm import Session
 
 from quantcore.core.enums import (
@@ -14,7 +14,7 @@ from quantcore.models.cash_flow_statement import CashFlowStatement
 from quantcore.models.company import Company
 from quantcore.models.financial_statement_revision import FinancialStatementRevision
 from quantcore.models.income_statement import IncomeStatement
-from quantcore.models.ingestion import IngestionState
+from quantcore.models.ingestion import IngestionOutcome, IngestionState
 from quantcore.models.news import News
 from quantcore.models.price import Price
 from quantcore.models.price_observation_revision import PriceObservationRevision
@@ -110,6 +110,11 @@ class ResearchUniverseRepository:
             state_match = and_(
                 IngestionState.dataset == dataset,
                 IngestionState.last_success_at.is_not(None),
+                IngestionState.consecutive_failures == 0,
+                or_(
+                    IngestionState.last_outcome.is_(None),
+                    IngestionState.last_outcome == IngestionOutcome.SUCCESS,
+                ),
                 # A future ingestion timestamp must never make a historical
                 # readiness check pass. This is a PIT boundary, not merely
                 # a freshness-duration check.

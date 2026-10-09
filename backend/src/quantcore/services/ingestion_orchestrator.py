@@ -230,13 +230,35 @@ class IngestionOrchestrator:
         if state is None or state.last_success_at is None:
             return False
 
+        # A clock-skewed/future timestamp cannot establish freshness. This is
+        # especially important for PIT-aware readiness and only_stale runs.
+        if state.last_success_at > now:
+            return False
+
+        policy = DATASET_POLICIES[dataset]
+        if policy.requires_persisted_rows and state.last_success_records <= 0:
+            # A successful empty response is not sufficient for datasets whose
+            # contract requires usable persisted data. Datasets where an empty
+            # result is valid (for example news/corporate actions) opt out in
+            # DATASET_POLICIES.
+            return False
+
+        # A failed attempt after the last successful attempt invalidates the
+        # freshness claim. Otherwise only_stale runs can skip the entity until
+        # the previous success ages out, hiding a current provider failure.
+        if state.consecutive_failures > 0 and (
+            state.last_attempt_at is None
+            or state.last_attempt_at >= state.last_success_at
+        ):
+            return False
+
         # Freshness is provider-specific. A successful Yahoo/FMP ingestion
         # must not suppress a required Massive/SEC refresh after the active
         # provider configuration changes.
         if current_source is not None and state.last_success_source != current_source:
             return False
 
-        return now - state.last_success_at < DATASET_POLICIES[dataset].max_age
+        return now - state.last_success_at < policy.max_age
 
     @staticmethod
     def _is_unavailable_blocked(

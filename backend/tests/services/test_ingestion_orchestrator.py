@@ -106,6 +106,57 @@ def test_freshness_requires_successful_ingestion():
     )
 
 
+def test_freshness_is_false_when_last_attempt_failed_after_success():
+    service = make_service()
+    now = datetime.now(timezone.utc)
+    state = make_state(
+        IngestionDataset.BALANCE_SHEET,
+        last_success_at=now - timedelta(minutes=5),
+    )
+    state.last_attempt_at = now - timedelta(seconds=1)
+    state.consecutive_failures = 1
+    state.last_outcome = IngestionOutcome.FAILURE
+
+    assert (
+        service._is_fresh(
+            state,
+            IngestionDataset.BALANCE_SHEET,
+            now,
+            current_source="FMP",
+        )
+        is False
+    )
+
+
+def test_freshness_is_false_for_future_success_timestamp():
+    service = make_service()
+    now = datetime.now(timezone.utc)
+    state = make_state(
+        IngestionDataset.PRICE_HISTORY,
+        last_success_at=now + timedelta(minutes=1),
+    )
+
+    assert service._is_fresh(state, IngestionDataset.PRICE_HISTORY, now) is False
+
+
+def test_freshness_requires_nonempty_result_when_policy_requires_rows():
+    service = make_service()
+    now = datetime.now(timezone.utc)
+    state = make_state(IngestionDataset.BALANCE_SHEET, last_success_at=now)
+    state.last_success_records = 0
+
+    assert service._is_fresh(state, IngestionDataset.BALANCE_SHEET, now) is False
+
+
+def test_freshness_allows_empty_result_for_optional_dataset():
+    service = make_service()
+    now = datetime.now(timezone.utc)
+    state = make_state(IngestionDataset.NEWS, last_success_at=now)
+    state.last_success_records = 0
+
+    assert service._is_fresh(state, IngestionDataset.NEWS, now) is True
+
+
 def test_freshness_is_true_inside_policy_window():
     service = make_service()
     now = datetime.now(timezone.utc)
